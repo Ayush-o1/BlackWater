@@ -6,10 +6,23 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)](https://www.prisma.io/)
 
-## Project Overview
-SignalOps is a highly scalable, real-time incident management and system status platform. Engineered to bridge the gap between internal infrastructure monitoring and customer-facing transparency, SignalOps guarantees real-time synchronization between engineering actions and public status dashboards without latency or manual page refreshes.
+## Hero Section
+![SignalOps Overview](frontend/src/assets/hero.png)
 
-## Architecture Diagram
+## Project Overview
+SignalOps is a highly responsive, real-time incident management platform. It bridges internal engineering workflows with unauthenticated public status reporting securely. Built entirely in TypeScript, it enforces deterministic service health states and strict data boundaries to guarantee synchronization between operational realities and customer transparency.
+
+## Why This Project Exists
+Internal engineering teams frequently experience a disconnect between resolving backend outages and updating customer-facing status pages. Manual synchronization introduces latency and human error. SignalOps eliminates this gap by binding the public status directly to the internal incident state machine, updating clients in real-time via WebSockets while strictly isolating sensitive operational data.
+
+## Core Features
+* **Deterministic Service Engine**: Automatically computes global infrastructure health without manual toggles.
+* **Real-Time WebSockets**: Zero-latency DOM updates bypassing client-side HTTP polling.
+* **Immutable State Machine**: Guarantees secure operational transitions across the incident lifecycle.
+* **Transactional Audit Logging**: Native timeline metadata capture for every state mutation.
+* **Data Air-Gapping**: Strict DTOs ensure internal metrics and developer comments never reach unauthenticated clients.
+
+## Architecture
 ```text
  [ Public Viewer ]         [ Internal Engineer ]
         | (WebSockets)              | (JWT Auth)
@@ -32,52 +45,61 @@ SignalOps is a highly scalable, real-time incident management and system status 
             +-----------------+
 ```
 
-## Features
-* **Zero-Latency Dashboard**: WebSocket integration ensures public dashboards update instantly.
-* **Deterministic Service Health**: An automated, severity-based status engine computes global infrastructure health.
-* **Immutable State Machine**: Guarantees secure operational transitions (Triggered → Acknowledged → Resolved → Closed).
-* **100% Traceability**: Transactional audit system natively captures timeline metadata for every mutation.
-* **Isolated Data Boundaries**: Internal notes and metrics are securely air-gapped from the public endpoints via strict DTO validation.
-
-## Tech Stack
-* **Backend**: Node.js, Express, TypeScript, PostgreSQL, Prisma Client, Zod, Socket.IO, bcrypt, jsonwebtoken.
-* **Frontend**: React 18, Vite, TypeScript, Zustand, TanStack React Query, Tailwind CSS.
-
 ## Database Design
-* `Organization`: Top-level multi-tenant architecture.
-* `User`: JWT-managed roles ensuring Role-Based Access Control.
-* `Service`: Represents underlying infrastructure layers.
-* `Incident`: Connects to affected Services.
-* `IncidentUpdate`: Threaded communication log with `isPublic` flag toggles.
-* `TimelineEvent`: Immutable audit log of all system transitions.
+Structured via Prisma ORM for absolute type safety:
+* `Organization`: Top-level multi-tenant container.
+* `User`: Managed via Role-Based Access Control (Admin, Member, Viewer).
+* `Service`: Represents underlying infrastructure layers (e.g., Database, API Gateway).
+* `Incident`: Core entity connecting many-to-many with Services.
+* `IncidentUpdate`: Relational comments constrained by an `isPublic` flag.
+* `TimelineEvent`: Immutable chronological audit log storing JSON metadata of state changes.
 
-## Real-Time WebSocket Features
-When an incident mutates, the database transaction resolves, and the backend Socket.IO singleton immediately broadcasts a serialized event to public namespaces. The frontend React Query cache intercepts this WebSocket event, invalidating stale data and triggering an instant DOM re-render, effectively eliminating manual client-side polling.
+## Real-Time Event Flow
+1. **Mutation**: Authorized REST endpoint triggered by an Admin.
+2. **Transaction**: PostgreSQL commits the state change via Prisma.
+3. **Emit**: Socket.IO broadcasts a strongly-typed event to the public namespace.
+4. **Intercept & Invalidate**: React frontend intercepts the WebSocket message, invalidates the specific TanStack Query cache, and triggers an instant DOM reconciliation.
 
 ## Authentication & RBAC
-A centralized Express middleware layer enforces JWT verification and strict Role-Based Access Control (Admin, Member, Viewer). This ensures that only authorized engineers can trigger mutations, while viewers are restricted to read-only endpoints.
+* **JWT Middleware**: Centralized Express middleware guards protected API routes.
+* **Role Verification**: Enforced at the controller level utilizing O(1) checks against decoded JWT claims.
+* **Stateless Authorization**: Sessionless JWT architecture ensures scalable, distributed authorization.
+
+## Service Status Engine
+The Node.js `ServiceEngine` natively aggregates underlying data. Whenever an incident is created, modified, or resolved, the Engine recalculates the affected Service's health by scanning the maximum severity of its active incidents. This transforms manual status updates into a completely deterministic computation.
 
 ## Public Status Page
-The customer-facing portal is designed as an unauthenticated React application. It safely exposes incident severities and operational health while utilizing the Zod schema validation layer to guarantee that internal operational metadata (e.g., system UUIDs, developer comments) never reaches the client browser.
+The unauthenticated portal strictly consumes a Data Transfer Object (DTO) layer. The database queries inherently filter `isPublic: false` records, and the Zod schema validation explicitly strips system UUIDs, internal emails, and developer logs before serialization reaches the client layer.
+
+## Technology Stack
+* **Frontend**: React 18, Vite, TypeScript, Zustand, TanStack React Query, Tailwind CSS.
+* **Backend**: Node.js, Express, TypeScript, PostgreSQL, Prisma, Zod, Socket.IO.
+
+## Engineering Achievements
+* Eliminated manual dashboard refresh workflows by migrating from REST polling to event-driven WebSocket updates, achieving near real-time state propagation.
+* Automated service health computations through a severity-based status engine, removing manual status synchronization and operational overhead.
+* Designed a transactional audit system guaranteeing timeline event creation for every incident mutation, achieving 100% traceability of operational changes.
+* Developed a state-machine-driven incident lifecycle (`TRIGGERED` → `ACKNOWLEDGED` → `RESOLVED` → `CLOSED`), completely preventing invalid state mutations.
+* Secured public API boundaries utilizing a strict DTO validation layer with Zod, preventing malformed requests from reaching business logic layers.
 
 ## Screenshots
 
 ### Registration Page
-![Registration Page](/frontend/src/assets/hero.png)
+![Registration Page](frontend/src/assets/registration.png)
 
 ### Dashboard
-![Dashboard](/frontend/src/assets/hero.png)
+![Dashboard](frontend/src/assets/dashboard.png)
 
 ### Incident Management
-![Incident Management](/frontend/src/assets/hero.png)
+![Incident Management](frontend/src/assets/incident-management.png)
 
 ### Services
-![Services](/frontend/src/assets/hero.png)
+![Services](frontend/src/assets/services.png)
 
 ### Public Status Page
-![Public Status Page](/frontend/src/assets/hero.png)
+![Public Status Page](frontend/src/assets/public-status.png)
 
-*(Note: Placeholder image used as screenshot assets are pending upload)*
+*(Note: Currently utilizing placeholder assets; ready to be replaced with final capture files)*
 
 ## Local Setup
 
@@ -102,6 +124,6 @@ npm run dev # Starts on Port 5173
 ```
 
 ## Future Improvements
-* Webhook integrations for Slack and PagerDuty.
-* Advanced analytics dashboard for MTTA (Mean Time to Acknowledge) and MTTR (Mean Time to Resolve) metrics.
-* Subscription portal for external users to receive SMS/Email alerts on specific service outages.
+* Webhook integrations mapping critical incidents to Slack and PagerDuty endpoints.
+* Event-Sourced analytics dashboard for calculating MTTA (Mean Time to Acknowledge) and MTTR (Mean Time to Resolve) metrics natively.
+* Scalable subscription portal for external users to receive SMS/Email alerts partitioned by individual service dependencies.
