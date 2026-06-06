@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum IncidentStatus {
+  TRIGGERED
+  ACKNOWLEDGED
+  RESOLVED
+  CLOSED
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ServiceStatus {
+  OPERATIONAL
+  DEGRADED
+  PARTIAL_OUTAGE
+  MAJOR_OUTAGE
+}
+
+enum NotificationChannel {
+  EMAIL
+  SLACK
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+}
+
+enum EscalationLevel {
+  PRIMARY
+  SECONDARY
+}
+
+// -----------------------------------------------------------------------------
+// MODELS
+// -----------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  services  Service[]
+  incidents Incident[]
+  schedules OnCallSchedule[]
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  role         Role         @default(MEMBER)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relationships
+  createdIncidents  Incident[]        @relation("IncidentCreator")
+  assignedIncidents Incident[]        @relation("IncidentAssignee")
+  incidentUpdates   IncidentUpdate[]
+  onCallMemberships OnCallMember[]
+  notifications     NotificationLog[]
+
+  @@index([orgId])
+}
+
+model Service {
+  id           String        @id @default(uuid())
+  name         String
+  description  String?
+  status       ServiceStatus @default(OPERATIONAL)
+  orgId        String
+  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  incidents Incident[] @relation("IncidentToService")
+
+  @@index([orgId])
+}
+
+model Incident {
+  id           String         @id @default(uuid())
+  title        String
+  description  String?
+  status       IncidentStatus @default(TRIGGERED)
+  severity     Severity
+  orgId        String
+  organization Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Actor References
+  creatorId  String
+  creator    User    @relation("IncidentCreator", fields: [creatorId], references: [id])
+  assigneeId String?
+  assignee   User?   @relation("IncidentAssignee", fields: [assigneeId], references: [id])
+
+  // Analytics Timestamps
+  createdAt      DateTime  @default(now()) // Serves as the trigger timestamp
+  acknowledgedAt DateTime? // Captured when status changes to ACKNOWLEDGED
+  resolvedAt     DateTime? // Captured when status changes to RESOLVED
+  updatedAt      DateTime  @updatedAt
+
+  // Relationships
+  affectedServices Service[]         @relation("IncidentToService")
+  updates          IncidentUpdate[]
+  timelineEvents   TimelineEvent[]
+  notifications    NotificationLog[]
+
+  @@index([orgId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt]) // Crucial for timeseries analytical queries
+}
+
+model IncidentUpdate {
+  id         String   @id @default(uuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  message    String   @db.Text
+  isPublic   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([incidentId])
+}
+
+model TimelineEvent {
+  id         String   @id @default(uuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  eventType  String // e.g., "STATUS_CHANGE", "SEVERITY_CHANGE", "ASSIGNEE_ADDED"
+  metadata   Json? // Stores the delta (e.g., { "old_status": "TRIGGERED", "new_status": "ACKNOWLEDGED" })
+  createdAt  DateTime @default(now())
+
+  @@index([incidentId])
+}
+
+model OnCallSchedule {
+  id           String       @id @default(uuid())
+  name         String
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  members OnCallMember[]
+
+  @@index([orgId])
+}
+
+model OnCallMember {
+  id              String          @id @default(uuid())
+  scheduleId      String
+  schedule        OnCallSchedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  escalationLevel EscalationLevel // Determines the order of paging (PRIMARY or SECONDARY)
+  createdAt       DateTime        @default(now())
+
+  @@index([scheduleId])
+  @@index([userId])
+}
+
+model NotificationLog {
+  id         String              @id @default(uuid())
+  incidentId String?
+  incident   Incident?           @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel    NotificationChannel
+  status     NotificationStatus
+  error      String? // Null if SENT, populated if FAILED
+  sentAt     DateTime            @default(now())
+
+  @@index([incidentId])
+  @@index([userId])
+}

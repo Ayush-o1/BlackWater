@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+coverage/
+.env
+.env.*
+*.log
+logs/
+.DS_Store
+.next/
+out/
+.vercel/
+.netlify/
+tmp/
+*.tmp
+prisma/dev.db
+generated/
