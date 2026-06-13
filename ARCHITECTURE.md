@@ -222,7 +222,14 @@ The API follows strict RESTful conventions:
 The Node.js API is entirely stateless (JWTs are used instead of session cookies). This allows the backend to be horizontally scaled across multiple containers or pods seamlessly.
 To support WebSockets in a multi-node environment, the architecture is designed to integrate a **Redis Socket.IO Adapter**, allowing an event emitted on Node A to be broadcast to clients connected to Node B.
 
-## 18. Future Evolution
+## 18. Reliability & High Availability
+
+To ensure the public status page remains operational even during catastrophic failure of the core infrastructure, the system relies on decoupled layers:
+*   **Database Resilience**: Leveraging PostgreSQL read replicas for intensive public queries to ensure the primary writable instance is never bottlenecked.
+*   **Graceful Degradation**: If the WebSocket connection drops due to extreme network congestion, the frontend gracefully falls back to a randomized jitter-based HTTP polling mechanism to TanStack Query until the socket reconnects.
+*   **Air-Gapped Isolation**: The public-facing APIs are architecturally separated from the internal Command Center. A DDoS attack on the public status endpoint cannot bring down the internal state machine's transaction capabilities.
+
+## 19. Future Evolution
 
 *   **Event Sourcing**: Transitioning the `TimelineEvent` table into a true Event Sourcing architecture (e.g., using Kafka or RabbitMQ) to allow disparate microservices to react to incident state changes independently.
 *   **GraphQL API**: Introducing a GraphQL layer specifically for the public status page to allow clients to tailor their payload size, optimizing for mobile data constraints during outages.

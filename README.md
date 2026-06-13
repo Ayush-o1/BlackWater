@@ -1,4 +1,5 @@
-# BlackWater
+# 🌊 BlackWater
+### Real-Time Infrastructure Incident Management
 
 ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
@@ -8,17 +9,11 @@
 ![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
 ![Socket.io](https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io&badgeColor=010101)
 
-A deterministic, event-driven, real-time incident management and system status platform.
+**BlackWater** is a production-grade infrastructure observability and incident management platform designed to eliminate the latency between internal engineering resolution and public customer communication. It binds public status endpoints directly to an internal incident state machine, guaranteeing zero-latency DOM reconciliation and absolute synchronization across decoupled channels.
 
-![Public Status Page](docs/images/blackwater_status_page_1781353818129.png)
+---
 
-## Project Overview
-
-BlackWater is a production-grade infrastructure observability and incident management platform designed to eliminate the latency between internal engineering resolution and public customer communication. It binds public status endpoints directly to an internal incident state machine, guaranteeing zero-latency DOM reconciliation and absolute synchronization across decoupled channels.
-
-Built for scale and absolute type-safety, BlackWater leverages a modern Node.js, React, and PostgreSQL stack to provide a robust, multi-tenant environment capable of handling critical infrastructure workflows.
-
-## Key Features
+## 🏗️ Architecture & Engineering Highlights
 
 - **Deterministic State Engine**: Algorithmic computation of global infrastructure health based on active incident severity, eliminating manual human-error.
 - **Air-Gapped Data Transfer (DTO Layer)**: Strict serialization boundaries guarantee internal engineering notes, UUIDs, and system logs never leak to the unauthenticated public API.
@@ -27,25 +22,71 @@ Built for scale and absolute type-safety, BlackWater leverages a modern Node.js,
 - **Role-Based Access Control (RBAC)**: Centralized, stateless JWT middleware enforcing Admin, Member, and Viewer privileges in O(1) time.
 - **Multi-Tenant Architecture**: Top-level tenant isolation supporting multiple organizations within a single deployment.
 
-## System Capabilities
+---
 
-BlackWater provides an integrated platform spanning two major domains:
+## 📸 Platform Showcase
 
-1. **Internal Command Center**: A secure, authenticated dashboard for engineering and SRE teams to declare incidents, post internal updates, and resolve outages.
-2. **Public Status Page**: A highly available, read-only portal for end-users to view current system health and historical incident reports without needing to authenticate.
+### Public Status Page
+The highly available, read-only portal for end-users. It reflects the live state of the infrastructure in real-time, driven directly by backend WebSocket events.
 
-![Internal Command Center](docs/images/blackwater_command_center_1781353830033.png)
+![Public Status Page - Operational](assets/status-page.png)
+<br/>
+*A healthy public status page reflecting normal operational status across all infrastructure components.*
 
-## Architecture Highlights
+![Public Status Page - Major Outage](assets/status-page-outage.png)
+<br/>
+*Public status page automatically updated to reflect a major outage based on active critical incidents.*
 
-The architecture is built around event-driven paradigms and strict boundary enforcement. The backend does not simply serve data; it operates as an intelligent State Machine. When a database transaction commits an incident state change, the server immediately emits a typed WebSocket event. The frontend intercepts this socket event and programmatically invalidates its TanStack Query caches, forcing a local DOM re-render without relying on inefficient REST polling.
+### Internal Command Center: Dashboard
+A secure, authenticated dashboard for engineering and SRE teams to monitor platform health and active incidents.
 
-## Tech Stack
+![Dashboard Overview](assets/dashboard.png)
+<br/>
+*The primary operational dashboard providing a high-level overview of system status and active incident count.*
+
+![Dashboard Active Incidents](assets/dashboard-active-incidents.png)
+<br/>
+*Dashboard reflecting real-time updates as multiple high-severity incidents are declared.*
+
+### Incident Management
+Comprehensive incident lifecycle tracking with immutable audit trails.
+
+![Incident Management List](assets/incidents-list.png)
+<br/>
+*A centralized view of all active and resolved incidents with severity, impact, and status.*
+
+![Incident Details View](assets/incident-details.png)
+<br/>
+*Detailed incident view allowing engineering teams to post internal updates and transition incident states.*
+
+![Create Incident Modal](assets/create-incident-modal.png)
+<br/>
+*The incident creation flow capturing essential data, severity, and impacted services.*
+
+### Service Registry
+A central repository of all tracked microservices and infrastructure components.
+
+![Service Registry](assets/services-list.png)
+<br/>
+*A managed list of services detailing their descriptions, current operational status, and last update times.*
+
+![Register Service Flow](assets/register-service-filled.png)
+<br/>
+*Adding a new microservice to the tracking registry with descriptions and initial state.*
+
+### Platform Administration
+![Organization Settings](assets/settings-full.png)
+<br/>
+*Workspace and platform configuration, managing user roles, access control, and organization details.*
+
+---
+
+## 🛠️ Tech Stack
 
 **Frontend:**
 - React 18 (Vite)
 - TypeScript (Strict Mode)
-- Tailwind CSS (Radix-inspired primitives)
+- Tailwind CSS
 - Zustand (Client State)
 - TanStack React Query (Server State)
 
@@ -57,16 +98,9 @@ The architecture is built around event-driven paradigms and strict boundary enfo
 - Socket.IO
 - Zod (Runtime Type Validation)
 
-## Documentation Structure
+---
 
-For a complete technical deep-dive, please refer to the following documents:
-- [Architecture Deep Dive](ARCHITECTURE.md) - System goals, DTO boundaries, and scalability design.
-- [Demo Scenarios](DEMO_SCENARIOS.md) - Realistic operational scenarios for evaluating the platform.
-- [Testing Strategy](TESTING.md) - Overview of Unit, Integration, and E2E testing strategies.
-- [Deployment Guide](DEPLOYMENT.md) - Docker, CI/CD, and production readiness instructions.
-- [API Documentation](API_DOCS.md) - REST API examples for programmatic integrations.
-
-## System Architecture
+## 🗺️ System Architecture
 
 ```mermaid
 flowchart TB
@@ -97,7 +131,9 @@ flowchart TB
     Express <-->|Type-Safe Operations| Prisma
 ```
 
-## Local Development Setup
+---
+
+## 🚀 Local Development Setup
 
 ```bash
 # 1. Clone & Install
@@ -120,17 +156,26 @@ npm install
 npm run dev
 ```
 
-## Future Roadmap
+---
+
+## 📚 Documentation
+
+For a complete technical deep-dive, please refer to the following documents:
+- [Architecture Deep Dive](ARCHITECTURE.md) - System goals, DTO boundaries, and scalability design.
+- [Demo Scenarios](DEMO_SCENARIOS.md) - Realistic operational scenarios for evaluating the platform.
+- [Testing Strategy](TESTING.md) - Overview of Unit, Integration, and E2E testing strategies.
+- [API Documentation](API_DOCS.md) - REST API examples for programmatic integrations.
+
+---
+
+## 🔮 Future Roadmap
 
 - **Infrastructure as Code (IaC)**: Terraform configurations for automated, repeatable AWS deployments.
 - **Kubernetes Orchestration**: Helm charts to manage deployment lifecycles, liveness/readiness probes, and horizontal pod autoscaling.
 - **Distributed Caching**: Redis integration for aggressive caching of unauthenticated public status endpoints.
 - **Webhook Integrations**: Native integrations with PagerDuty, Datadog, and Slack.
 
-## License
+---
 
+## 📄 License
 MIT License. See `LICENSE` for more information.
-
-## Contributors
-
-Built by the engineering team behind BlackWater.
