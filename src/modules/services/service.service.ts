@@ -19,11 +19,26 @@ export class ServiceService {
     return service;
   }
 
-  static async listServices(orgId: string) {
-    return prisma.service.findMany({
+  static async listServices(orgId: string, query: { cursor?: string; limit: number }) {
+    const { cursor, limit } = query;
+    const services = await prisma.service.findMany({
       where: { orgId },
+      take: limit + 1,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
       orderBy: { createdAt: 'desc' },
     });
+
+    const hasMore = services.length > limit;
+    const data = hasMore ? services.slice(0, limit) : services;
+    const nextCursor = hasMore ? data[data.length - 1].id : null;
+
+    return {
+      data,
+      pagination: {
+        nextCursor,
+        hasMore,
+      }
+    };
   }
 
   static async getServiceDetails(orgId: string, serviceId: string) {

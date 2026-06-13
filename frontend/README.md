@@ -1,73 +1,65 @@
-# React + TypeScript + Vite
+# BlackWater Frontend (SPA)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the Single Page Application (SPA) client for the BlackWater platform, built for extreme responsiveness and deterministic state rendering.
 
-Currently, two official plugins are available:
+## Architecture & Technology Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+*   **Core Framework**: React 18 powered by Vite for rapid development (HMR) and optimized production bundling.
+*   **Language**: Strict TypeScript.
+*   **Routing**: `react-router-dom` utilizing a feature-centric route structure.
+*   **Styling**: Tailwind CSS configured with a highly semantic, token-based design system mapped to raw CSS variables (`index.css`) to support instant theming (Dark/Light modes). UI primitives are inspired by Radix UI for accessibility.
 
-## React Compiler
+## State Management Philosophy
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+BlackWater strictly bifurcates state into two distinct categories to prevent prop-drilling and maintain optimal rendering performance.
 
-## Expanding the ESLint configuration
+### 1. Server State (TanStack React Query)
+**90% of the application state.**
+We utilize React Query for all asynchronous operations, caching, and data synchronization. 
+Instead of manually fetching data in `useEffect` blocks and storing it in local `useState`, we define custom hooks (e.g., `useIncidents`, `useServices`) that wrap `useQuery`. This provides native deduping, background refetching, and pagination out of the box.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 2. Client State (Zustand)
+**10% of the application state.**
+We utilize Zustand for globally required, synchronous client state that has no backend equivalent.
+This is strictly limited to:
+- JWT Authentication Payload (User ID, Role, Org ID)
+- UI State (e.g., Sidebar toggles, active theme)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Real-Time Invalidation via WebSockets
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+The true power of the BlackWater frontend is its WebSocket integration. We completely eliminate client-side HTTP polling.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+**The Workflow:**
+1. A user establishes a persistent Socket.IO connection upon loading the app.
+2. When the backend emits a state change (e.g., `incident:created`), the `SocketProvider` context intercepts it.
+3. The provider directly interacts with the React Query `QueryClient` to invalidate specific query keys (e.g., `['incidents']`).
+4. React Query silently refetches the updated data in the background and triggers a DOM reconciliation instantly.
+
+This creates a "Zero-Latency" feel for the end-user while minimizing unnecessary network traffic.
+
+## Folder Structure
+
+```text
+src/
+├── components/
+│   ├── ui/          # Highly reusable, dumb UI primitives (Buttons, Badges, Modals)
+│   └── layout/      # Shell components (Sidebar, TopNav)
+├── hooks/           # TanStack Query custom wrappers
+├── lib/             # Utility functions (axios instances, clsx wrappers)
+├── pages/           # Route-level container components
+├── store/           # Zustand slice definitions
+└── types/           # Shared TypeScript interfaces matching backend DTOs
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Running Locally
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# Install dependencies
+npm install
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Start the Vite development server
+npm run dev
+
+# Build for production
+npm run build
 ```

@@ -7,9 +7,9 @@ export function Dashboard() {
   const { data: servicesData } = useServices();
   const { data: incidentsData } = useIncidents({ limit: 100 });
 
-  const totalServices = servicesData?.services?.length || 0;
+  const totalServices = (Array.isArray(servicesData) ? servicesData : [])?.length || 0;
   
-  const activeIncidents = incidentsData?.incidents?.filter(
+  const activeIncidents = (Array.isArray(incidentsData) ? incidentsData : [])?.filter(
     (i: any) => i.status !== 'RESOLVED' && i.status !== 'CLOSED'
   ) || [];
   

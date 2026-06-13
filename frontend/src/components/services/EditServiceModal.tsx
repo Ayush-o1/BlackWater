@@ -1,30 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
-import { useCreateService } from '../../hooks/queries';
+import { useUpdateService } from '../../hooks/queries';
 
-interface CreateServiceModalProps {
+interface EditServiceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  service: {
+    id: string;
+    name: string;
+    description: string;
+  };
 }
 
-export function CreateServiceModal({ isOpen, onClose }: CreateServiceModalProps) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+export function EditServiceModal({ isOpen, onClose, service }: EditServiceModalProps) {
+  const [name, setName] = useState(service.name);
+  const [description, setDescription] = useState(service.description || '');
   
-  const { mutateAsync: createService, isPending } = useCreateService();
+  // Update local state if service prop changes
+  useEffect(() => {
+    setName(service.name);
+    setDescription(service.description || '');
+  }, [service]);
+
+  const { mutateAsync: updateService, isPending } = useUpdateService();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createService({ name, description });
-      setName('');
-      setDescription('');
+      await updateService({ id: service.id, data: { name, description } });
       onClose();
     } catch (err) {
-      // Error handled by global toast
+      // Error handled by react-query global toast
     }
   };
 
@@ -32,8 +41,8 @@ export function CreateServiceModal({ isOpen, onClose }: CreateServiceModalProps)
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Register Service"
-      description="Add a new infrastructure component or microservice to track."
+      title="Edit Service"
+      description="Update the details of this infrastructure component."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
@@ -53,7 +62,7 @@ export function CreateServiceModal({ isOpen, onClose }: CreateServiceModalProps)
 
         <div className="flex justify-end gap-3 mt-6">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isPending}>Create Service</Button>
+          <Button type="submit" isLoading={isPending}>Save Changes</Button>
         </div>
       </form>
     </Modal>

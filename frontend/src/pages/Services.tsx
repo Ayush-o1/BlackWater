@@ -49,12 +49,17 @@ export function Services() {
             <TableRow>
               <TableCell colSpan={4} className="text-center text-gray-500">Loading...</TableCell>
             </TableRow>
-          ) : data?.services?.length === 0 ? (
+          ) : (Array.isArray(data) ? data : [])?.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-gray-500">No services tracked.</TableCell>
+              <TableCell colSpan={4} className="text-center text-gray-500 py-12">
+                <div className="flex flex-col items-center justify-center space-y-3">
+                  <p>No services tracked yet.</p>
+                  <Button variant="secondary" onClick={() => setIsCreateOpen(true)}>Create First Service</Button>
+                </div>
+              </TableCell>
             </TableRow>
           ) : (
-            data?.services?.map((service: any) => (
+            (Array.isArray(data) ? data : [])?.map((service: any) => (
               <TableRow 
                 key={service.id} 
                 className="cursor-pointer"

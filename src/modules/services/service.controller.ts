@@ -14,8 +14,8 @@ export class ServiceController {
 
   static async listServices(req: Request, res: Response, next: NextFunction) {
     try {
-      const services = await ServiceService.listServices(req.user!.orgId);
-      res.status(200).json(successResponse(services, 'Services retrieved successfully'));
+      const result = await ServiceService.listServices(req.user!.orgId, req.query as any);
+      res.status(200).json(successResponse(result.data, 'Services retrieved successfully', result.pagination));
     } catch (error) {
       next(error);
     }

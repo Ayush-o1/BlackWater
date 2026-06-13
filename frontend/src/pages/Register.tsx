@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthAPI } from '../api/auth.api';
 import { useAuthStore } from '../store/useAuthStore';
+import toast from 'react-hot-toast';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
@@ -27,7 +28,9 @@ export function RegisterPage() {
       setAuth(response.user, response.token);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Failed to register');
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to register';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -41,7 +44,7 @@ export function RegisterPage() {
             <Activity className="h-6 w-6 text-primary" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white">Create an account</h2>
-          <p className="text-sm text-gray-400 mt-2">Start monitoring your services with SignalOps</p>
+          <p className="text-sm text-gray-400 mt-2">Start monitoring your services with BlackWater</p>
         </div>
 
         <Card>
@@ -80,7 +83,7 @@ export function RegisterPage() {
                 required
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
-                placeholder="Acme Corp"
+                placeholder="Your Company"
               />
               
               {error && (

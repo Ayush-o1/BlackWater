@@ -76,8 +76,7 @@ export class IncidentService {
   }
 
   static async listIncidents(orgId: string, query: ListIncidentsQuery) {
-    const { status, severity, assigneeId, serviceId, page, limit } = query;
-    const skip = (page - 1) * limit;
+    const { status, severity, assigneeId, serviceId, cursor, limit } = query;
 
     const where: any = { orgId };
 
@@ -90,22 +89,23 @@ export class IncidentService {
       };
     }
 
-    const [incidents, total] = await Promise.all([
-      prisma.incident.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          creator: { select: { id: true, name: true, email: true } },
-          assignee: { select: { id: true, name: true, email: true } },
-          affectedServices: { select: { id: true, name: true, status: true } },
-        },
-      }),
-      prisma.incident.count({ where }),
-    ]);
+    const incidents = await prisma.incident.findMany({
+      where,
+      take: limit + 1,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
+      orderBy: { createdAt: 'desc' },
+      include: {
+        creator: { select: { id: true, name: true, email: true } },
+        assignee: { select: { id: true, name: true, email: true } },
+        affectedServices: { select: { id: true, name: true, status: true } },
+      },
+    });
 
-    return { incidents, total, page, limit };
+    const hasMore = incidents.length > limit;
+    const data = hasMore ? incidents.slice(0, limit) : incidents;
+    const nextCursor = hasMore ? data[data.length - 1].id : null;
+
+    return { data, pagination: { nextCursor, hasMore } };
   }
 
   static async getIncidentDetails(orgId: string, incidentId: string) {

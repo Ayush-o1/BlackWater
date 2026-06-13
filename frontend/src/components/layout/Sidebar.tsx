@@ -5,13 +5,13 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export function Sidebar() {
-  const { user } = useAuthStore();
+  const { user: _user } = useAuthStore();
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Incidents', href: '/incidents', icon: AlertTriangle },
     { name: 'Services', href: '/services', icon: Server },
-    { name: 'Status Page', href: `/status/${user?.orgId}`, icon: Activity },
+    { name: 'Status Page', href: '/admin/status', icon: Activity },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
   return (
@@ -19,7 +19,7 @@ export function Sidebar() {
       <div className="flex h-16 items-center px-6 border-b border-border">
         <div className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
           <Activity className="h-6 w-6" />
-          <span>SignalOps</span>
+          <span>BlackWater</span>
         </div>
       </div>
       <nav className="flex-1 space-y-1 p-4">

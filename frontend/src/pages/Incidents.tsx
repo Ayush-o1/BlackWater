@@ -17,8 +17,9 @@ export function Incidents() {
   const getSeverityBadge = (sev: string) => {
     switch (sev) {
       case 'CRITICAL': return <Badge variant="danger">Critical</Badge>;
-      case 'MAJOR': return <Badge variant="warning">Major</Badge>;
-      default: return <Badge variant="info">Minor</Badge>;
+      case 'HIGH': return <Badge variant="warning">High</Badge>;
+      case 'MEDIUM': return <Badge variant="info">Medium</Badge>;
+      default: return <Badge variant="default">Low</Badge>;
     }
   };
 
@@ -59,12 +60,17 @@ export function Incidents() {
             <TableRow>
               <TableCell colSpan={5} className="text-center text-gray-500">Loading...</TableCell>
             </TableRow>
-          ) : data?.incidents?.length === 0 ? (
+          ) : (Array.isArray(data) ? data : [])?.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-gray-500">No incidents found.</TableCell>
+              <TableCell colSpan={5} className="text-center text-gray-500 py-12">
+                <div className="flex flex-col items-center justify-center space-y-3">
+                  <p>No incidents found.</p>
+                  <Button variant="secondary" onClick={() => setIsCreateOpen(true)}>Declare First Incident</Button>
+                </div>
+              </TableCell>
             </TableRow>
           ) : (
-            data?.incidents?.map((incident: any) => (
+            (Array.isArray(data) ? data : [])?.map((incident: any) => (
               <TableRow 
                 key={incident.id} 
                 className="cursor-pointer"

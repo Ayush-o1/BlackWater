@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
+import { ServiceMultiSelect } from '../ui/ServiceMultiSelect';
 import { useServices, useCreateIncident } from '../../hooks/queries';
 
 interface CreateIncidentModalProps {
@@ -14,11 +15,13 @@ interface CreateIncidentModalProps {
 export function CreateIncidentModal({ isOpen, onClose }: CreateIncidentModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [severity, setSeverity] = useState('MINOR');
+  const [severity, setSeverity] = useState('LOW');
   const [serviceIds, setServiceIds] = useState<string[]>([]);
-  
+
   const { data: servicesData, isLoading: loadingServices } = useServices();
   const { mutateAsync: createIncident, isPending } = useCreateIncident();
+
+  const services = Array.isArray(servicesData) ? servicesData : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,17 +35,12 @@ export function CreateIncidentModal({ isOpen, onClose }: CreateIncidentModalProp
       // Reset form
       setTitle('');
       setDescription('');
-      setSeverity('MINOR');
+      setSeverity('LOW');
       setServiceIds([]);
       onClose();
     } catch (err) {
-      console.error(err);
+      // Error handled by global toast
     }
-  };
-
-  const handleServiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const options = Array.from(e.target.selectedOptions);
-    setServiceIds(options.map(o => o.value));
   };
 
   return (
@@ -60,7 +58,7 @@ export function CreateIncidentModal({ isOpen, onClose }: CreateIncidentModalProp
           onChange={e => setTitle(e.target.value)}
           placeholder="API Latency Spike"
         />
-        
+
         <Textarea
           label="Description"
           required
@@ -68,35 +66,28 @@ export function CreateIncidentModal({ isOpen, onClose }: CreateIncidentModalProp
           onChange={e => setDescription(e.target.value)}
           placeholder="Initial investigation details..."
         />
-        
-        <div className="grid grid-cols-2 gap-4">
-          <Select
-            label="Severity"
-            required
-            value={severity}
-            onChange={e => setSeverity(e.target.value)}
-          >
-            <option value="MINOR">Minor</option>
-            <option value="MAJOR">Major</option>
-            <option value="CRITICAL">Critical</option>
-          </Select>
-          
-          <Select
+
+        <Select
+          label="Severity"
+          required
+          value={severity}
+          onChange={e => setSeverity(e.target.value)}
+        >
+          <option value="LOW">Low</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="HIGH">High</option>
+          <option value="CRITICAL">Critical</option>
+        </Select>
+
+        <div className="relative">
+          <ServiceMultiSelect
             label="Affected Services"
-            multiple
-            required
-            value={serviceIds}
-            onChange={handleServiceChange}
-            className="h-24"
-          >
-            {loadingServices ? (
-              <option disabled>Loading...</option>
-            ) : (
-              servicesData?.services?.map((s: any) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))
-            )}
-          </Select>
+            options={services}
+            selected={serviceIds}
+            onChange={setServiceIds}
+            isLoading={loadingServices}
+            placeholder="Click to select affected services..."
+          />
         </div>
 
         <div className="flex justify-end gap-3 mt-6">

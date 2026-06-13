@@ -60,8 +60,7 @@ export class StatusService {
    * Lists Incidents (supports pagination/filtering)
    */
   static async getIncidents(orgId: string, query: PublicIncidentsListQuery) {
-    const { page, limit, status } = query;
-    const skip = (page - 1) * limit;
+    const { cursor, limit, status } = query;
 
     const where: any = { orgId };
     
@@ -71,22 +70,24 @@ export class StatusService {
       where.status = status;
     }
 
-    const [incidents, total] = await Promise.all([
-      prisma.incident.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: { affectedServices: true },
-      }),
-      prisma.incident.count({ where }),
-    ]);
+    const incidents = await prisma.incident.findMany({
+      where,
+      take: limit + 1,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
+      orderBy: { createdAt: 'desc' },
+      include: { affectedServices: true },
+    });
+
+    const hasMore = incidents.length > limit;
+    const data = hasMore ? incidents.slice(0, limit) : incidents;
+    const nextCursor = hasMore ? data[data.length - 1].id : null;
 
     return {
-      incidents: incidents.map(i => StatusDTO.toPublicIncident(i)),
-      total,
-      page,
-      limit,
+      data: data.map(i => StatusDTO.toPublicIncident(i)),
+      pagination: {
+        nextCursor,
+        hasMore,
+      }
     };
   }
 

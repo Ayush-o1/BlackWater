@@ -16,8 +16,8 @@ export const listIncidentsSchema = z.object({
     severity: z.nativeEnum(Severity).optional(),
     assigneeId: z.string().uuid().optional(),
     serviceId: z.string().uuid().optional(),
-    page: z.string().regex(/^\d+$/).transform(Number).optional().default('1'),
-    limit: z.string().regex(/^\d+$/).transform(Number).optional().default('10'),
+    cursor: z.string().uuid().optional(),
+    limit: z.string().regex(/^\d+$/).transform(Number).optional().default('20'),
   }),
 });
 

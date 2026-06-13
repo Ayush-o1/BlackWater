@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { LoginPage } from './pages/Login';
@@ -13,8 +14,8 @@ import { PublicStatusLayout } from './components/layout/PublicStatusLayout';
 import { StatusOverview } from './pages/public/StatusOverview';
 import { PublicIncidentDetails } from './pages/public/PublicIncidentDetails';
 
-// Placeholder empty pages
-const Settings = () => <div className="text-white">Settings</div>;
+import { Settings } from './pages/Settings';
+import { AdminStatusPage } from './pages/AdminStatusPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,7 @@ function App() {
               <Route path="/services" element={<Services />} />
               <Route path="/services/:id" element={<ServiceDetails />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/admin/status" element={<AdminStatusPage />} />
             </Route>
           </Route>
 
@@ -53,6 +55,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <Toaster position="top-right" />
     </QueryClientProvider>
   );
 }

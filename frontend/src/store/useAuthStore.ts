@@ -27,7 +27,7 @@ export const useAuthStore = create<AuthState>()(
       logout: () => set({ user: null, token: null, isAuthenticated: false }),
     }),
     {
-      name: 'signalops-auth-storage', // name of the item in the storage (must be unique)
+      name: 'blackwater-auth-storage', // name of the item in the storage (must be unique)
     }
   )
 );

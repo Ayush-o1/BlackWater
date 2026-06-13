@@ -14,9 +14,8 @@ export class IncidentController {
 
   static async listIncidents(req: Request, res: Response, next: NextFunction) {
     try {
-      // req.query is validated and coerced by Zod schemas
       const result = await IncidentService.listIncidents(req.user!.orgId, req.query as any);
-      res.status(200).json(successResponse(result, 'Incidents retrieved successfully'));
+      res.status(200).json(successResponse(result.data, 'Incidents retrieved successfully', result.pagination));
     } catch (error) {
       next(error);
     }

@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding database with SignalOps demo data...');
+  console.log('Seeding database with BlackWater demo data...');
 
   // Clean the database
   await prisma.timelineEvent.deleteMany({});
@@ -16,18 +16,18 @@ async function main() {
 
   // 1. Create Organization
   const org = await prisma.organization.create({
-    data: { name: 'Acme Corporation' },
+    data: { name: 'BlackWater Demo Corp' },
   });
 
   // 2. Create Users
   const passwordHash = await bcrypt.hash('password123', 10);
   
   const adminUser = await prisma.user.create({
-    data: { name: 'Alice Admin', email: 'admin@acme.com', passwordHash, role: Role.ADMIN, orgId: org.id },
+    data: { name: 'Alice Admin', email: 'admin@BlackWater.com', passwordHash, role: Role.ADMIN, orgId: org.id },
   });
 
   const memberUser = await prisma.user.create({
-    data: { name: 'Bob Engineer', email: 'bob@acme.com', passwordHash, role: Role.MEMBER, orgId: org.id },
+    data: { name: 'Bob Engineer', email: 'bob@BlackWater.com', passwordHash, role: Role.MEMBER, orgId: org.id },
   });
 
   // 3. Create Services
@@ -94,8 +94,8 @@ async function main() {
 
   console.log(`✅ Seeding complete!`);
   console.log(`Organization ID: ${org.id}`);
-  console.log(`Admin Login: admin@acme.com / password123`);
-  console.log(`Member Login: bob@acme.com / password123`);
+  console.log(`Admin Login: admin@BlackWater.com / password123`);
+  console.log(`Member Login: bob@BlackWater.com / password123`);
 }
 
 main()

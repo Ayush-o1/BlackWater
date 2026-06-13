@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useState } from 'react';
-import { useIncidentDetails, useUpdateIncidentStatus, useAddIncidentUpdate } from '../hooks/queries';
+import { useIncidentDetails, useUpdateIncidentStatus, useAddIncidentUpdate, useAssignIncident } from '../hooks/queries';
+import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -13,6 +14,8 @@ export function IncidentDetails() {
   const { data: incident, isLoading } = useIncidentDetails(id!);
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateIncidentStatus();
   const { mutate: addUpdate, isPending: isAddingUpdate } = useAddIncidentUpdate();
+  const { mutate: assignIncident, isPending: isAssigning } = useAssignIncident();
+  const { user } = useAuthStore();
 
   const [message, setMessage] = useState('');
   const [isPublic, setIsPublic] = useState('false');
@@ -22,6 +25,12 @@ export function IncidentDetails() {
 
   const handleStatusChange = (newStatus: string) => {
     updateStatus({ id: incident.id, status: newStatus });
+  };
+
+  const handleAssignToMe = () => {
+    if (user) {
+      assignIncident({ id: incident.id, assigneeId: user.id });
+    }
   };
 
   const handleAddUpdate = (e: React.FormEvent) => {
@@ -129,7 +138,19 @@ export function IncidentDetails() {
             <CardContent className="space-y-4 text-sm">
               <div>
                 <span className="text-gray-500 block mb-1">Assignee</span>
-                <span className="text-white font-medium">{incident.assignee?.name || 'Unassigned'}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-medium">{incident.assignee?.name || 'Unassigned'}</span>
+                  {(!incident.assigneeId || incident.assigneeId !== user?.id) && (
+                    <Button 
+                      variant="secondary" 
+                      onClick={handleAssignToMe} 
+                      isLoading={isAssigning}
+                      className="py-1 px-2 text-xs"
+                    >
+                      Assign to Me
+                    </Button>
+                  )}
+                </div>
               </div>
               <div>
                 <span className="text-gray-500 block mb-1">Affected Services</span>

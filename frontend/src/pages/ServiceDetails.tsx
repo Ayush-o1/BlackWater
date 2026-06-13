@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useServiceDetails, useDeleteService } from '../hooks/queries';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Trash2 } from 'lucide-react';
+import { EditServiceModal } from '../components/services/EditServiceModal';
+import { Trash2, Edit2 } from 'lucide-react';
 
 export function ServiceDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { data: service, isLoading } = useServiceDetails(id!);
   const { mutateAsync: deleteService, isPending: isDeleting } = useDeleteService();
 
@@ -44,10 +47,16 @@ export function ServiceDetails() {
           </div>
           <p className="text-gray-400">{service.description}</p>
         </div>
-        <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete Service
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setIsEditOpen(true)}>
+            <Edit2 className="mr-2 h-4 w-4" />
+            Edit Service
+          </Button>
+          <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Service
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -91,6 +100,12 @@ export function ServiceDetails() {
           </CardContent>
         </Card>
       </div>
+
+      <EditServiceModal 
+        isOpen={isEditOpen} 
+        onClose={() => setIsEditOpen(false)} 
+        service={service} 
+      />
     </div>
   );
 }

@@ -28,8 +28,8 @@ export class StatusController {
     try {
       const orgId = req.query.orgId as string;
       const query = req.query as unknown as PublicIncidentsListQuery;
-      const data = await StatusService.getIncidents(orgId, query);
-      res.status(200).json(successResponse(data));
+      const result = await StatusService.getIncidents(orgId, query);
+      res.status(200).json(successResponse(result.data, undefined, result.pagination));
     } catch (error) {
       next(error);
     }

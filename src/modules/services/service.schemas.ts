@@ -23,5 +23,13 @@ export const deleteServiceSchema = z.object({
   params: z.object({ id: z.string().uuid('Invalid service ID') }),
 });
 
+export const listServicesSchema = z.object({
+  query: z.object({
+    cursor: z.string().uuid().optional(),
+    limit: z.string().regex(/^\d+$/).transform(Number).optional().default('20'),
+  }),
+});
+
 export type CreateServiceInput = z.infer<typeof createServiceSchema>['body'];
 export type UpdateServiceInput = z.infer<typeof updateServiceSchema>['body'];
+export type ListServicesQuery = z.infer<typeof listServicesSchema>['query'];

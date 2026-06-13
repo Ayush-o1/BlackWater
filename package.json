@@ -1,7 +1,7 @@
 {
-  "name": "signalops-backend",
+  "name": "blackwater-backend",
   "version": "1.0.0",
-  "description": "SignalOps Backend Foundation",
+  "description": "BlackWater Backend Foundation",
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",

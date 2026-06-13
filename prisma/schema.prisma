@@ -89,6 +89,7 @@ model User {
   notifications     NotificationLog[]
 
   @@index([orgId])
+  @@index([orgId, createdAt])
 }
 
 model Service {
@@ -104,6 +105,7 @@ model Service {
   incidents Incident[] @relation("IncidentToService")
 
   @@index([orgId])
+  @@index([orgId, createdAt])
 }
 
 model Incident {
@@ -137,6 +139,7 @@ model Incident {
   @@index([status])
   @@index([severity])
   @@index([createdAt]) // Crucial for timeseries analytical queries
+  @@index([orgId, createdAt])
 }
 
 model IncidentUpdate {

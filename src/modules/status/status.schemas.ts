@@ -18,8 +18,8 @@ export const publicIncidentSchema = z.object({
 export const publicIncidentsListSchema = z.object({
   query: z.object({
     orgId: z.string().uuid('Invalid Organization ID provided in query'),
-    page: z.string().regex(/^\d+$/).transform(Number).default('1'),
-    limit: z.string().regex(/^\d+$/).transform(Number).default('10'),
+    cursor: z.string().uuid().optional(),
+    limit: z.string().regex(/^\d+$/).transform(Number).optional().default('20'),
     status: z.string().optional(),
   }),
 });

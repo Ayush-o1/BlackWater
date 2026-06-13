@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthAPI } from '../api/auth.api';
 import { useAuthStore } from '../store/useAuthStore';
+import toast from 'react-hot-toast';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
@@ -25,7 +26,9 @@ export function LoginPage() {
       setAuth(response.user, response.token);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Failed to login');
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to login';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -39,7 +42,7 @@ export function LoginPage() {
             <Activity className="h-6 w-6 text-primary" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white">Welcome back</h2>
-          <p className="text-sm text-gray-400 mt-2">Sign in to your SignalOps account</p>
+          <p className="text-sm text-gray-400 mt-2">Sign in to your BlackWater account</p>
         </div>
 
         <Card>

@@ -9,6 +9,7 @@ import {
   updateServiceSchema,
   getServiceSchema,
   deleteServiceSchema,
+  listServicesSchema,
 } from './service.schemas';
 
 const router = Router();
@@ -25,6 +26,7 @@ router.post(
 router.get(
   '/',
   requireRole(Role.VIEWER, Role.MEMBER, Role.ADMIN),
+  validateRequest(listServicesSchema),
   ServiceController.listServices
 );
 

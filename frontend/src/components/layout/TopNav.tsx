@@ -7,7 +7,7 @@ export function TopNav() {
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-surface/50 backdrop-blur-md px-6">
       <div className="flex items-center lg:hidden text-primary font-bold text-xl">
-        <span>SignalOps</span>
+        <span>BlackWater</span>
       </div>
       <div className="hidden lg:flex flex-1" />
       <div className="flex items-center gap-4">
