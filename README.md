@@ -1,6 +1,16 @@
 # BlackWater
 
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)
+![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB)
+![Postgres](https://img.shields.io/badge/postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
+![Socket.io](https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io&badgeColor=010101)
+
 A deterministic, event-driven, real-time incident management and system status platform.
+
+![Public Status Page](docs/images/blackwater_status_page_1781353818129.png)
 
 ## Project Overview
 
@@ -20,8 +30,11 @@ Built for scale and absolute type-safety, BlackWater leverages a modern Node.js,
 ## System Capabilities
 
 BlackWater provides an integrated platform spanning two major domains:
+
 1. **Internal Command Center**: A secure, authenticated dashboard for engineering and SRE teams to declare incidents, post internal updates, and resolve outages.
 2. **Public Status Page**: A highly available, read-only portal for end-users to view current system health and historical incident reports without needing to authenticate.
+
+![Internal Command Center](docs/images/blackwater_command_center_1781353830033.png)
 
 ## Architecture Highlights
 
@@ -44,11 +57,14 @@ The architecture is built around event-driven paradigms and strict boundary enfo
 - Socket.IO
 - Zod (Runtime Type Validation)
 
-## Why This Project Exists
+## Documentation Structure
 
-Internal engineering teams frequently experience a disconnect between resolving backend system outages and updating customer-facing status pages. Manual synchronization across decoupled communication channels introduces significant latency and human error, leaving public status dashboards inaccurate while engineers focus on resolving critical infrastructure issues.
-
-BlackWater bridges this gap. By operating as a unified State Machine, an engineer resolving an internal alert natively triggers an automatic, secure WebSocket broadcast that updates the public-facing status page instantly—without manual intervention.
+For a complete technical deep-dive, please refer to the following documents:
+- [Architecture Deep Dive](ARCHITECTURE.md) - System goals, DTO boundaries, and scalability design.
+- [Demo Scenarios](DEMO_SCENARIOS.md) - Realistic operational scenarios for evaluating the platform.
+- [Testing Strategy](TESTING.md) - Overview of Unit, Integration, and E2E testing strategies.
+- [Deployment Guide](DEPLOYMENT.md) - Docker, CI/CD, and production readiness instructions.
+- [API Documentation](API_DOCS.md) - REST API examples for programmatic integrations.
 
 ## System Architecture
 
@@ -81,49 +97,6 @@ flowchart TB
     Express <-->|Type-Safe Operations| Prisma
 ```
 
-## Request Lifecycle
-
-```mermaid
-sequenceDiagram
-    participant User as Client
-    participant API as Express API
-    participant DB as PostgreSQL
-    participant Socket as Socket.IO
-
-    User->>API: POST /api/incidents
-    API->>API: Authenticate JWT & Verify RBAC
-    API->>API: Validate Payload (Zod)
-    API->>DB: Prisma Transaction (Begin)
-    DB-->>API: Incident Created
-    API->>DB: Timeline Audit Event Created
-    API->>DB: Prisma Transaction (Commit)
-    API->>Socket: Emit 'incident:created'
-    Socket-->>User: Broadcast WebSocket Event
-    User->>User: TanStack Query Cache Invalidate
-    API-->>User: 201 Created (DTO Sanitized)
-```
-
-## Database Overview
-
-The data model is structured via the Prisma ORM to guarantee absolute type safety across the full stack. PostgreSQL was deliberately chosen for its ACID compliance and robust native support for `JSONB` columns, which are critical for storing dynamic, unstructured metadata payloads within the immutable `TimelineEvent` audit logs.
-
-### Core Entities
-*   **Organization**: Top-level multi-tenant container enforcing data isolation.
-*   **User**: Managed via Role-Based Access Control (Admin, Member, Viewer).
-*   **Service**: Represents underlying infrastructure layers and external dependencies.
-*   **Incident**: The core event entity driving the state machine.
-*   **TimelineEvent**: Immutable chronological audit log storing JSON metadata of state changes.
-
-## Deployment Architecture
-
-Currently designed for containerized deployment, BlackWater utilizes Docker to package the Node.js API and React frontend into immutable artifacts. In a production environment, the frontend is distributed via CDN, while the backend API scales horizontally behind a reverse proxy (e.g., Nginx, ALB) utilizing a Redis adapter for Socket.IO state synchronization.
-
-## Engineering Tradeoffs
-
-*   **Prisma vs. Query Builder**: Prisma was chosen over lightweight query builders (like Kysely) or raw SQL to maximize developer velocity and guarantee end-to-end type safety bridging the DB to the React props. The tradeoff is a heavier ORM footprint and less control over highly complex aggregate queries, which is mitigated by raw query fallbacks where necessary.
-*   **WebSockets vs. Server-Sent Events (SSE)**: Socket.IO was selected over native SSE to provide bi-directional capabilities for future interactive features (e.g., real-time engineering chat within incidents), despite SSE being slightly lighter for uni-directional state broadcasts.
-*   **Zustand vs. Redux**: Zustand was selected for its minimal boilerplate and unopinionated nature. Given TanStack Query handles 90% of the complex asynchronous server state, Redux would have introduced unnecessary complexity for the remaining 10% of synchronous client state (e.g., JWT identity, UI themes).
-
 ## Local Development Setup
 
 ```bash
@@ -151,8 +124,8 @@ npm run dev
 
 - **Infrastructure as Code (IaC)**: Terraform configurations for automated, repeatable AWS deployments.
 - **Kubernetes Orchestration**: Helm charts to manage deployment lifecycles, liveness/readiness probes, and horizontal pod autoscaling.
-- **Distributed Caching**: Redis integration for aggressive caching of unauthenticated public status endpoints to withstand massive traffic spikes during severe outages.
-- **Webhook Integrations**: Native integrations with PagerDuty, Datadog, and Slack for automated incident triggering.
+- **Distributed Caching**: Redis integration for aggressive caching of unauthenticated public status endpoints.
+- **Webhook Integrations**: Native integrations with PagerDuty, Datadog, and Slack.
 
 ## License
 
