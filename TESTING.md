@@ -1,38 +1,108 @@
-# Testing Strategy
+# Testing
 
-This repository employs a comprehensive testing strategy designed for production-readiness, emphasizing reliability, deterministic state transitions, and high availability. Although fully automated suites are under active development, our QA framework enforces the following layers of validation before any deployment.
+This document describes the current state of testing in BlackWater and what a complete test suite would look like.
 
-## 1. Unit Testing (Backend & Frontend)
+---
 
-**Backend (Jest + Supertest):**
-*   **State Machine Validation**: Every incident state transition (e.g., `TRIGGERED` -> `ACKNOWLEDGED` -> `RESOLVED`) is strictly tested to guarantee illegal transitions are blocked.
-*   **Zod Schema Validation**: All incoming requests are mocked to ensure malformed payloads fail before hitting the controller layer.
-*   **Service Layer Isolation**: Mocking the Prisma client to test pure business logic within the service layer without side effects.
+## Current State
 
-**Frontend (Vitest + React Testing Library):**
-*   **Component Rendering**: Critical UI components (like the status badge and incident timeline) are unit tested for proper rendering under various prop states.
-*   **Zustand Store**: State mutations within the Zustand store (authentication status, RBAC checks) are tested in isolation.
+> **There are currently no automated tests in this project.** Playwright is listed as a dev dependency in the frontend `package.json`, but no test files exist. This is a known gap.
 
-## 2. Integration Testing
+---
 
-*   **Database Interactions (Prisma):** Integration tests run against an ephemeral PostgreSQL test database. We test complete transactional blocks, verifying that an incident declaration creates the incident, writes the initial timeline audit log, and downgrades the service status within a single ACID transaction.
-*   **WebSocket Reconciliation**: We utilize `socket.io-client` in test environments to verify that when the backend commits a database change, the exact corresponding WebSocket event is emitted to connected clients.
+## What Should Be Tested
 
-## 3. End-to-End (E2E) Testing
+### Unit Tests (Backend — Jest or Vitest)
 
-**Framework**: Playwright
+**`IncidentService.validateTransition()`**  
+This is the most important unit to test. It should verify:
+- Valid transitions succeed (e.g., TRIGGERED → ACKNOWLEDGED)
+- Invalid transitions throw an `AppError` with status 400 (e.g., CLOSED → anything)
+- CLOSED is a terminal state
 
-E2E testing is strictly focused on critical user journeys across the system boundaries:
-*   **The Full Outage Simulation**: Playwright spins up both the Command Center and the Public Status Page. It logs in as an Admin, declares a critical incident, and asserts that the Public Status Page receives the WebSocket update and changes the DOM without an HTTP refresh.
-*   **Air-Gapped Assertion**: An E2E test verifies that an internal note appended to an incident in the Command Center is fundamentally unrenderable and unfetchable from the Public Status Page, proving data isolation.
+Example test cases:
+```
+TRIGGERED → ACKNOWLEDGED ✅
+TRIGGERED → RESOLVED ✅
+TRIGGERED → CLOSED ❌ should throw
+ACKNOWLEDGED → RESOLVED ✅
+ACKNOWLEDGED → TRIGGERED ✅ (re-open)
+RESOLVED → CLOSED ✅
+CLOSED → TRIGGERED ❌ should throw
+CLOSED → ACKNOWLEDGED ❌ should throw
+```
 
-## 4. Load & Performance Testing
+**`ServiceEngine.recalculateServiceStatus()`**  
+Should verify the severity → status mapping:
+```
+No active incidents        → OPERATIONAL
+Active LOW incident        → DEGRADED
+Active MEDIUM incident     → DEGRADED
+Active HIGH incident       → PARTIAL_OUTAGE
+Active CRITICAL incident   → MAJOR_OUTAGE
+```
 
-**Framework**: K6
+**`StatusEngine.calculateOverallHealth()`**  
+Should verify org-level health rollup from service statuses:
+```
+All OPERATIONAL            → OPERATIONAL
+Any DEGRADED               → DEGRADED
+Any PARTIAL_OUTAGE         → PARTIAL_OUTAGE
+Any MAJOR_OUTAGE           → MAJOR_OUTAGE
+No services                → OPERATIONAL
+```
 
-*   **WebSocket Connection Limits**: Simulating 10,000+ concurrent idle WebSocket connections to monitor Node.js event loop lag and memory footprint.
-*   **Public API Spikes**: Bombarding the unauthenticated `/api/public/status` endpoint to test database connection pool limits and Redis caching efficiency (simulating a massive traffic spike during a real-world outage).
+---
 
-## Running Tests Locally (WIP)
+### Integration Tests (Supertest)
 
-*Currently, the automated pipelines are being migrated to GitHub Actions. Local test execution commands will be documented here once the migration is complete.*
+API routes should be tested with a real database (test database) or mocked Prisma client:
+
+**Auth routes:**
+- `POST /auth/register` — success, duplicate email
+- `POST /auth/login` — success, wrong password, unknown email
+
+**Incident routes:**
+- `GET /incidents` — with and without filters, pagination
+- `POST /incidents` — success, validation failure
+- `PATCH /incidents/:id/status` — valid transition, invalid transition, closed incident
+
+**Service routes:**
+- `POST /services` — success
+- `DELETE /services/:id` — ADMIN can delete, MEMBER cannot (403)
+
+**Public status routes:**
+- `GET /status?orgId=` — verify internal fields are stripped from response
+
+---
+
+### End-to-End Tests (Playwright)
+
+The frontend already has Playwright as a dev dependency. E2E scenarios would include:
+
+- Login flow
+- Register a new organization
+- Create an incident, assign it, change status, add an update
+- Verify the public status page shows the incident
+- Verify internal update does not appear on public page
+
+---
+
+## How to Run Tests (when implemented)
+
+```bash
+# Backend unit/integration tests
+npm test
+
+# Frontend E2E tests (Playwright)
+cd frontend
+npx playwright test
+```
+
+---
+
+## Why There Are No Tests Currently
+
+Testing was deliberately deferred to focus on building out the full feature set and architecture. The structure of the codebase (service classes with clear input/output, pure engine classes, separated middleware) was designed with testability in mind — each class can be tested in isolation with mocked dependencies.
+
+The most valuable next step is to add unit tests for `validateTransition` and `ServiceEngine` since those contain the critical business logic.

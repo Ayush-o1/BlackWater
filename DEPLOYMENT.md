@@ -1,87 +1,121 @@
 # Deployment Guide
 
-BlackWater is architected for containerized, highly available deployments. It relies on horizontal scalability and stateless API nodes.
+---
 
-## 1. Production Architecture Overview
-
-*   **Frontend**: Built as a static Vite SPA, deployed to a global Edge CDN (e.g., Vercel, AWS CloudFront, Cloudflare Pages).
-*   **Backend**: Node.js Express API wrapped in a Docker container, orchestrated via Kubernetes (EKS/GKE) or fully managed container services (AWS ECS/Fargate).
-*   **Database**: Managed PostgreSQL instance (e.g., AWS RDS, Supabase) configured for Multi-AZ high availability.
-*   **Real-Time Sync**: A managed Redis cluster (e.g., AWS ElastiCache) utilizing the Socket.IO Redis Adapter. This ensures WebSocket events emitted by Node A reach clients connected to Node B.
-
-## 2. Environment Variables
-
-A production deployment requires the following strictly configured environment variables:
+## Local Development (Quick Start)
 
 ```bash
-NODE_ENV=production
+# Backend
+git clone https://github.com/Ayush-o1/BlackWater.git
+cd BlackWater
+npm install
+cp .env.example .env         # fill in DATABASE_URL and JWT_SECRET
+npx prisma migrate dev       # run migrations
+npx prisma db seed           # load demo data
+npm run dev                  # starts on port 8000
+
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev                  # starts on port 5173
+```
+
+---
+
+## Build for Production
+
+**Backend:**
+```bash
+# Compile TypeScript to JavaScript
+npm run build
+# Output goes to ./dist/
+
+# Run the compiled server
+npm start
+# Runs dist/server.js via Node
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm run build
+# Output goes to frontend/dist/
+# Serve this as a static site (Vercel, Netlify, Nginx, etc.)
+```
+
+---
+
+## Environment Variables
+
+**Backend (.env):**
+```bash
+DATABASE_URL="postgresql://user:password@host:5432/blackwater?schema=public"
+JWT_SECRET="a-strong-secret-at-least-32-chars"
 PORT=8000
-DATABASE_URL=postgresql://user:pass@host:5432/db?schema=public&connection_limit=20
-JWT_SECRET=strong_secure_random_string
-CORS_ORIGIN=https://status.blackwater.com
-REDIS_URL=redis://host:6379
+NODE_ENV=production
+JWT_EXPIRES_IN=1d
 ```
 
-## 3. Docker Deployment Strategy
-
-### Building the Backend Image
-
-A multi-stage Dockerfile is utilized to keep the final artifact minimal and secure.
-
-```dockerfile
-# Stage 1: Builder
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npx prisma generate
-RUN npm run build
-
-# Stage 2: Production
-FROM node:20-alpine
-WORKDIR /app
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules ./node_modules
-ENV NODE_ENV=production
-EXPOSE 8000
-CMD ["npm", "start"]
+**Frontend (.env in frontend/ directory):**
+```bash
+VITE_API_URL=https://your-backend-url.com
 ```
 
-### Starting Services via Docker Compose
+If `VITE_API_URL` is not set, the frontend defaults to `http://localhost:8000`.
 
-For single-node or staging environments:
+---
 
-```yaml
-version: '3.8'
-services:
-  api:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://db_user:db_pass@db:5432/blackwater
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - db
-      - redis
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: db_user
-      POSTGRES_PASSWORD: db_pass
-      POSTGRES_DB: blackwater
-  redis:
-    image: redis:7-alpine
+## Database Migrations
+
+```bash
+# Apply pending migrations (development)
+npx prisma migrate dev
+
+# Apply migrations in production (does not reset data)
+npx prisma migrate deploy
+
+# Generate Prisma client after schema changes
+npx prisma generate
 ```
 
-## 4. Monitoring & Observability
+---
 
-Once deployed, the following metrics should be aggressively monitored:
+## Deployment Notes
 
-*   **PostgreSQL**: Connection count and `pg_stat_statements` for slow queries.
-*   **Node.js**: Event loop lag and memory heap utilization (critical for WebSocket intensive applications).
-*   **Redis**: Memory usage and eviction rates.
-*   **Infrastructure**: Uptime of the health check endpoint (`GET /api/health`).
+**Socket.IO and CORS:**
+The socket server currently allows all origins (`cors: { origin: '*' }`). Before deploying, change this in `src/socket/socket.server.ts` to your actual frontend URL:
+```typescript
+cors: {
+  origin: 'https://your-frontend-url.com',
+  methods: ['GET', 'POST'],
+}
+```
+
+Also update the CORS settings in `src/app.ts` for the REST API.
+
+**JWT Secret:**
+Use a long, randomly generated secret for production. At minimum 32 characters. Example to generate one:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+**Health Check:**
+The `/health` endpoint returns `{ status: 'UP' }` and can be used for load balancer health checks.
+
+---
+
+## Seeding Demo Data
+
+```bash
+npx prisma db seed
+```
+
+This creates:
+- 1 organization (`BlackWater Demo Corp`)
+- Admin user: `admin@BlackWater.com` / `password123`
+- Member user: `bob@BlackWater.com` / `password123`
+- 3 sample services
+- 1 resolved historical incident
+- 1 active incident with updates and timeline events
+
+After seeding, the organization ID is printed to the console. Use it for the public status page URL: `/status/<orgId>`.

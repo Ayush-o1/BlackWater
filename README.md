@@ -1,5 +1,6 @@
-# 🌊 BlackWater
-### Real-Time Infrastructure Incident Management
+# BlackWater
+
+**A full-stack incident management system with a real-time public status page.**
 
 ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
@@ -9,173 +10,261 @@
 ![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
 ![Socket.io](https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io&badgeColor=010101)
 
-**BlackWater** is a production-grade infrastructure observability and incident management platform designed to eliminate the latency between internal engineering resolution and public customer communication. It binds public status endpoints directly to an internal incident state machine, guaranteeing zero-latency DOM reconciliation and absolute synchronization across decoupled channels.
+---
+
+## What Is This?
+
+BlackWater lets engineering teams **declare, track, and resolve infrastructure incidents** through a private dashboard, while automatically keeping customers informed through a **public-facing status page** — all updated in real time over WebSockets without polling.
 
 ---
 
-## 🏗️ Architecture & Engineering Highlights
+## What It Does (Concisely)
 
-- **Deterministic State Engine**: Algorithmic computation of global infrastructure health based on active incident severity, eliminating manual human-error.
-- **Air-Gapped Data Transfer (DTO Layer)**: Strict serialization boundaries guarantee internal engineering notes, UUIDs, and system logs never leak to the unauthenticated public API.
-- **Real-Time WebSocket Reconciliation**: Zero-latency DOM updates bypassing client-side HTTP polling through an integrated Socket.IO and TanStack Query architecture.
-- **Immutable Audit Timelines**: Transactional audit system natively capturing timeline metadata for every state machine transition.
-- **Role-Based Access Control (RBAC)**: Centralized, stateless JWT middleware enforcing Admin, Member, and Viewer privileges in O(1) time.
-- **Multi-Tenant Architecture**: Top-level tenant isolation supporting multiple organizations within a single deployment.
-
----
-
-## 📸 Platform Showcase
-
-### Public Status Page
-The highly available, read-only portal for end-users. It reflects the live state of the infrastructure in real-time, driven directly by backend WebSocket events.
-
-![Public Status Page - Operational](assets/status-page.png)
-<br/>
-*A healthy public status page reflecting normal operational status across all infrastructure components.*
-
-![Public Status Page - Major Outage](assets/status-page-outage.png)
-<br/>
-*Public status page automatically updated to reflect a major outage based on active critical incidents.*
-
-### Internal Command Center: Dashboard
-A secure, authenticated dashboard for engineering and SRE teams to monitor platform health and active incidents.
-
-![Dashboard Overview](assets/dashboard.png)
-<br/>
-*The primary operational dashboard providing a high-level overview of system status and active incident count.*
-
-![Dashboard Active Incidents](assets/dashboard-active-incidents.png)
-<br/>
-*Dashboard reflecting real-time updates as multiple high-severity incidents are declared.*
-
-### Incident Management
-Comprehensive incident lifecycle tracking with immutable audit trails.
-
-![Incident Management List](assets/incidents-list.png)
-<br/>
-*A centralized view of all active and resolved incidents with severity, impact, and status.*
-
-![Incident Details View](assets/incident-details.png)
-<br/>
-*Detailed incident view allowing engineering teams to post internal updates and transition incident states.*
-
-![Create Incident Modal](assets/create-incident-modal.png)
-<br/>
-*The incident creation flow capturing essential data, severity, and impacted services.*
-
-### Service Registry
-A central repository of all tracked microservices and infrastructure components.
-
-![Service Registry](assets/services-list.png)
-<br/>
-*A managed list of services detailing their descriptions, current operational status, and last update times.*
-
-![Register Service Flow](assets/register-service-filled.png)
-<br/>
-*Adding a new microservice to the tracking registry with descriptions and initial state.*
-
-### Platform Administration
-![Organization Settings](assets/settings-full.png)
-<br/>
-*Workspace and platform configuration, managing user roles, access control, and organization details.*
+1. **Engineers log in** to a private dashboard (JWT-protected).
+2. **Incidents are declared** with a severity level and linked to affected services.
+3. **Incidents follow a state machine**: `TRIGGERED → ACKNOWLEDGED → RESOLVED → CLOSED`.
+4. When an incident's status changes, a **ServiceEngine** automatically recalculates and updates the health status of every affected service.
+5. A **public status page** (`/status/:orgId`) shows customers real-time service health and public incident updates — no login required.
+6. All status changes are broadcast over **Socket.IO** so both the internal dashboard and public page update live without a page refresh.
+7. Internal notes posted by engineers are **never exposed** to the public page — a DTO layer strips them at the service boundary.
 
 ---
 
-## 🛠️ Tech Stack
+## Screenshots
 
-**Frontend:**
-- React 18 (Vite)
-- TypeScript (Strict Mode)
-- Tailwind CSS
-- Zustand (Client State)
-- TanStack React Query (Server State)
+**Internal Dashboard (Command Center)**
 
-**Backend:**
-- Node.js & Express
-- TypeScript
-- Prisma ORM
-- PostgreSQL (JSONB for audit logs)
-- Socket.IO
-- Zod (Runtime Type Validation)
+![Dashboard](docs/images/blackwater_command_center_1781353830033.png)
+
+**Public Status Page**
+
+![Public Status Page](docs/images/blackwater_status_page_1781353818129.png)
 
 ---
 
-## 🗺️ System Architecture
+## Tech Stack
 
-```mermaid
-flowchart TB
-    subgraph Frontend [Client Tier]
-        ReactClient["React SPA (Vite)"]
-        Zustand["Zustand (Auth State)"]
-        ReactQuery["TanStack Query (Server Cache)"]
-        ReactClient --> Zustand
-        ReactClient --> ReactQuery
-    end
+### Backend
+| Tool | Purpose |
+|------|---------|
+| Node.js + Express.js | REST API server |
+| TypeScript | Type safety across the codebase |
+| Prisma ORM v5 | Database access and migrations |
+| PostgreSQL | Primary relational database |
+| Socket.IO v4 | WebSocket-based real-time events |
+| Zod v3 | Runtime request validation |
+| bcrypt | Password hashing (salt rounds = 10) |
+| jsonwebtoken | JWT signing and verification |
+| Helmet.js | HTTP security headers |
 
-    subgraph API [Application Tier]
-        Express["Express.js API"]
-        Zod["Zod Validation Middleware"]
-        SocketIO["Socket.IO Singleton"]
-        Express --> Zod
-        Express <--> SocketIO
-    end
+### Frontend
+| Tool | Purpose |
+|------|---------|
+| React 19 + Vite 8 | SPA framework and build tool |
+| TypeScript | Type safety |
+| Tailwind CSS v4 | Styling |
+| Zustand v5 | Auth state (persisted to localStorage) |
+| TanStack React Query v5 | Server-state fetching and caching |
+| Socket.IO Client v4 | Real-time event subscriptions |
+| Axios | HTTP client with auth interceptors |
+| Lucide React | Icon library |
+| React Hot Toast | Toast notifications |
 
-    subgraph Database [Data Tier]
-        Prisma["Prisma ORM"]
-        Postgres[(PostgreSQL)]
-        Prisma --> Postgres
-    end
+---
 
-    ReactClient <-->|REST APIs / JWT| Express
-    ReactClient <-->|WebSocket Events| SocketIO
-    Express <-->|Type-Safe Operations| Prisma
+## System Architecture (Overview)
+
+```
+┌─────────────────────────────────────────┐
+│            React SPA (Vite)             │
+│  Zustand (auth state + localStorage)    │
+│  React Query (server state + caching)   │
+│  Socket.IO Client (real-time events)    │
+└────────────┬──────────────┬─────────────┘
+             │ REST (JWT)   │ WebSocket
+             ▼              ▼
+┌─────────────────────────────────────────┐
+│          Express.js API Server          │
+│  requireAuth → requireRole → Zod        │
+│  Controller → Service → Engine          │
+│  SocketEmitter (singleton)              │
+└─────────────────┬───────────────────────┘
+                  │ Prisma Client
+                  ▼
+┌─────────────────────────────────────────┐
+│              PostgreSQL                 │
+│  9 models, UUID PKs, indexed queries    │
+└─────────────────────────────────────────┘
+```
+
+Every incident mutation goes through a 3-layer pipeline:
+1. **Controller** — parses and validates the HTTP request
+2. **Service** — runs business logic inside a Prisma transaction
+3. **Engine** — recalculates derived state (service health) after the transaction
+
+---
+
+## Folder Structure
+
+```
+BlackWater/
+├── src/                        # Backend source (Node.js + Express)
+│   ├── server.ts               # Entry point: DB connect, HTTP + Socket.IO start
+│   ├── app.ts                  # Express app: middleware, route mounting
+│   ├── config/
+│   │   └── env.ts              # Zod-validated environment config (fails fast on bad env)
+│   ├── middleware/
+│   │   ├── auth.middleware.ts  # JWT verification, attaches user to req
+│   │   ├── rbac.middleware.ts  # Role-based access control guard
+│   │   ├── validate.middleware.ts  # Zod request validation
+│   │   └── error.middleware.ts # Global error handler
+│   ├── modules/                # Feature modules (each has controller/service/routes/schemas)
+│   │   ├── auth/               # Register, login, get current user
+│   │   ├── incidents/          # Incident CRUD, status machine, updates
+│   │   ├── services/           # Service CRUD + ServiceEngine
+│   │   ├── status/             # Public status page API (no auth)
+│   │   ├── users/              # List users, update profile
+│   │   └── organizations/      # Org details, update org name
+│   ├── socket/
+│   │   ├── socket.server.ts    # Socket.IO init, room management
+│   │   ├── socket.emitter.ts   # Singleton emitter used by services
+│   │   ├── socket.auth.ts      # JWT auth middleware for WebSocket connections
+│   │   └── socket.types.ts     # TypeScript event type definitions
+│   ├── prisma/
+│   │   └── client.ts           # Singleton Prisma client instance
+│   └── utils/
+│       ├── jwt.ts              # generateToken / verifyToken helpers
+│       ├── response.ts         # Standardized API response helpers
+│       └── errors/
+│           ├── AppError.ts     # Custom error class with statusCode
+│           └── asyncHandler.ts # try/catch wrapper for async controllers
+├── prisma/
+│   ├── schema.prisma           # Database schema (9 models, 7 enums)
+│   ├── seed.ts                 # Demo data seeder
+│   └── migrations/             # Auto-generated migration history
+├── frontend/                   # Frontend source (React + Vite)
+│   └── src/
+│       ├── App.tsx             # Route definitions (public + protected)
+│       ├── api/                # Axios API client functions per module
+│       ├── hooks/
+│       │   ├── queries.ts      # All React Query hooks
+│       │   └── useSocketSubscriptions.ts  # Socket event → cache invalidation
+│       ├── store/
+│       │   └── useAuthStore.ts # Zustand auth store (persisted)
+│       ├── pages/              # Page-level components
+│       ├── components/         # Reusable UI components
+│       └── types/              # Shared TypeScript interfaces
+├── .env.example                # Template for required environment variables
+├── package.json                # Backend dependencies and scripts
+└── tsconfig.json               # TypeScript compiler config
 ```
 
 ---
 
-## 🚀 Local Development Setup
+## API Endpoints
+
+All authenticated routes require `Authorization: Bearer <token>` in the header.
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| `POST` | `/auth/register` | No | Create org + first admin user |
+| `POST` | `/auth/login` | No | Login, returns JWT |
+| `GET` | `/auth/me` | Yes | Current user profile |
+| `GET` | `/incidents` | VIEWER+ | List incidents (filterable, cursor-paginated) |
+| `POST` | `/incidents` | MEMBER+ | Create incident |
+| `GET` | `/incidents/:id` | VIEWER+ | Incident detail with timeline + updates |
+| `PATCH` | `/incidents/:id/status` | MEMBER+ | Change incident status (state machine) |
+| `PATCH` | `/incidents/:id/assign` | MEMBER+ | Assign incident to a user |
+| `POST` | `/incidents/:id/updates` | MEMBER+ | Add internal or public update |
+| `GET` | `/services` | VIEWER+ | List services (cursor-paginated) |
+| `POST` | `/services` | MEMBER+ | Create service |
+| `GET` | `/services/:id` | VIEWER+ | Service detail + 10 most recent incidents |
+| `PATCH` | `/services/:id` | MEMBER+ | Update name/description |
+| `DELETE` | `/services/:id` | ADMIN | Delete service |
+| `GET` | `/users` | Yes | List users in organization |
+| `GET` | `/users/me` | Yes | Current user |
+| `PATCH` | `/users/me` | Yes | Update own profile |
+| `GET` | `/organizations/me` | Yes | Organization details |
+| `PATCH` | `/organizations/me` | ADMIN | Update org name |
+| `GET` | `/status?orgId=` | No | Public status overview |
+| `GET` | `/status/services?orgId=` | No | Public service health list |
+| `GET` | `/status/incidents?orgId=` | No | Public incident list |
+| `GET` | `/status/incidents/:id?orgId=` | No | Public incident detail |
+| `GET` | `/health` | No | Health check |
+
+---
+
+## Local Development Setup
+
+**Prerequisites:** Node.js 20+, PostgreSQL running locally.
 
 ```bash
-# 1. Clone & Install
+# 1. Clone and install backend dependencies
 git clone https://github.com/Ayush-o1/BlackWater.git
 cd BlackWater
 npm install
 
-# 2. Database Setup
+# 2. Set up environment variables
 cp .env.example .env
-# Ensure PostgreSQL is running locally and DATABASE_URL is configured in .env
-npx prisma migrate dev
-npm run seed
+# Edit .env — set DATABASE_URL and JWT_SECRET at minimum
 
-# 3. Start the Backend API (Port 8000)
+# 3. Run database migrations
+npx prisma migrate dev
+
+# 4. Seed demo data
+npx prisma db seed
+
+# 5. Start the backend dev server (port 8000)
 npm run dev
 
-# 4. Start the Frontend Application (Port 5173)
+# 6. In a separate terminal, start the frontend (port 5173)
 cd frontend
 npm install
 npm run dev
 ```
 
----
+**Demo accounts (after seeding):**
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@BlackWater.com` | `password123` | ADMIN |
+| `bob@BlackWater.com` | `password123` | MEMBER |
 
-## 📚 Documentation
-
-For a complete technical deep-dive, please refer to the following documents:
-- [Architecture Deep Dive](ARCHITECTURE.md) - System goals, DTO boundaries, and scalability design.
-- [Demo Scenarios](DEMO_SCENARIOS.md) - Realistic operational scenarios for evaluating the platform.
-- [Testing Strategy](TESTING.md) - Overview of Unit, Integration, and E2E testing strategies.
-- [API Documentation](API_DOCS.md) - REST API examples for programmatic integrations.
+The public status page runs at `http://localhost:5173/status/<orgId>` — the `orgId` is printed to the console after seeding.
 
 ---
 
-## 🔮 Future Roadmap
+## Environment Variables
 
-- **Infrastructure as Code (IaC)**: Terraform configurations for automated, repeatable AWS deployments.
-- **Kubernetes Orchestration**: Helm charts to manage deployment lifecycles, liveness/readiness probes, and horizontal pod autoscaling.
-- **Distributed Caching**: Redis integration for aggressive caching of unauthenticated public status endpoints.
-- **Webhook Integrations**: Native integrations with PagerDuty, Datadog, and Slack.
+```bash
+# Required
+DATABASE_URL="postgresql://user:password@localhost:5432/blackwater?schema=public"
+JWT_SECRET="your_signing_secret_min_32_chars"
+
+# Optional (defaults shown)
+PORT=8000
+NODE_ENV=development
+JWT_EXPIRES_IN=1d
+```
+
+> The server validates all env vars at startup using a Zod schema in `src/config/env.ts`. If any required variable is missing, the process exits immediately with a clear error message.
 
 ---
 
-## 📄 License
-MIT License. See `LICENSE` for more information.
+## Documentation Index
+
+| File | Contents |
+|------|---------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Backend architecture, request lifecycle, state machine, socket design |
+| [DATABASE.md](DATABASE.md) | Schema reference, all 9 models, indexes, relationships |
+| [API_DOCS.md](API_DOCS.md) | Request/response examples for every endpoint |
+| [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md) | React app structure, state management, real-time strategy |
+| [SECURITY.md](SECURITY.md) | Authentication, RBAC, known limitations |
+| [TESTING.md](TESTING.md) | Test coverage status and planned test suite |
+| [OBSERVABILITY.md](OBSERVABILITY.md) | Health check, logging, error response format |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Build and deployment instructions |
+
+---
+
+## License
+
+MIT

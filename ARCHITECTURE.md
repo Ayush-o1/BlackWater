@@ -1,235 +1,327 @@
-# BlackWater Architecture
+# Architecture
 
-This document provides a comprehensive technical deep-dive into the architectural decisions, design patterns, and systemic workflows of the BlackWater platform.
+This document explains how BlackWater is built internally — module by module, layer by layer.
 
-## 1. Executive Summary
+---
 
-BlackWater is a highly responsive, real-time incident management platform built on a modernized Node.js and React stack. Its primary architectural directive is to bridge internal engineering workflows with unauthenticated public status reporting securely, deterministically, and with zero latency. It achieves this by abandoning traditional CRUD patterns in favor of a strictly enforced State Machine and event-driven WebSocket reconciliation.
+## System Overview
 
-## 2. System Goals
+BlackWater has three logical layers:
 
-*   **Deterministic Health**: Eliminate human error by calculating service health algorithmically based on active incident severity.
-*   **Absolute Data Isolation**: Guarantee that internal engineering discussions and system identifiers never leak to public endpoints.
-*   **Real-Time Synchronization**: Ensure public status dashboards update instantly without relying on inefficient client-side HTTP polling.
-*   **Type Safety**: Maintain an unbroken chain of TypeScript definitions from the PostgreSQL database schema directly to the React frontend components.
-
-## 3. High-Level Architecture
-
-The system follows a decoupled, three-tier architecture utilizing RESTful APIs for mutations and WebSockets for state reconciliation.
-
-```mermaid
-flowchart LR
-    subgraph Client [Client Tier]
-        React[React SPA]
-        Zustand[Zustand State]
-        RQ[TanStack Query]
-        React --> Zustand
-        React --> RQ
-    end
-
-    subgraph Server [Application Tier]
-        API[Express API]
-        Auth[JWT Middleware]
-        Validation[Zod Schema Validation]
-        Sockets[Socket.IO Server]
-        API --> Auth
-        Auth --> Validation
-        Validation <--> Sockets
-    end
-
-    subgraph Data [Data Tier]
-        Prisma[Prisma ORM]
-        DB[(PostgreSQL)]
-        Prisma --> DB
-    end
-
-    React <-->|HTTPS REST| API
-    React <-->|WSS Events| Sockets
-    API <-->|TCP / Prisma Client| Prisma
+```
+┌─────────────────────────────────────────────────┐
+│                  React SPA (Vite)                │
+│   Pages → Hooks (React Query) → API functions   │
+│   Zustand (auth) + Socket.IO Client (realtime)  │
+└──────────────┬──────────────────┬───────────────┘
+               │  HTTP REST        │  WebSocket
+               │  Bearer JWT       │  JWT handshake
+               ▼                  ▼
+┌─────────────────────────────────────────────────┐
+│             Express.js Backend                   │
+│  requireAuth → requireRole → Zod validation      │
+│  Controller → Service → Engine → DB              │
+│  SocketEmitter singleton (event broadcast)       │
+└──────────────────────┬──────────────────────────┘
+                       │  Prisma ORM
+                       ▼
+┌─────────────────────────────────────────────────┐
+│                  PostgreSQL                      │
+│  9 models, UUID primary keys, composite indexes  │
+└─────────────────────────────────────────────────┘
 ```
 
-## 4. Frontend Architecture
+---
 
-The frontend is a Single Page Application (SPA) built with **React 18** and **Vite**.
+## Backend: Request Lifecycle
 
-*   **State Management Strategy**: 
-    *   **Server State**: Managed exclusively by **TanStack React Query**. It handles all asynchronous operations, caching, background refetching, and deduping.
-    *   **Client State**: Managed by **Zustand**. It handles synchronous, globally required state such as the current authenticated user's JWT payload and active UI themes.
-*   **Routing**: Handled by `react-router-dom` with strict protected route wrappers evaluating the Zustand auth state.
-*   **Styling**: **Tailwind CSS** combined with `clsx` and `tailwind-merge` for scalable, collision-free utility classes. Component design follows Radix UI accessibility patterns.
+Every authenticated API request passes through this middleware chain before reaching business logic:
 
-## 5. Backend Architecture
-
-The backend is an **Express.js** application written in strict **TypeScript**. It utilizes a modular, feature-based directory structure (e.g., `src/modules/incidents`, `src/modules/services`).
-
-*   **Controller-Service Pattern**: Controllers strictly handle HTTP request extraction and HTTP response formatting. All business logic, state machine evaluation, and database interactions are delegated to dedicated Service classes.
-*   **Real-Time Engine**: A globally injected `SocketEmitter` singleton wraps **Socket.IO**. Services call this singleton after successful database commits to broadcast state changes.
-
-## 6. Database Architecture
-
-The persistence layer utilizes **PostgreSQL**, managed by the **Prisma ORM**.
-
-```mermaid
-erDiagram
-    Organization ||--o{ User : "contains"
-    Organization ||--o{ Service : "monitors"
-    Organization ||--o{ Incident : "tracks"
-    User ||--o{ IncidentUpdate : "authors"
-    Service }o--o{ Incident : "affected_by"
-    Incident ||--o{ IncidentUpdate : "contains"
-    Incident ||--o{ TimelineEvent : "generates"
-
-    Organization {
-        string id PK
-        string name
-        string slug
-    }
-    Incident {
-        string id PK
-        string status
-        string severity
-        datetime createdAt
-    }
-    Service {
-        string id PK
-        string name
-        string status
-    }
+```
+Request
+  │
+  ▼
+Helmet (sets security HTTP headers)
+  │
+  ▼
+CORS
+  │
+  ▼
+express.json() (body parsing)
+  │
+  ▼
+requireAuth middleware
+  │   - Extracts "Bearer <token>" from Authorization header
+  │   - Calls verifyToken(token) using jsonwebtoken
+  │   - Fetches the user from DB (ensures user still exists)
+  │   - Attaches user to req.user
+  ▼
+requireRole(...roles) middleware
+  │   - Checks req.user.role against the allowed roles array
+  │   - Returns 403 if not authorized
+  ▼
+validateRequest(zodSchema) middleware
+  │   - Validates req.body, req.query, req.params against a Zod schema
+  │   - Returns 400 with field-level error messages on failure
+  ▼
+Controller function
+  │   - Calls the appropriate Service method
+  │   - Formats and sends the HTTP response
+  ▼
+Service / Engine (business logic)
+  │   - Runs database operations (inside Prisma transactions where needed)
+  │   - Emits Socket.IO events via SocketEmitter
+  ▼
+globalErrorHandler (express error middleware)
+      - Catches all thrown AppError or unexpected errors
+      - Returns structured JSON error responses
+      - In development: includes stack trace
+      - In production: hides internal details for non-operational errors
 ```
 
-### Key Entities
-*   **Organization**: Top-level tenant container. All major queries are scoped by `organizationId` to ensure multi-tenant data isolation.
-*   **Incident**: The core aggregate root. Operates purely as a state machine.
-*   **TimelineEvent**: An append-only audit log. Uses PostgreSQL `JSONB` to store unstructured snapshots of state transitions.
+---
 
-## 7. Authentication Flow
+## Backend Module Structure
 
-Authentication is completely stateless, utilizing JSON Web Tokens (JWT) signed with bcrypt hashing.
+Each feature module in `src/modules/` follows a consistent 4-file pattern:
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant AuthController
-    participant UserService
-    participant Database
+| File | Responsibility |
+|------|---------------|
+| `*.routes.ts` | Declares routes, attaches middleware chain |
+| `*.controller.ts` | Receives HTTP request, calls service, sends response |
+| `*.service.ts` | Business logic, DB operations, socket emissions |
+| `*.schemas.ts` | Zod schemas for request validation |
 
-    Client->>AuthController: POST /auth/login { email, password }
-    AuthController->>UserService: verifyCredentials()
-    UserService->>Database: Query User by Email
-    Database-->>UserService: User Record (Hashed Hash)
-    UserService->>UserService: bcrypt.compare()
-    UserService-->>AuthController: Valid User
-    AuthController->>AuthController: Sign JWT (userId, role, orgId)
-    AuthController-->>Client: 200 OK { token }
-    Client->>Client: Store in LocalStorage / Zustand
+Some modules have additional files:
+
+| File | Module | Purpose |
+|------|--------|---------|
+| `service.engine.ts` | services | Automatic service health recalculation |
+| `status.engine.ts` | status | Overall org health calculation |
+| `status.dto.ts` | status | Strips internal fields before public exposure |
+| `auth.types.ts` | auth | TypeScript type for user without passwordHash |
+
+---
+
+## Incident State Machine
+
+Incidents follow a strict state transition graph. The `IncidentService.validateTransition()` method enforces these rules:
+
+```
+              ┌─────────────────┐
+              │    TRIGGERED    │◄──────────────┐
+              └────────┬────────┘               │
+                       │                        │
+          ┌────────────▼────────────┐           │
+          │      ACKNOWLEDGED      │───────────►│
+          └────────────┬────────────┘
+                       │
+          ┌────────────▼────────────┐
+          │        RESOLVED         │───────────► TRIGGERED (re-open)
+          └────────────┬────────────┘
+                       │
+          ┌────────────▼────────────┐
+          │         CLOSED          │  (terminal state — no further changes)
+          └─────────────────────────┘
 ```
 
-## 8. Request Lifecycle
+**Key rules from code:**
+- `CLOSED` incidents cannot be modified at all.
+- Timestamps are captured automatically: `acknowledgedAt` when moving `TRIGGERED → ACKNOWLEDGED`, and `resolvedAt` when moving to `RESOLVED`.
+- These timestamps are stored to support future analytics (e.g., MTTA, MTTR calculations).
 
-Every authenticated API request passes through a strict gauntlet of middleware before reaching business logic.
+---
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant AuthMiddleware
-    participant ZodMiddleware
-    participant Controller
-    participant Service
-    participant DB
+## ServiceEngine: Automatic Health Calculation
 
-    Client->>AuthMiddleware: POST /api/services (Bearer Token)
-    AuthMiddleware->>AuthMiddleware: Verify JWT Signature
-    AuthMiddleware->>AuthMiddleware: Extract Organization ID
-    AuthMiddleware->>ZodMiddleware: Next()
-    ZodMiddleware->>ZodMiddleware: Validate req.body against Schema
-    ZodMiddleware->>Controller: Next()
-    Controller->>Service: execute(validatedData)
-    Service->>DB: Prisma Query
-    DB-->>Service: Result
-    Service-->>Controller: DTO
-    Controller-->>Client: 200 OK (JSON)
+`src/modules/services/service.engine.ts`
+
+This is one of the core design decisions in the project. Instead of requiring engineers to manually update a service's status, BlackWater derives it automatically from active incidents.
+
+**How it works:**
+
+1. When an incident is created or its status changes, `ServiceEngine.recalculateMultipleServices()` is called.
+2. The engine queries all **active** (non-RESOLVED, non-CLOSED) incidents linked to the service.
+3. It applies this severity → status mapping:
+
+```
+No active incidents      → OPERATIONAL
+Severity LOW or MEDIUM   → DEGRADED
+Severity HIGH            → PARTIAL_OUTAGE
+Severity CRITICAL        → MAJOR_OUTAGE
 ```
 
-## 9. Incident Management Flow
+4. If the calculated status differs from the current database value, it updates the service and emits a `service:status_changed` Socket.IO event.
+5. This update-only-on-delta approach avoids unnecessary DB writes and redundant socket broadcasts.
 
-Incidents are not simple CRUD objects; they are governed by a strict State Machine. 
+**StatusEngine** (`src/modules/status/status.engine.ts`) works similarly at the organization level: it rolls up service statuses to calculate one overall health label shown at the top of the public status page.
 
-```mermaid
-stateDiagram-v2
-    [*] --> TRIGGERED: Incident Declared
-    TRIGGERED --> ACKNOWLEDGED: Engineer Investigating
-    TRIGGERED --> RESOLVED: Quick Fix
-    ACKNOWLEDGED --> RESOLVED: Fix Deployed
-    RESOLVED --> CLOSED: Postmortem Complete
-    
-    note right of TRIGGERED
-        Calculates Service Status
-        Emits WebSocket Event
-    end note
+---
+
+## Socket.IO Architecture
+
+### Server Side
+
+**Socket room model:**
+- Every authenticated user automatically joins an `organization:<orgId>` room on connect.
+- Clients can additionally join `incident:<incidentId>` rooms by emitting a `join:incident` event.
+- The server verifies that the incident belongs to the user's organization before allowing the join.
+
+**SocketEmitter singleton:**
+
+The `SocketEmitter` class in `src/socket/socket.emitter.ts` is initialized once at server startup and then called directly from service classes:
+
+```typescript
+// Inside a service after a DB mutation:
+SocketEmitter.toOrg(orgId, 'incident:created', { id, title, severity });
+SocketEmitter.toIncident(incidentId, 'timeline:event_created', { ... });
 ```
 
-The `ServiceHealthEngine` listens to these transitions. If an incident moves to `RESOLVED`, the engine recalculates the health of all attached services. If no other `CRITICAL` or `HIGH` incidents are active for that service, it automatically heals the service back to `OPERATIONAL`.
+This decouples business logic from the socket connection — services don't need to know about socket internals.
 
-## 10. Status Page Flow
+**Socket authentication:**
+- On WebSocket connection, the server runs `socketAuthMiddleware`.
+- It reads the token from `socket.handshake.auth.token` or the Authorization header.
+- It verifies the JWT and fetches the user from the database, attaching it to `socket.data.user`.
+- Unauthorized connections are rejected before the `connection` event fires.
 
-The Public Status Page (`/status/:orgId`) is designed for maximum resilience.
-1.  **Unauthenticated Access**: It hits dedicated public endpoints that do not require JWTs.
-2.  **Air-Gapped DTOs**: The backend database queries explicitly filter `where: { isPublic: true }`. Furthermore, the response is mapped through a strict Data Transfer Object (DTO) that strips internal UUIDs, engineer names, and internal notes before serialization.
-3.  **Real-Time Reception**: The page maintains an open WebSocket connection. When an `incident:updated` event is received, React Query invalidates the `['public-status', orgId]` cache key, triggering an instant, seamless DOM update for the end user.
+### Client Side
 
-## 11. Data Access Layer
+`frontend/src/hooks/useSocketSubscriptions.ts`
 
-The Data Access Layer is entirely managed by Prisma. We utilize Prisma's interactive transactions (`prisma.$transaction`) extensively when declaring incidents. A single API call to declare an incident must:
-1.  Create the Incident record.
-2.  Create the initial IncidentUpdate (the first message).
-3.  Update the Service status to degraded.
-4.  Write to the TimelineEvent audit log.
+- Creates a single persistent socket connection when the user logs in.
+- Disconnects the socket on logout.
+- Maps incoming socket events to React Query cache invalidations:
 
-If any of these fail, the transaction rolls back, guaranteeing data integrity.
+```typescript
+const eventMapping = {
+  'incident:created':       ['incidents', 'statusOverview'],
+  'incident:status_changed': ['incidents', 'incidentDetails', 'statusOverview'],
+  'service:status_changed': ['services', 'serviceDetails', 'statusOverview'],
+  // ... etc.
+};
+```
 
-## 12. Caching Strategy
+When a socket event arrives, the relevant queries are invalidated, causing React Query to re-fetch fresh data automatically.
 
-*   **Server-Side**: Currently relies on PostgreSQL's native buffer caching. Future architecture plans include a Redis layer in front of the public `/api/public/status` endpoints to absorb massive traffic spikes during an outage.
-*   **Client-Side**: TanStack React Query aggressively caches HTTP responses. We utilize a `staleTime` of 5 minutes for stable data, relying entirely on WebSocket invalidation events to keep the UI fresh, drastically reducing unnecessary network requests.
+---
 
-## 13. Error Handling
+## Public Status Page Isolation
 
-Errors are captured using an Express async handler wrapper, which pipes all exceptions to a centralized global error handler middleware.
-*   **Prisma Errors** (e.g., Unique Constraint violations) are caught and mapped to `409 Conflict`.
-*   **Zod Errors** are mapped to `400 Bad Request` with detailed validation paths.
-*   **Custom AppErrors** are used to throw operational errors (e.g., `404 Not Found`, `403 Forbidden`) with specific message payloads.
+The `/status` route group is intentionally not protected by `requireAuth`. It is designed to be shared with the public.
 
-## 14. Validation Strategy
+**What is sanitized (via `StatusDTO`):**
+- `passwordHash` — never exposed anywhere
+- Internal incident `description` (only title, status, severity, resolvedAt are public)
+- `assigneeId`, `creatorId` — internal user references
+- `IncidentUpdate.userId` — who wrote the update
+- `TimelineEvent.metadata` — contains internal UUIDs (assignee IDs, etc.)
 
-Validation is pushed to the absolute edge of the API using **Zod**. Every route definition includes a Zod schema defining the exact shape of `req.body`, `req.query`, and `req.params`. If the payload fails validation, the request is rejected before the controller is even invoked, preventing malformed data from ever touching the service layer.
+**What the public sees:**
+- Organization name and overall health
+- Service names, descriptions, and statuses
+- Incident title, status, severity, creation time, resolution time
+- Public updates (those with `isPublic: true`)
+- Timeline event types and timestamps (without metadata)
 
-## 15. API Design
+---
 
-The API follows strict RESTful conventions:
-*   Resources are pluralized nouns (e.g., `/api/incidents`, `/api/services`).
-*   Nested resources are used for strict relational mapping (e.g., `/api/incidents/:id/updates`).
-*   Standard HTTP verbs are enforced (`GET` for reads, `POST` for creation, `PATCH` for partial updates, `DELETE` for removal).
+## Authentication & Authorization Flow
 
-## 16. Security Considerations
+```
+POST /auth/register
+  1. Check email uniqueness
+  2. Hash password with bcrypt (salt rounds = 10)
+  3. Create Organization and User in a single Prisma transaction
+  4. First user in an org is always assigned ADMIN role
+  5. Generate JWT (payload: userId, orgId, role)
+  6. Return token + sanitized user (no passwordHash)
 
-*   **RBAC**: Role-Based Access Control is enforced at the route level. Modifying a service requires `ADMIN` privileges; viewing the internal dashboard requires at least `VIEWER`.
-*   **Tenant Isolation**: Almost every database query includes a `where: { organizationId: req.user.orgId }` clause, enforced by the service layer, preventing horizontal privilege escalation across tenants.
-*   **Password Hashing**: Bcrypt is used with a high salt round configuration for password storage.
-*   **CORS**: Configured strictly to allow only the known frontend origins.
+POST /auth/login
+  1. Find user by email
+  2. Compare password with bcrypt.compare()
+  3. Generate JWT
+  4. Return token + sanitized user
 
-## 17. Scalability Design
+Protected routes:
+  1. requireAuth extracts and verifies the JWT
+  2. It fetches the user from the DB (catches deleted/deactivated users)
+  3. Attaches user to req.user
+  4. requireRole checks req.user.role against allowed roles
+```
 
-The Node.js API is entirely stateless (JWTs are used instead of session cookies). This allows the backend to be horizontally scaled across multiple containers or pods seamlessly.
-To support WebSockets in a multi-node environment, the architecture is designed to integrate a **Redis Socket.IO Adapter**, allowing an event emitted on Node A to be broadcast to clients connected to Node B.
+**JWT payload structure:**
+```json
+{ "userId": "uuid", "orgId": "uuid", "role": "ADMIN|MEMBER|VIEWER" }
+```
 
-## 18. Reliability & High Availability
+**Role permission matrix:**
+| Action | VIEWER | MEMBER | ADMIN |
+|--------|--------|--------|-------|
+| View incidents | ✅ | ✅ | ✅ |
+| Create incident | ❌ | ✅ | ✅ |
+| Change status / assign | ❌ | ✅ | ✅ |
+| Add update | ❌ | ✅ | ✅ |
+| View services | ✅ | ✅ | ✅ |
+| Create/update service | ❌ | ✅ | ✅ |
+| Delete service | ❌ | ❌ | ✅ |
+| Update org name | ❌ | ❌ | ✅ |
 
-To ensure the public status page remains operational even during catastrophic failure of the core infrastructure, the system relies on decoupled layers:
-*   **Database Resilience**: Leveraging PostgreSQL read replicas for intensive public queries to ensure the primary writable instance is never bottlenecked.
-*   **Graceful Degradation**: If the WebSocket connection drops due to extreme network congestion, the frontend gracefully falls back to a randomized jitter-based HTTP polling mechanism to TanStack Query until the socket reconnects.
-*   **Air-Gapped Isolation**: The public-facing APIs are architecturally separated from the internal Command Center. A DDoS attack on the public status endpoint cannot bring down the internal state machine's transaction capabilities.
+---
 
-## 19. Future Evolution
+## Error Handling Strategy
 
-*   **Event Sourcing**: Transitioning the `TimelineEvent` table into a true Event Sourcing architecture (e.g., using Kafka or RabbitMQ) to allow disparate microservices to react to incident state changes independently.
-*   **GraphQL API**: Introducing a GraphQL layer specifically for the public status page to allow clients to tailor their payload size, optimizing for mobile data constraints during outages.
+**Custom `AppError` class** (`src/utils/errors/AppError.ts`):
+- Extends `Error` with `statusCode` and `isOperational` fields.
+- `isOperational: true` means it's an expected error (e.g., "User not found") — safe to return to the client.
+- `isOperational: false` would be for unexpected errors that should not expose details to the client.
+
+**Global error handler** (`src/middleware/error.middleware.ts`):
+- In **development**: returns full error details including stack trace.
+- In **production**: returns generic message for unexpected errors, detailed message only for operational errors.
+
+---
+
+## Prisma Transaction Usage
+
+Several operations use `prisma.$transaction()` to ensure atomicity:
+
+| Operation | Why a transaction is needed |
+|-----------|----------------------------|
+| Register | Create org + user together — partial creation would leave orphaned records |
+| Create incident | Create incident + first timeline event — both must succeed |
+| Assign incident | Update incident + create timeline audit event |
+| Change status | Update incident status + capture timestamp + create timeline event |
+| Add update | Create update + create timeline event |
+
+Outside the transaction, `ServiceEngine.recalculate*()` runs after the transaction commits — it doesn't need to be part of the atomic operation since it's a derived recalculation.
+
+---
+
+## Environment Configuration
+
+`src/config/env.ts` uses Zod to validate all environment variables at startup:
+
+```typescript
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.string().default('8000').transform(val => parseInt(val, 10)),
+  DATABASE_URL: z.string().min(1),
+  JWT_SECRET: z.string().min(1),
+  JWT_EXPIRES_IN: z.string().default('1d'),
+});
+```
+
+If any required variable is missing or invalid, the server exits immediately with a clear error rather than failing silently at runtime.
+
+---
+
+## Graceful Shutdown
+
+The server handles `SIGTERM` and `SIGINT` signals by:
+1. Stopping the HTTP server from accepting new connections.
+2. Waiting for active connections to drain.
+3. Disconnecting the Prisma client cleanly.
+4. Force-killing after 10 seconds if connections don't drain.
+
+This prevents data corruption if the process is killed mid-request.
