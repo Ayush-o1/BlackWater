@@ -1,20 +1,54 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 build/
+
+# Test coverage
 coverage/
+
+# Environment variables — NEVER commit real .env files
 .env
 .env.*
+!.env.example
+
+# Logs
 *.log
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# macOS system files
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor directories
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Deployment platform caches
 .next/
 out/
 .vercel/
 .netlify/
+
+# Temp files
 tmp/
 *.tmp
+*.temp
+
+# Prisma
 prisma/dev.db
+prisma/dev.db-journal
 generated/
 
-# Private documentation (interview prep, personal notes — not for public repo)
+# Private documentation (interview prep, personal notes)
 docs/private/

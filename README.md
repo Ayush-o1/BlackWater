@@ -12,33 +12,54 @@
 
 ---
 
-## What Is This?
+## Overview
 
-BlackWater lets engineering teams **declare, track, and resolve infrastructure incidents** through a private dashboard, while automatically keeping customers informed through a **public-facing status page** — all updated in real time over WebSockets without polling.
+BlackWater lets engineering teams **declare, track, and resolve infrastructure incidents** through a private dashboard, while automatically keeping customers informed through a **public-facing status page** — all updated in real time over WebSockets.
 
----
-
-## What It Does (Concisely)
-
-1. **Engineers log in** to a private dashboard (JWT-protected).
+Key behaviours:
+1. **Engineers log in** to a JWT-protected private dashboard.
 2. **Incidents are declared** with a severity level and linked to affected services.
-3. **Incidents follow a state machine**: `TRIGGERED → ACKNOWLEDGED → RESOLVED → CLOSED`.
-4. When an incident's status changes, a **ServiceEngine** automatically recalculates and updates the health status of every affected service.
-5. A **public status page** (`/status/:orgId`) shows customers real-time service health and public incident updates — no login required.
-6. All status changes are broadcast over **Socket.IO** so both the internal dashboard and public page update live without a page refresh.
-7. Internal notes posted by engineers are **never exposed** to the public page — a DTO layer strips them at the service boundary.
+3. **Incidents follow a strict state machine**: `TRIGGERED → ACKNOWLEDGED → RESOLVED → CLOSED`.
+4. When an incident's status changes, a **ServiceEngine** automatically recalculates and updates the health of every affected service — no manual status updates needed.
+5. A **public status page** (`/status/:orgId`) shows customers real-time service health and incident updates — no login required.
+6. All status changes are broadcast over **Socket.IO** so both the internal dashboard and the public page update live without a page refresh.
+7. Internal engineer notes are **never exposed** to the public — a DTO layer strips them at the service boundary.
 
 ---
 
 ## Screenshots
 
-**Internal Dashboard (Command Center)**
+**Login**
 
-![Dashboard](docs/images/blackwater_command_center_1781353830033.png)
+![Login](screenshots/01_login.png)
+
+**Dashboard**
+
+![Dashboard](screenshots/02_dashboard.png)
+
+**Incident List**
+
+![Incident List](screenshots/03_incident_list.png)
+
+**Incident Details & Timeline**
+
+![Incident Details](screenshots/04_incident_details.png)
+
+**Services**
+
+![Services](screenshots/05_service_list.png)
 
 **Public Status Page**
 
-![Public Status Page](docs/images/blackwater_status_page_1781353818129.png)
+![Public Status Page](screenshots/07_public_status_page.png)
+
+**Public Incident Detail**
+
+![Public Incident Detail](screenshots/08_public_incident_detail.png)
+
+**Settings**
+
+![Settings](screenshots/09_settings.png)
 
 ---
 
@@ -60,7 +81,7 @@ BlackWater lets engineering teams **declare, track, and resolve infrastructure i
 ### Frontend
 | Tool | Purpose |
 |------|---------|
-| React 19 + Vite 8 | SPA framework and build tool |
+| React 19 + Vite | SPA framework and build tool |
 | TypeScript | Type safety |
 | Tailwind CSS v4 | Styling |
 | Zustand v5 | Auth state (persisted to localStorage) |
@@ -72,7 +93,7 @@ BlackWater lets engineering teams **declare, track, and resolve infrastructure i
 
 ---
 
-## System Architecture (Overview)
+## Architecture
 
 ```
 ┌─────────────────────────────────────────┐
@@ -100,11 +121,11 @@ BlackWater lets engineering teams **declare, track, and resolve infrastructure i
 Every incident mutation goes through a 3-layer pipeline:
 1. **Controller** — parses and validates the HTTP request
 2. **Service** — runs business logic inside a Prisma transaction
-3. **Engine** — recalculates derived state (service health) after the transaction
+3. **Engine** — recalculates derived state (service health) after the transaction commits
 
 ---
 
-## Folder Structure
+## Project Structure
 
 ```
 BlackWater/
@@ -118,7 +139,7 @@ BlackWater/
 │   │   ├── rbac.middleware.ts  # Role-based access control guard
 │   │   ├── validate.middleware.ts  # Zod request validation
 │   │   └── error.middleware.ts # Global error handler
-│   ├── modules/                # Feature modules (each has controller/service/routes/schemas)
+│   ├── modules/                # Feature modules (controller / service / routes / schemas)
 │   │   ├── auth/               # Register, login, get current user
 │   │   ├── incidents/          # Incident CRUD, status machine, updates
 │   │   ├── services/           # Service CRUD + ServiceEngine
@@ -134,7 +155,7 @@ BlackWater/
 │   │   └── client.ts           # Singleton Prisma client instance
 │   └── utils/
 │       ├── jwt.ts              # generateToken / verifyToken helpers
-│       ├── response.ts         # Standardized API response helpers
+│       ├── response.ts         # Standardised API response helpers
 │       └── errors/
 │           ├── AppError.ts     # Custom error class with statusCode
 │           └── asyncHandler.ts # try/catch wrapper for async controllers
@@ -154,6 +175,7 @@ BlackWater/
 │       ├── pages/              # Page-level components
 │       ├── components/         # Reusable UI components
 │       └── types/              # Shared TypeScript interfaces
+├── screenshots/                # UI screenshots
 ├── .env.example                # Template for required environment variables
 ├── package.json                # Backend dependencies and scripts
 └── tsconfig.json               # TypeScript compiler config
@@ -161,7 +183,75 @@ BlackWater/
 
 ---
 
-## API Endpoints
+## Local Development Setup
+
+**Prerequisites:** Node.js 20+, PostgreSQL running locally.
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/Ayush-o1/BlackWater.git
+cd BlackWater
+
+# 2. Install backend dependencies
+npm install
+
+# 3. Set up environment variables
+cp .env.example .env
+# Edit .env — set DATABASE_URL to your local Postgres connection string
+# and generate a strong JWT_SECRET (see .env.example for instructions)
+
+# 4. Run database migrations
+npx prisma migrate dev
+
+# 5. Seed demo data
+npx prisma db seed
+
+# 6. Start the backend dev server (port 8000)
+npm run dev
+
+# 7. In a separate terminal, start the frontend (port 5173)
+cd frontend
+npm install
+npm run dev
+```
+
+**Demo accounts (after seeding):**
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@BlackWater.com` | `password123` | ADMIN |
+| `bob@BlackWater.com` | `password123` | MEMBER |
+
+The public status page is available at `http://localhost:5173/status/<orgId>` — the `orgId` is printed to the console after seeding.
+
+---
+
+## Environment Variables
+
+Backend (`.env`):
+
+```bash
+# Required
+DATABASE_URL="postgresql://user:password@localhost:5432/blackwater?schema=public"
+JWT_SECRET="your_signing_secret_min_32_chars"
+
+# Optional (defaults shown)
+PORT=8000
+NODE_ENV=development
+JWT_EXPIRES_IN=1d
+```
+
+Frontend (`frontend/.env`):
+
+```bash
+# Optional — defaults to http://localhost:8000 if not set
+VITE_API_URL=http://localhost:8000
+```
+
+> All backend env vars are validated at startup via Zod in `src/config/env.ts`. If any required variable is missing, the process exits immediately with a clear error message.
+
+---
+
+## API Overview
 
 All authenticated routes require `Authorization: Bearer <token>` in the header.
 
@@ -181,10 +271,10 @@ All authenticated routes require `Authorization: Bearer <token>` in the header.
 | `GET` | `/services/:id` | VIEWER+ | Service detail + 10 most recent incidents |
 | `PATCH` | `/services/:id` | MEMBER+ | Update name/description |
 | `DELETE` | `/services/:id` | ADMIN | Delete service |
-| `GET` | `/users` | Yes | List users in organization |
+| `GET` | `/users` | Yes | List users in organisation |
 | `GET` | `/users/me` | Yes | Current user |
 | `PATCH` | `/users/me` | Yes | Update own profile |
-| `GET` | `/organizations/me` | Yes | Organization details |
+| `GET` | `/organizations/me` | Yes | Organisation details |
 | `PATCH` | `/organizations/me` | ADMIN | Update org name |
 | `GET` | `/status?orgId=` | No | Public status overview |
 | `GET` | `/status/services?orgId=` | No | Public service health list |
@@ -192,65 +282,19 @@ All authenticated routes require `Authorization: Bearer <token>` in the header.
 | `GET` | `/status/incidents/:id?orgId=` | No | Public incident detail |
 | `GET` | `/health` | No | Health check |
 
----
-
-## Local Development Setup
-
-**Prerequisites:** Node.js 20+, PostgreSQL running locally.
-
-```bash
-# 1. Clone and install backend dependencies
-git clone https://github.com/Ayush-o1/BlackWater.git
-cd BlackWater
-npm install
-
-# 2. Set up environment variables
-cp .env.example .env
-# Edit .env — set DATABASE_URL and JWT_SECRET at minimum
-
-# 3. Run database migrations
-npx prisma migrate dev
-
-# 4. Seed demo data
-npx prisma db seed
-
-# 5. Start the backend dev server (port 8000)
-npm run dev
-
-# 6. In a separate terminal, start the frontend (port 5173)
-cd frontend
-npm install
-npm run dev
-```
-
-**Demo accounts (after seeding):**
-| Email | Password | Role |
-|-------|----------|------|
-| `admin@BlackWater.com` | `password123` | ADMIN |
-| `bob@BlackWater.com` | `password123` | MEMBER |
-
-The public status page runs at `http://localhost:5173/status/<orgId>` — the `orgId` is printed to the console after seeding.
+Full request/response examples are in [API_DOCS.md](API_DOCS.md).
 
 ---
 
-## Environment Variables
+## Database
 
-```bash
-# Required
-DATABASE_URL="postgresql://user:password@localhost:5432/blackwater?schema=public"
-JWT_SECRET="your_signing_secret_min_32_chars"
+PostgreSQL with Prisma ORM. 9 models: `Organization`, `User`, `Service`, `Incident`, `IncidentUpdate`, `TimelineEvent`, `OnCallSchedule`, `OnCallMember`, `NotificationLog`.
 
-# Optional (defaults shown)
-PORT=8000
-NODE_ENV=development
-JWT_EXPIRES_IN=1d
-```
-
-> The server validates all env vars at startup using a Zod schema in `src/config/env.ts`. If any required variable is missing, the process exits immediately with a clear error message.
+Full schema reference: [DATABASE.md](DATABASE.md)
 
 ---
 
-## Documentation Index
+## Documentation
 
 | File | Contents |
 |------|---------|

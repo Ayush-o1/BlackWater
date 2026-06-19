@@ -1,55 +1,22 @@
-# BlackWater Frontend (SPA)
+# BlackWater — Frontend
 
-This is the Single Page Application (SPA) client for the BlackWater platform, built for extreme responsiveness and deterministic state rendering.
+The React SPA for the BlackWater incident management platform.
 
-## Architecture & Technology Stack
+## Tech Stack
 
-*   **Core Framework**: React 18 powered by Vite for rapid development (HMR) and optimized production bundling.
-*   **Language**: Strict TypeScript.
-*   **Routing**: `react-router-dom` utilizing a feature-centric route structure.
-*   **Styling**: Tailwind CSS configured with a highly semantic, token-based design system mapped to raw CSS variables (`index.css`) to support instant theming (Dark/Light modes). UI primitives are inspired by Radix UI for accessibility.
-
-## State Management Philosophy
-
-BlackWater strictly bifurcates state into two distinct categories to prevent prop-drilling and maintain optimal rendering performance.
-
-### 1. Server State (TanStack React Query)
-**90% of the application state.**
-We utilize React Query for all asynchronous operations, caching, and data synchronization. 
-Instead of manually fetching data in `useEffect` blocks and storing it in local `useState`, we define custom hooks (e.g., `useIncidents`, `useServices`) that wrap `useQuery`. This provides native deduping, background refetching, and pagination out of the box.
-
-### 2. Client State (Zustand)
-**10% of the application state.**
-We utilize Zustand for globally required, synchronous client state that has no backend equivalent.
-This is strictly limited to:
-- JWT Authentication Payload (User ID, Role, Org ID)
-- UI State (e.g., Sidebar toggles, active theme)
-
-## Real-Time Invalidation via WebSockets
-
-The true power of the BlackWater frontend is its WebSocket integration. We completely eliminate client-side HTTP polling.
-
-**The Workflow:**
-1. A user establishes a persistent Socket.IO connection upon loading the app.
-2. When the backend emits a state change (e.g., `incident:created`), the `SocketProvider` context intercepts it.
-3. The provider directly interacts with the React Query `QueryClient` to invalidate specific query keys (e.g., `['incidents']`).
-4. React Query silently refetches the updated data in the background and triggers a DOM reconciliation instantly.
-
-This creates a "Zero-Latency" feel for the end-user while minimizing unnecessary network traffic.
-
-## Folder Structure
-
-```text
-src/
-├── components/
-│   ├── ui/          # Highly reusable, dumb UI primitives (Buttons, Badges, Modals)
-│   └── layout/      # Shell components (Sidebar, TopNav)
-├── hooks/           # TanStack Query custom wrappers
-├── lib/             # Utility functions (axios instances, clsx wrappers)
-├── pages/           # Route-level container components
-├── store/           # Zustand slice definitions
-└── types/           # Shared TypeScript interfaces matching backend DTOs
-```
+| Library | Version | Purpose |
+|---------|---------|---------|
+| React | 19 | UI framework |
+| Vite | 8 | Build tool and dev server |
+| TypeScript | ~6 | Type safety |
+| Tailwind CSS | v4 | Utility-first styling |
+| React Router DOM | v7 | Client-side routing |
+| Zustand | v5 | Auth state (persisted to localStorage) |
+| TanStack React Query | v5 | Server state, caching, background refetch |
+| Axios | v1 | HTTP client with JWT interceptors |
+| Socket.IO Client | v4 | Real-time event subscriptions |
+| Lucide React | v1 | Icon library |
+| React Hot Toast | v2 | Toast notifications |
 
 ## Running Locally
 
@@ -57,9 +24,62 @@ src/
 # Install dependencies
 npm install
 
-# Start the Vite development server
+# Start the Vite development server (port 5173)
 npm run dev
 
 # Build for production
 npm run build
+```
+
+> The frontend expects the backend API at `http://localhost:8000` by default. Set `VITE_API_URL` in a `.env` file in this directory to override.
+
+## State Management
+
+Two separate systems are used for different concerns:
+
+- **Zustand** — auth state (`user`, `token`, `isAuthenticated`), persisted to localStorage so the user stays logged in after a page refresh.
+- **TanStack React Query** — all server data (incidents, services, users). Provides caching, background refetch, and cache invalidation triggered by Socket.IO events.
+
+## Real-Time Updates
+
+`src/hooks/useSocketSubscriptions.ts` manages a single persistent Socket.IO connection. When the backend emits a state-change event (e.g., `incident:status_changed`), the hook invalidates the relevant React Query cache keys, causing React Query to silently re-fetch the updated data.
+
+## Folder Structure
+
+```
+src/
+├── App.tsx                     # Route definitions (public + protected)
+├── api/                        # Axios API call functions (one file per domain)
+│   ├── axios.ts                # Axios instance + JWT request interceptor + 401 auto-logout
+│   ├── auth.api.ts
+│   ├── incident.api.ts
+│   ├── service.api.ts
+│   ├── status.api.ts
+│   ├── user.api.ts
+│   └── organization.api.ts
+├── hooks/
+│   ├── queries.ts              # All React Query hooks (useQuery + useMutation wrappers)
+│   └── useSocketSubscriptions.ts
+├── store/
+│   └── useAuthStore.ts         # Zustand auth store
+├── pages/                      # Page-level components (one per route)
+│   ├── Login.tsx
+│   ├── Register.tsx
+│   ├── Dashboard.tsx
+│   ├── Incidents.tsx
+│   ├── IncidentDetails.tsx
+│   ├── Services.tsx
+│   ├── ServiceDetails.tsx
+│   ├── Settings.tsx
+│   ├── AdminStatusPage.tsx
+│   └── public/
+│       ├── StatusOverview.tsx
+│       └── PublicIncidentDetails.tsx
+├── components/
+│   ├── layout/                 # App shell (sidebar, protected route wrapper)
+│   ├── incidents/
+│   ├── services/
+│   ├── settings/
+│   └── ui/                     # Generic UI primitives (Card, Badge, Button, etc.)
+└── types/                      # Shared TypeScript interfaces matching backend DTOs
 ```
