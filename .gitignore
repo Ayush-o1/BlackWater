@@ -24,6 +24,7 @@ yarn-error.log*
 .DS_Store
 .AppleDouble
 .LSOverride
+**/.DS_Store
 
 # Editor directories
 .vscode/
@@ -52,3 +53,13 @@ generated/
 
 # Private documentation (interview prep, personal notes)
 docs/private/
+
+# Unused/duplicate asset directories (screenshots/ is the canonical location)
+assets/
+docs/images/
+
+# Vite boilerplate default assets (not used in this project)
+frontend/src/assets/react.svg
+frontend/src/assets/vite.svg
+frontend/src/assets/hero.png
+frontend/src/App.css

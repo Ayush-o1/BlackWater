@@ -1,7 +1,8 @@
 {
   "name": "blackwater-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "React frontend for BlackWater — an incident management platform with real-time status pages",
   "type": "module",
   "scripts": {
     "dev": "vite",

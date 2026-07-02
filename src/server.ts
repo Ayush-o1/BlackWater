@@ -22,7 +22,7 @@ const startServer = async () => {
 
     // Graceful shutdown strategy
     const shutdown = async () => {
-      console.log(' shutting down gracefully...');
+      console.log('🛑 Shutdown signal received, shutting down gracefully...');
       server.close(async () => {
         console.log('Closed out remaining server connections');
         await prisma.$disconnect();

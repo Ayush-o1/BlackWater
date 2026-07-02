@@ -1,97 +1,106 @@
 # Testing
 
-This document describes the current state of testing in BlackWater and what a complete test suite would look like.
+This document describes the test strategy for BlackWater, the areas of highest priority, and the commands used to run tests.
 
 ---
 
-## Current State
+## Current Coverage
 
-> **There are currently no automated tests in this project.** Playwright is listed as a dev dependency in the frontend `package.json`, but no test files exist. This is a known gap.
-
----
-
-## What Should Be Tested
-
-### Unit Tests (Backend — Jest or Vitest)
-
-**`IncidentService.validateTransition()`**  
-This is the most important unit to test. It should verify:
-- Valid transitions succeed (e.g., TRIGGERED → ACKNOWLEDGED)
-- Invalid transitions throw an `AppError` with status 400 (e.g., CLOSED → anything)
-- CLOSED is a terminal state
-
-Example test cases:
-```
-TRIGGERED → ACKNOWLEDGED ✅
-TRIGGERED → RESOLVED ✅
-TRIGGERED → CLOSED ❌ should throw
-ACKNOWLEDGED → RESOLVED ✅
-ACKNOWLEDGED → TRIGGERED ✅ (re-open)
-RESOLVED → CLOSED ✅
-CLOSED → TRIGGERED ❌ should throw
-CLOSED → ACKNOWLEDGED ❌ should throw
-```
-
-**`ServiceEngine.recalculateServiceStatus()`**  
-Should verify the severity → status mapping:
-```
-No active incidents        → OPERATIONAL
-Active LOW incident        → DEGRADED
-Active MEDIUM incident     → DEGRADED
-Active HIGH incident       → PARTIAL_OUTAGE
-Active CRITICAL incident   → MAJOR_OUTAGE
-```
-
-**`StatusEngine.calculateOverallHealth()`**  
-Should verify org-level health rollup from service statuses:
-```
-All OPERATIONAL            → OPERATIONAL
-Any DEGRADED               → DEGRADED
-Any PARTIAL_OUTAGE         → PARTIAL_OUTAGE
-Any MAJOR_OUTAGE           → MAJOR_OUTAGE
-No services                → OPERATIONAL
-```
+Automated tests are not yet part of this repository. Playwright is listed as a dev dependency in `frontend/package.json` but no test files exist. This is documented as a known gap — see [Technical Debt](#technical-debt).
 
 ---
 
-### Integration Tests (Supertest)
+## Unit Tests (Backend — Vitest or Jest)
 
-API routes should be tested with a real database (test database) or mocked Prisma client:
+The following are the highest-priority units to cover:
 
-**Auth routes:**
-- `POST /auth/register` — success, duplicate email
-- `POST /auth/login` — success, wrong password, unknown email
+### `IncidentService.validateTransition()`
 
-**Incident routes:**
-- `GET /incidents` — with and without filters, pagination
-- `POST /incidents` — success, validation failure
+Verifies state machine correctness. Every valid and invalid transition must be tested:
+
+| From | To | Expected |
+|------|----|---------|
+| `TRIGGERED` | `ACKNOWLEDGED` | ✅ allowed |
+| `TRIGGERED` | `RESOLVED` | ✅ allowed |
+| `TRIGGERED` | `CLOSED` | ❌ throws `AppError(400)` |
+| `ACKNOWLEDGED` | `RESOLVED` | ✅ allowed |
+| `ACKNOWLEDGED` | `TRIGGERED` | ✅ allowed (re-open) |
+| `ACKNOWLEDGED` | `CLOSED` | ❌ throws `AppError(400)` |
+| `RESOLVED` | `CLOSED` | ✅ allowed |
+| `RESOLVED` | `TRIGGERED` | ✅ allowed (re-open) |
+| `CLOSED` | `TRIGGERED` | ❌ throws `AppError(400)` |
+| `CLOSED` | `ACKNOWLEDGED` | ❌ throws `AppError(400)` |
+
+### `ServiceEngine.recalculateServiceStatus()`
+
+Verifies the severity → service health mapping:
+
+| Condition | Expected Status |
+|-----------|----------------|
+| No active incidents | `OPERATIONAL` |
+| Active `LOW` incident | `DEGRADED` |
+| Active `MEDIUM` incident | `DEGRADED` |
+| Active `HIGH` incident | `PARTIAL_OUTAGE` |
+| Active `CRITICAL` incident | `MAJOR_OUTAGE` |
+
+### `StatusEngine.calculateOverallHealth()`
+
+Verifies org-level health rollup:
+
+| Service Statuses | Expected Overall |
+|-----------------|-----------------|
+| All `OPERATIONAL` | `OPERATIONAL` |
+| Any `DEGRADED` | `DEGRADED` |
+| Any `PARTIAL_OUTAGE` | `PARTIAL_OUTAGE` |
+| Any `MAJOR_OUTAGE` | `MAJOR_OUTAGE` |
+| No services | `OPERATIONAL` |
+
+---
+
+## Integration Tests (Supertest)
+
+Route-level tests against a test database or mocked Prisma client:
+
+**Auth:**
+- `POST /auth/register` — success, duplicate email conflict (`409`)
+- `POST /auth/login` — success, incorrect password (`401`), unknown email (`401`)
+
+**Incidents:**
+- `GET /incidents` — with and without filters, cursor pagination
+- `POST /incidents` — success, Zod validation failure (`400`)
 - `PATCH /incidents/:id/status` — valid transition, invalid transition, closed incident
 
-**Service routes:**
+**Services:**
 - `POST /services` — success
-- `DELETE /services/:id` — ADMIN can delete, MEMBER cannot (403)
+- `DELETE /services/:id` — `ADMIN` succeeds, `MEMBER` receives `403`
 
-**Public status routes:**
-- `GET /status?orgId=` — verify internal fields are stripped from response
+**Public status:**
+- `GET /status?orgId=` — confirm internal fields (`description`, `assigneeId`, `metadata`) are absent from response
+
+**Authorization:**
+- All protected routes return `401` without a token
+- All MEMBER-only routes return `403` for `VIEWER`
+- All ADMIN-only routes return `403` for `MEMBER`
 
 ---
 
-### End-to-End Tests (Playwright)
+## End-to-End Tests (Playwright)
 
-The frontend already has Playwright as a dev dependency. E2E scenarios would include:
+Critical user flows to cover once E2E tests are introduced:
 
-- Login flow
+- Login and session persistence across page refresh
 - Register a new organization
-- Create an incident, assign it, change status, add an update
-- Verify the public status page shows the incident
-- Verify internal update does not appear on public page
+- Create an incident, assign it, advance through all status transitions, post an update
+- Verify the public status page reflects the active incident
+- Verify an internal (`isPublic: false`) update does not appear on the public page
+- Verify a `CLOSED` incident cannot be modified
 
 ---
 
-## How to Run Tests (when implemented)
+## Running Tests
 
 ```bash
-# Backend unit/integration tests
+# Backend unit/integration tests (once configured)
 npm test
 
 # Frontend E2E tests (Playwright)
@@ -101,8 +110,12 @@ npx playwright test
 
 ---
 
-## Why There Are No Tests Currently
+## Technical Debt
 
-Testing was deliberately deferred to focus on building out the full feature set and architecture. The structure of the codebase (service classes with clear input/output, pure engine classes, separated middleware) was designed with testability in mind — each class can be tested in isolation with mocked dependencies.
+Automated test coverage is the most significant item of technical debt in this codebase. The architecture was designed with testability as a requirement — service classes have clear inputs and outputs, engine classes are pure functions against the database, and middleware is composable and isolated. Each layer can be tested independently with mocked dependencies.
 
-The most valuable next step is to add unit tests for `validateTransition` and `ServiceEngine` since those contain the critical business logic.
+**Recommended implementation order:**
+1. Unit tests for `IncidentService.validateTransition()` — pure logic, no database dependency
+2. Unit tests for `ServiceEngine` and `StatusEngine` — mock the Prisma client
+3. Integration tests for auth and incident routes — use a dedicated test database with `prisma migrate reset`
+4. End-to-end tests with Playwright for critical user flows
