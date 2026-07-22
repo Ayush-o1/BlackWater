@@ -140,6 +140,9 @@ model Incident {
   @@index([severity])
   @@index([createdAt]) // Crucial for timeseries analytical queries
   @@index([orgId, createdAt])
+  @@index([orgId, status]) // Common dashboard filter: open incidents for an org
+  @@index([creatorId])
+  @@index([assigneeId])
 }
 
 model IncidentUpdate {
@@ -153,6 +156,7 @@ model IncidentUpdate {
   createdAt  DateTime @default(now())
 
   @@index([incidentId])
+  @@index([userId])
 }
 
 model TimelineEvent {
@@ -188,6 +192,7 @@ model OnCallMember {
   escalationLevel EscalationLevel // Determines the order of paging (PRIMARY or SECONDARY)
   createdAt       DateTime        @default(now())
 
+  @@unique([scheduleId, userId]) // A user can only appear once per on-call schedule
   @@index([scheduleId])
   @@index([userId])
 }
