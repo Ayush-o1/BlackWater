@@ -40,7 +40,7 @@ export function CreateIncidentModal({ isOpen, onClose }: CreateIncidentModalProp
       setSeverity('LOW');
       setServiceIds([]);
       onClose();
-    } catch (err) {
+    } catch {
       // Error handled by global toast
     }
   };
