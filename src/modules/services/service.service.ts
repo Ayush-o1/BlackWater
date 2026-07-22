@@ -46,6 +46,7 @@ export class ServiceService {
       where: { id: serviceId, orgId },
       include: {
         incidents: {
+          where: { orgId },
           orderBy: { createdAt: 'desc' },
           take: 10, // Returns the 10 most recent incidents affecting this service
           include: {

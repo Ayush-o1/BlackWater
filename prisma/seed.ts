@@ -4,6 +4,13 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'Refusing to run the demo seed script with NODE_ENV=production — it wipes all data. ' +
+      'If this is intentional, run with a different NODE_ENV value.'
+    );
+  }
+
   console.log('Seeding database with BlackWater demo data...');
 
   // Clean the database

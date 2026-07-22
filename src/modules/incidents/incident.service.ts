@@ -33,7 +33,17 @@ export class IncidentService {
   }
 
   static async createIncident(orgId: string, creatorId: string, data: CreateIncidentInput) {
-    const result = await prisma.$transaction(async (tx) => {
+    if (data.serviceIds.length > 0) {
+      const ownedServices = await prisma.service.findMany({
+        where: { id: { in: data.serviceIds }, orgId },
+        select: { id: true },
+      });
+      if (ownedServices.length !== data.serviceIds.length) {
+        throw new AppError('One or more services were not found in this organization', 400);
+      }
+    }
+
+    const { incident, timelineEvent } = await prisma.$transaction(async (tx) => {
       const incident = await tx.incident.create({
         data: {
           title: data.title,
@@ -60,19 +70,19 @@ export class IncidentService {
         },
       });
 
-      // Emit Socket Events
-      SocketEmitter.toOrg(orgId, 'incident:created', { id: incident.id, title: incident.title, severity: incident.severity });
-      SocketEmitter.toIncident(incident.id, 'timeline:event_created', { incidentId: incident.id, eventType: timelineEvent.eventType });
-      SocketEmitter.toOrg(orgId, 'status:updated', { orgId });
-
-      return incident;
+      return { incident, timelineEvent };
     });
+
+    // Emit Socket Events only after the transaction has committed
+    SocketEmitter.toOrg(orgId, 'incident:created', { id: incident.id, title: incident.title, severity: incident.severity });
+    SocketEmitter.toIncident(incident.id, 'timeline:event_created', { incidentId: incident.id, eventType: timelineEvent.eventType });
+    SocketEmitter.toOrg(orgId, 'status:updated', { orgId });
 
     if (data.serviceIds.length > 0) {
       await ServiceEngine.recalculateMultipleServices(orgId, data.serviceIds);
     }
 
-    return result;
+    return incident;
   }
 
   static async listIncidents(orgId: string, query: ListIncidentsQuery) {
@@ -133,7 +143,7 @@ export class IncidentService {
   }
 
   static async assignIncident(orgId: string, incidentId: string, data: AssignIncidentInput) {
-    return prisma.$transaction(async (tx) => {
+    const { updatedIncident, timelineEvent } = await prisma.$transaction(async (tx) => {
       const incident = await tx.incident.findFirst({
         where: { id: incidentId, orgId },
         select: { id: true, assigneeId: true, status: true },
@@ -161,15 +171,17 @@ export class IncidentService {
         },
       });
 
-      SocketEmitter.toOrg(orgId, 'incident:assigned', { id: incident.id, assigneeId: data.assigneeId });
-      SocketEmitter.toIncident(incident.id, 'timeline:event_created', { incidentId: incident.id, eventType: timelineEvent.eventType });
-
-      return updatedIncident;
+      return { updatedIncident, timelineEvent };
     });
+
+    SocketEmitter.toOrg(orgId, 'incident:assigned', { id: updatedIncident.id, assigneeId: data.assigneeId });
+    SocketEmitter.toIncident(updatedIncident.id, 'timeline:event_created', { incidentId: updatedIncident.id, eventType: timelineEvent.eventType });
+
+    return updatedIncident;
   }
 
   static async updateStatus(orgId: string, incidentId: string, data: ChangeStatusInput) {
-    const result = await prisma.$transaction(async (tx) => {
+    const { updatedIncident, timelineEvent } = await prisma.$transaction(async (tx) => {
       const incident = await tx.incident.findFirst({
         where: { id: incidentId, orgId },
         select: { id: true, status: true },
@@ -205,12 +217,12 @@ export class IncidentService {
         },
       });
 
-      SocketEmitter.toOrg(orgId, 'incident:status_changed', { id: incident.id, status: data.status });
-      SocketEmitter.toIncident(incident.id, 'timeline:event_created', { incidentId: incident.id, eventType: timelineEvent.eventType });
-      SocketEmitter.toOrg(orgId, 'status:updated', { orgId });
-
-      return updatedIncident;
+      return { updatedIncident, timelineEvent };
     });
+
+    SocketEmitter.toOrg(orgId, 'incident:status_changed', { id: updatedIncident.id, status: data.status });
+    SocketEmitter.toIncident(updatedIncident.id, 'timeline:event_created', { incidentId: updatedIncident.id, eventType: timelineEvent.eventType });
+    SocketEmitter.toOrg(orgId, 'status:updated', { orgId });
 
     const incidentWithServices = await prisma.incident.findUnique({
       where: { id: incidentId },
@@ -222,11 +234,11 @@ export class IncidentService {
       await ServiceEngine.recalculateMultipleServices(orgId, serviceIds);
     }
 
-    return result;
+    return updatedIncident;
   }
 
   static async addUpdate(orgId: string, incidentId: string, userId: string, data: AddUpdateInput) {
-    return prisma.$transaction(async (tx) => {
+    const { update, timelineEvent } = await prisma.$transaction(async (tx) => {
       const incident = await tx.incident.findFirst({
         where: { id: incidentId, orgId },
         select: { id: true, status: true },
@@ -252,14 +264,16 @@ export class IncidentService {
         },
       });
 
-      SocketEmitter.toOrg(orgId, 'incident:update_added', { id: incident.id, updateId: update.id, isPublic: data.isPublic });
-      SocketEmitter.toIncident(incident.id, 'timeline:event_created', { incidentId: incident.id, eventType: timelineEvent.eventType });
-      
-      if (data.isPublic) {
-        SocketEmitter.toOrg(orgId, 'status:updated', { orgId });
-      }
-
-      return update;
+      return { update, timelineEvent };
     });
+
+    SocketEmitter.toOrg(orgId, 'incident:update_added', { id: incidentId, updateId: update.id, isPublic: data.isPublic });
+    SocketEmitter.toIncident(incidentId, 'timeline:event_created', { incidentId, eventType: timelineEvent.eventType });
+
+    if (data.isPublic) {
+      SocketEmitter.toOrg(orgId, 'status:updated', { orgId });
+    }
+
+    return update;
   }
 }
