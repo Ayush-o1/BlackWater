@@ -25,10 +25,12 @@ export function CreateIncidentModal({ isOpen, onClose }: CreateIncidentModalProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
     try {
       await createIncident({
-        title,
-        description,
+        title: trimmedTitle,
+        description: description.trim(),
         severity,
         serviceIds,
       });

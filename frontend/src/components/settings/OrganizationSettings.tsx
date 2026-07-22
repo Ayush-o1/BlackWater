@@ -1,27 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useOrganization, useUpdateOrganization } from '../../hooks/queries';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 
-export function OrganizationSettings() {
-  const { data: org, isLoading } = useOrganization();
+interface OrgData {
+  id: string;
+  name: string;
+  _count?: { users: number };
+}
+
+function OrganizationForm({ org }: { org: OrgData }) {
   const { mutateAsync: updateOrg, isPending } = useUpdateOrganization();
   const { user } = useAuthStore();
-  
-  const [name, setName] = useState('');
-  
+
   const isAdmin = user?.role === 'ADMIN';
 
-  useEffect(() => {
-    if (org) {
-      setName(org.name);
-    }
-  }, [org]);
-
-  if (isLoading) return <div className="text-gray-400">Loading organization...</div>;
-  if (!org) return <div className="text-gray-400">Failed to load organization.</div>;
+  // Seeded once from the loaded org; this component is remounted (via `key`)
+  // whenever the underlying org id changes, so no effect is needed to sync it.
+  const [name, setName] = useState(org.name);
 
   const hasUnsavedChanges = name !== org.name;
 
@@ -77,4 +75,13 @@ export function OrganizationSettings() {
       </CardContent>
     </Card>
   );
+}
+
+export function OrganizationSettings() {
+  const { data: org, isLoading } = useOrganization();
+
+  if (isLoading) return <div className="text-gray-400">Loading organization...</div>;
+  if (!org) return <div className="text-gray-400">Failed to load organization.</div>;
+
+  return <OrganizationForm key={org.id} org={org} />;
 }

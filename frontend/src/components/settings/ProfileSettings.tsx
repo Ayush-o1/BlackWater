@@ -1,24 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useCurrentUser, useUpdateProfile } from '../../hooks/queries';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 
-export function ProfileSettings() {
-  const { data: user, isLoading } = useCurrentUser();
-  const { mutateAsync: updateProfile, isPending } = useUpdateProfile();
-  
-  const [name, setName] = useState('');
-  
-  useEffect(() => {
-    if (user) {
-      setName(user.name);
-    }
-  }, [user]);
+interface ProfileUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
-  if (isLoading) return <div className="text-gray-400">Loading profile...</div>;
-  if (!user) return <div className="text-gray-400">Failed to load profile.</div>;
+function ProfileForm({ user }: { user: ProfileUser }) {
+  const { mutateAsync: updateProfile, isPending } = useUpdateProfile();
+
+  // Seeded once from the loaded user; this component is remounted (via `key`)
+  // whenever the underlying user id changes, so no effect is needed to sync it.
+  const [name, setName] = useState(user.name);
 
   const hasUnsavedChanges = name !== user.name;
 
@@ -70,4 +69,13 @@ export function ProfileSettings() {
       </CardContent>
     </Card>
   );
+}
+
+export function ProfileSettings() {
+  const { data: user, isLoading } = useCurrentUser();
+
+  if (isLoading) return <div className="text-gray-400">Loading profile...</div>;
+  if (!user) return <div className="text-gray-400">Failed to load profile.</div>;
+
+  return <ProfileForm key={user.id} user={user} />;
 }

@@ -18,8 +18,10 @@ export function CreateServiceModal({ isOpen, onClose }: CreateServiceModalProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
     try {
-      await createService({ name, description });
+      await createService({ name: trimmedName, description: description.trim() });
       setName('');
       setDescription('');
       onClose();

@@ -1,5 +1,6 @@
 
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -14,6 +15,17 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, description, children, className }: ModalProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
