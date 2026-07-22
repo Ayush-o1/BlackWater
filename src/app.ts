@@ -1,15 +1,42 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { globalErrorHandler } from './middleware/error.middleware';
+import { env } from './config/env';
 
 const app: Application = express();
 
 // Security middleware to set various HTTP headers
 app.use(helmet());
 
-// CORS middleware to allow cross-origin requests
-app.use(cors());
+// CORS middleware — restrict to the configured frontend origin(s) instead of allowing any origin
+const allowedOrigins = env.CORS_ORIGIN.split(',').map((origin) => origin.trim());
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
+
+// Rate limiting to slow down brute-force/credential-stuffing attempts on auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { status: 'error', message: 'Too many requests, please try again later' },
+});
+
+// A more permissive limiter applied to the whole API as a baseline safety net
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { status: 'error', message: 'Too many requests, please try again later' },
+});
+app.use(apiLimiter);
 
 // Parse JSON request body
 app.use(express.json());
@@ -31,7 +58,7 @@ import userRoutes from './modules/users/user.routes';
 import organizationRoutes from './modules/organizations/organization.routes';
 
 // Mount routes
-app.use('/auth', authRoutes);
+app.use('/auth', authLimiter, authRoutes);
 app.use('/incidents', incidentRoutes);
 app.use('/services', serviceRoutes);
 app.use('/status', statusRoutes);

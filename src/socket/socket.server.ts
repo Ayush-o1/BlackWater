@@ -4,14 +4,18 @@ import { socketAuthMiddleware } from './socket.auth';
 import { ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData } from './socket.types';
 import { SocketEmitter } from './socket.emitter';
 import prisma from '../prisma/client';
+import { env } from '../config/env';
 
 export let io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 
 export const initSocketServer = (httpServer: HttpServer) => {
+  const allowedOrigins = env.CORS_ORIGIN.split(',').map((origin) => origin.trim());
+
   io = new Server(httpServer, {
     cors: {
-      origin: '*', // Customize this for production
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
+      credentials: true,
     },
   });
 
@@ -57,6 +61,10 @@ export const initSocketServer = (httpServer: HttpServer) => {
 
     socket.on('disconnect', () => {
       console.log(`🔌 Socket disconnected: ${socket.id}`);
+    });
+
+    socket.on('error', (err) => {
+      console.error(`🔌 Socket error on ${socket.id}:`, err);
     });
   });
 };

@@ -92,14 +92,16 @@ Socket.IO connections require JWT authentication via a socket handshake middlewa
 
 ## Known Limitations
 
-1. **No rate limiting on auth endpoints.** The `/auth/login` and `/auth/register` endpoints are not rate-limited. A brute-force attack on passwords is possible. Adding `express-rate-limit` would address this.
+1. **No refresh token.** The JWT is a single token with a fixed expiry. When it expires, the user must log in again. There is no silent refresh.
 
-2. **No refresh token.** The JWT is a single token with a fixed expiry. When it expires, the user must log in again. There is no silent refresh.
+2. **JWT is not revocable.** If a token is compromised, it remains valid until it expires. A proper token blacklist or short expiry window + refresh token pattern would mitigate this.
 
-3. **CORS is open in development.** `src/socket/socket.server.ts` sets `cors: { origin: '*' }`. This must be restricted to the frontend's domain in production.
+3. **No HTTPS enforcement in the app itself.** HTTPS should be handled at the infrastructure level (reverse proxy, load balancer).
 
-4. **JWT is not revocable.** If a token is compromised, it remains valid until it expires. A proper token blacklist or short expiry window + refresh token pattern would mitigate this.
+4. **JWT is stored in `localStorage` on the frontend**, not an `httpOnly` cookie, so it is readable by any script that achieves XSS on the page. No such XSS vector was found during this audit, but this remains a defense-in-depth gap inherent to the current auth architecture.
 
-5. **No HTTPS enforcement in the app itself.** HTTPS should be handled at the infrastructure level (reverse proxy, load balancer).
+Resolved since the last audit pass:
+- `/auth/*` endpoints are now rate-limited (20 requests / 15 min per IP), with a looser baseline limit (300 / 15 min) applied to the whole API.
+- CORS (both HTTP and Socket.IO) is now restricted to the origin(s) configured in `CORS_ORIGIN`, instead of allowing any origin.
 
 6. **No CSRF protection.** The API is stateless (JWT-based) so CSRF doesn't apply to the REST API, but if cookies were used in the future, this would need to be addressed.

@@ -3,7 +3,7 @@ import { env } from './config/env';
 import prisma from './prisma/client';
 
 import http from 'http';
-import { initSocketServer } from './socket/socket.server';
+import { initSocketServer, io } from './socket/socket.server';
 
 const startServer = async () => {
   try {
@@ -12,7 +12,7 @@ const startServer = async () => {
     console.log('✅ Successfully connected to the database');
 
     const httpServer = http.createServer(app);
-    
+
     // Initialize Socket.IO
     initSocketServer(httpServer);
 
@@ -23,6 +23,7 @@ const startServer = async () => {
     // Graceful shutdown strategy
     const shutdown = async () => {
       console.log('🛑 Shutdown signal received, shutting down gracefully...');
+      io?.close();
       server.close(async () => {
         console.log('Closed out remaining server connections');
         await prisma.$disconnect();
@@ -39,6 +40,17 @@ const startServer = async () => {
     // Listen for termination signals
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
+
+    // Catch anything outside Express's request/response cycle so the process
+    // doesn't die silently or in an inconsistent state
+    process.on('unhandledRejection', (reason) => {
+      console.error('❌ Unhandled Promise Rejection:', reason);
+    });
+
+    process.on('uncaughtException', (error) => {
+      console.error('❌ Uncaught Exception:', error);
+      shutdown();
+    });
 
   } catch (error) {
     console.error('❌ Error starting the server:', error);

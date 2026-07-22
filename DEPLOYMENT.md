@@ -61,10 +61,11 @@ npm run build
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | ✅ | — | PostgreSQL connection string |
-| `JWT_SECRET` | ✅ | — | JWT signing secret (minimum 32 characters) |
+| `JWT_SECRET` | ✅ | — | JWT signing secret (minimum 32 characters, enforced at startup) |
 | `PORT` | ❌ | `8000` | HTTP server port |
 | `NODE_ENV` | ❌ | `development` | `development` \| `production` \| `test` |
 | `JWT_EXPIRES_IN` | ❌ | `1d` | Token expiry (e.g., `1d`, `12h`, `7d`) |
+| `CORS_ORIGIN` | ❌ | `http://localhost:5173` | Comma-separated list of allowed frontend origin(s), used for both HTTP and Socket.IO CORS |
 
 ```bash
 DATABASE_URL="postgresql://user:password@host:5432/blackwater?schema=public"
@@ -72,6 +73,7 @@ JWT_SECRET="<64-char random hex string>"
 PORT=8000
 NODE_ENV=production
 JWT_EXPIRES_IN=1d
+CORS_ORIGIN="https://your-frontend.example.com"
 ```
 
 Generate a secure JWT secret:
@@ -115,25 +117,19 @@ npm run prisma:studio
 
 ## CORS Configuration
 
-The default configuration allows all origins (`*`). Before deploying, restrict CORS to your actual frontend domain.
+Both the REST API (`src/app.ts`) and Socket.IO (`src/socket/socket.server.ts`) read their allowed origin(s) from the `CORS_ORIGIN` environment variable — a comma-separated list. Set it to your actual frontend domain(s) before deploying:
 
-**`src/app.ts`** — REST API:
-```typescript
-app.use(cors({
-  origin: 'https://your-frontend.example.com',
-  credentials: true,
-}));
+```bash
+CORS_ORIGIN="https://your-frontend.example.com"
+# or multiple origins:
+CORS_ORIGIN="https://your-frontend.example.com,https://staging.example.com"
 ```
 
-**`src/socket/socket.server.ts`** — Socket.IO:
-```typescript
-const io = new Server(httpServer, {
-  cors: {
-    origin: 'https://your-frontend.example.com',
-    methods: ['GET', 'POST'],
-  },
-});
-```
+If unset, it defaults to `http://localhost:5173` (the local Vite dev server) — do not leave it at the default in production.
+
+## Rate Limiting
+
+`/auth/*` endpoints (login, register) are limited to 20 requests per 15 minutes per IP to slow down brute-force/credential-stuffing attempts. The rest of the API has a looser baseline limit of 300 requests per 15 minutes per IP. Both are implemented with `express-rate-limit` in `src/app.ts` and use in-memory storage — if you run multiple backend instances behind a load balancer, replace the default store with a shared one (e.g. Redis) so limits are enforced consistently across instances.
 
 ---
 
@@ -207,7 +203,7 @@ Verify `DATABASE_URL` is correct and the database is accepting connections. Test
 The database may have been manually modified. Run `npx prisma migrate resolve` to mark the migration as applied without re-running it.
 
 **Socket connections drop immediately**  
-Check that the CORS `origin` in `socket.server.ts` matches the frontend origin exactly, including protocol and port.
+Check that `CORS_ORIGIN` matches the frontend origin exactly, including protocol and port — it is shared by both the REST API and Socket.IO.
 
 **`JWT_SECRET` validation error**  
-All environment variables are validated at startup. If `JWT_SECRET` is missing or empty, the process exits with an error. Ensure the variable is set in the deployment environment, not just locally.
+All environment variables are validated at startup. If `JWT_SECRET` is missing or shorter than 32 characters, the process exits with an error. Ensure the variable is set in the deployment environment, not just locally.
