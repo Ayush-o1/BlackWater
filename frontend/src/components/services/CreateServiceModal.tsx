@@ -25,7 +25,7 @@ export function CreateServiceModal({ isOpen, onClose }: CreateServiceModalProps)
       setName('');
       setDescription('');
       onClose();
-    } catch (err) {
+    } catch {
       // Error handled by global toast
     }
   };
