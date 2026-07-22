@@ -1,7 +1,11 @@
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { Link } from 'react-router-dom';
+import { Card, CardContent } from '../components/ui/Card';
 import { useIncidents, useServices } from '../hooks/queries';
 import { Badge } from '../components/ui/Badge';
-import { Activity, Server, AlertTriangle, CheckCircle } from 'lucide-react';
+import { StatCard } from '../components/ui/StatCard';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
+import { Activity, Server, AlertTriangle, CheckCircle, PartyPopper, ChevronRight } from 'lucide-react';
 
 export function Dashboard() {
   const { data: servicesData, isLoading: isLoadingServices } = useServices();
@@ -9,11 +13,11 @@ export function Dashboard() {
   const isLoading = isLoadingServices || isLoadingIncidents;
 
   const totalServices = (Array.isArray(servicesData) ? servicesData : [])?.length || 0;
-  
+
   const activeIncidents = (Array.isArray(incidentsData) ? incidentsData : [])?.filter(
     (i: any) => i.status !== 'RESOLVED' && i.status !== 'CLOSED'
   ) || [];
-  
+
   const criticalIncidents = activeIncidents.filter((i: any) => i.severity === 'CRITICAL').length;
 
   const getSystemStatus = () => {
@@ -26,80 +30,98 @@ export function Dashboard() {
   const status = getSystemStatus();
   const StatusIcon = status.icon;
 
+  const severityBadge = (sev: string) => {
+    switch (sev) {
+      case 'CRITICAL': return <Badge variant="danger">Critical</Badge>;
+      case 'HIGH': return <Badge variant="warning">High</Badge>;
+      case 'MEDIUM': return <Badge variant="info">Medium</Badge>;
+      default: return <Badge variant="default">Low</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Dashboard</h1>
         <p className="text-gray-400 mt-2">Overview of your system health and recent incidents.</p>
       </div>
-      
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">System Status</CardTitle>
-            <StatusIcon className={`h-4 w-4 ${status.color}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-xl font-bold ${status.color}`}>{status.label}</div>
+          <CardContent className="p-5 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-400 truncate">System Status</p>
+              {isLoading ? (
+                <Skeleton className="h-6 w-32 mt-2" />
+              ) : (
+                <p className={`text-base font-bold mt-1 leading-snug ${status.color}`}>{status.label}</p>
+              )}
+            </div>
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 bg-muted ${status.color}`}>
+              <StatusIcon className="h-5 w-5" aria-hidden="true" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Active Incidents</CardTitle>
-            <Activity className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{isLoading ? '—' : activeIncidents.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Critical Incidents</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{isLoading ? '—' : criticalIncidents}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total Services</CardTitle>
-            <Server className="h-4 w-4 text-gray-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{isLoading ? '—' : totalServices}</div>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Active Incidents"
+          value={activeIncidents.length}
+          icon={Activity}
+          iconClassName="text-primary bg-primary/10"
+          isLoading={isLoading}
+        />
+        <StatCard
+          label="Critical Incidents"
+          value={criticalIncidents}
+          icon={AlertTriangle}
+          iconClassName="text-red-400 bg-red-500/10"
+          isLoading={isLoading}
+        />
+        <StatCard
+          label="Total Services"
+          value={totalServices}
+          icon={Server}
+          iconClassName="text-gray-300 bg-muted"
+          isLoading={isLoading}
+        />
       </div>
 
       <div className="mt-8">
         <h2 className="text-xl font-bold text-white mb-4">Recent Active Incidents</h2>
-        <div className="space-y-4">
-          {activeIncidents.length === 0 ? (
-            <Card className="bg-surface/50 border-dashed border-border p-8 text-center text-gray-500">
-              No active incidents right now. Enjoy the silence!
-            </Card>
-          ) : (
-            activeIncidents.slice(0, 5).map((incident: any) => (
-              <Card key={incident.id}>
-                <CardContent className="p-4 flex justify-between items-center">
-                  <div>
-                    <h3 className="font-semibold text-white">{incident.title}</h3>
-                    <p className="text-sm text-gray-400 mt-1">Started {new Date(incident.createdAt).toLocaleString()}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge variant={incident.severity === 'CRITICAL' ? 'danger' : 'warning'}>
-                      {incident.severity}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-[76px] w-full rounded-xl" />
+            ))}
+          </div>
+        ) : activeIncidents.length === 0 ? (
+          <Card className="border-dashed">
+            <EmptyState
+              icon={PartyPopper}
+              title="No active incidents"
+              description="Everything is running smoothly. New incidents will show up here."
+            />
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {activeIncidents.slice(0, 5).map((incident: any) => (
+              <Link key={incident.id} to={`/incidents/${incident.id}`}>
+                <Card className="hover:border-border-hover hover:bg-surface-hover">
+                  <CardContent className="p-4 flex justify-between items-center gap-4">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-white truncate">{incident.title}</h3>
+                      <p className="text-sm text-gray-400 mt-1">Started {new Date(incident.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {severityBadge(incident.severity)}
+                      <ChevronRight className="h-4 w-4 text-gray-600" aria-hidden="true" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
