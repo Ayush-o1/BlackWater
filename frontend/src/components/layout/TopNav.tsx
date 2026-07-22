@@ -1,8 +1,14 @@
 import { useAuthStore } from '../../store/useAuthStore';
 import { LogOut, User as UserIcon } from 'lucide-react';
+import { queryClient } from '../../api/queryClient';
 
 export function TopNav() {
   const { user, logout } = useAuthStore();
+
+  const handleLogout = () => {
+    logout();
+    queryClient.clear();
+  };
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-surface/50 backdrop-blur-md px-6">
@@ -18,7 +24,7 @@ export function TopNav() {
           <span className="hidden sm:inline-block">{user?.name}</span>
         </div>
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="rounded-lg p-2 text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
           title="Logout"
         >
