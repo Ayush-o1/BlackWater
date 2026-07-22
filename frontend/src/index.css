@@ -1,19 +1,67 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&display=swap");
 
 @theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Surfaces */
   --color-background: #09090b;
   --color-surface: #18181b;
-  --color-primary: #3b82f6;
+  --color-surface-hover: #1f1f23;
+
+  /* Secondary / muted fills (chips, secondary buttons, avatars) */
+  --color-muted: #27272a;
+  --color-muted-hover: #323236;
+
+  /* Borders */
   --color-border: #27272a;
+  --color-border-hover: #3f3f46;
+
+  /* Brand + semantic */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
   --color-danger: #ef4444;
   --color-warning: #eab308;
   --color-success: #22c55e;
   --color-info: #3b82f6;
+
+  /* Motion */
+  --animate-fade-in: fade-in 150ms ease-out;
+  --animate-scale-in: scale-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-in-right: slide-in-right 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 @layer base {
+  * {
+    @apply border-border;
+  }
   body {
     @apply bg-background text-white antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    @apply bg-primary/30 text-white;
   }
 }
 
@@ -31,5 +79,26 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-600;
+  }
+
+  /* Loading skeleton shimmer */
+  .skeleton {
+    @apply relative overflow-hidden bg-muted rounded-md;
+    background-image: linear-gradient(
+      90deg,
+      var(--color-muted) 0%,
+      var(--color-muted-hover) 50%,
+      var(--color-muted) 100%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
