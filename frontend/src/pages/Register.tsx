@@ -38,10 +38,10 @@ export function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full max-w-md space-y-8 animate-fade-in">
         <div className="flex flex-col items-center justify-center text-center">
           <div className="h-12 w-12 rounded-xl bg-primary/20 flex items-center justify-center mb-4">
-            <Activity className="h-6 w-6 text-primary" />
+            <Activity className="h-6 w-6 text-primary" aria-hidden="true" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white">Create an account</h2>
           <p className="text-sm text-gray-400 mt-2">Start monitoring your services with BlackWater</p>
@@ -87,7 +87,7 @@ export function RegisterPage() {
               />
               
               {error && (
-                <div className="p-3 rounded bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+                <div role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400 animate-fade-in">
                   {error}
                 </div>
               )}

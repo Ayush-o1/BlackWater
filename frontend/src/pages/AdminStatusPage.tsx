@@ -5,6 +5,9 @@ import { useIncidents, useServices } from '../hooks/queries';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { StatCard } from '../components/ui/StatCard';
+import { Skeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
 import {
   CheckCircle,
   AlertTriangle,
@@ -67,9 +70,9 @@ export function AdminStatusPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Status Page</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Status Page</h1>
           <p className="text-gray-400 mt-2">
             Monitor your public status page and overall system health.
           </p>
@@ -77,16 +80,17 @@ export function AdminStatusPage() {
         <Button
           variant="ghost"
           onClick={() => window.open(publicUrl, '_blank')}
+          className="shrink-0"
         >
-          <Globe className="mr-2 h-4 w-4" />
+          <Globe className="h-4 w-4" aria-hidden="true" />
           View Public Page
-          <ExternalLink className="ml-2 h-3.5 w-3.5 opacity-60" />
+          <ExternalLink className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
         </Button>
       </div>
 
       {/* Overall Status Banner */}
       <div className={`rounded-xl border p-6 flex items-center gap-4 ${overall.bg}`}>
-        <OverallIcon className={`h-8 w-8 shrink-0 ${overall.color}`} />
+        <OverallIcon className={`h-8 w-8 shrink-0 ${overall.color}`} aria-hidden="true" />
         <div>
           <p className={`text-xl font-bold ${overall.color}`}>{overall.label}</p>
           <p className="text-sm text-gray-400 mt-0.5">
@@ -97,43 +101,35 @@ export function AdminStatusPage() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Active Incidents</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{loadingIncidents ? '—' : activeIncidents.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Critical</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{loadingIncidents ? '—' : criticalCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Services Monitored</CardTitle>
-            <Server className="h-4 w-4 text-gray-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{loadingServices ? '—' : services.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Operational</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{loadingServices ? '—' : operationalCount}</div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Active Incidents"
+          value={activeIncidents.length}
+          icon={AlertTriangle}
+          iconClassName="text-yellow-400 bg-yellow-500/10"
+          isLoading={loadingIncidents}
+        />
+        <StatCard
+          label="Critical"
+          value={criticalCount}
+          icon={AlertTriangle}
+          iconClassName="text-red-400 bg-red-500/10"
+          isLoading={loadingIncidents}
+        />
+        <StatCard
+          label="Services Monitored"
+          value={services.length}
+          icon={Server}
+          iconClassName="text-gray-300 bg-muted"
+          isLoading={loadingServices}
+        />
+        <StatCard
+          label="Operational"
+          value={operationalCount}
+          icon={CheckCircle}
+          iconClassName="text-green-400 bg-green-500/10"
+          isLoading={loadingServices}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -142,30 +138,32 @@ export function AdminStatusPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Service Health</CardTitle>
             <Link to="/services" className="text-xs text-gray-500 hover:text-primary transition-colors flex items-center gap-1">
-              Manage <ArrowUpRight className="h-3 w-3" />
+              Manage <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
             </Link>
           </CardHeader>
           <div className="divide-y divide-border">
             {loadingServices ? (
-              <div className="p-6 text-center text-sm text-gray-500">Loading services...</div>
+              <div className="p-6 space-y-3">
+                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
             ) : services.length === 0 ? (
-              <div className="p-6 text-center text-sm text-gray-500">No services configured.</div>
+              <EmptyState icon={Server} title="No services configured" className="py-8" />
             ) : (
               services.map((service: any) => {
                 const dot = statusDot[service.status] ?? 'bg-gray-400';
                 const lbl = statusLabel[service.status] ?? { label: service.status, variant: 'default' as const };
                 return (
-                  <div key={service.id} className="px-6 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className={`w-2 h-2 rounded-full ${dot}`} />
-                      <div>
-                        <p className="text-sm font-medium text-white">{service.name}</p>
+                  <div key={service.id} className="px-6 py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} aria-hidden="true" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{service.name}</p>
                         {service.description && (
-                          <p className="text-xs text-gray-500 mt-0.5">{service.description}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">{service.description}</p>
                         )}
                       </div>
                     </div>
-                    <Badge variant={lbl.variant}>{lbl.label}</Badge>
+                    <Badge variant={lbl.variant} className="shrink-0">{lbl.label}</Badge>
                   </div>
                 );
               })
@@ -180,17 +178,16 @@ export function AdminStatusPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Active Incidents</CardTitle>
               <Link to="/incidents" className="text-xs text-gray-500 hover:text-primary transition-colors flex items-center gap-1">
-                View all <ArrowUpRight className="h-3 w-3" />
+                View all <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
               </Link>
             </CardHeader>
             <div className="divide-y divide-border">
               {loadingIncidents ? (
-                <div className="p-6 text-center text-sm text-gray-500">Loading...</div>
-              ) : activeIncidents.length === 0 ? (
-                <div className="p-6 flex flex-col items-center gap-2 text-center">
-                  <CheckCircle className="h-8 w-8 text-green-400" />
-                  <p className="text-sm text-gray-400">No active incidents.</p>
+                <div className="p-6 space-y-3">
+                  {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
                 </div>
+              ) : activeIncidents.length === 0 ? (
+                <EmptyState icon={CheckCircle} title="No active incidents" className="py-8" />
               ) : (
                 activeIncidents.slice(0, 4).map((incident: any) => (
                   <Link
@@ -208,6 +205,7 @@ export function AdminStatusPage() {
                             ? 'warning'
                             : 'default'
                         }
+                        className="shrink-0"
                       >
                         {incident.severity}
                       </Badge>
@@ -239,7 +237,7 @@ export function AdminStatusPage() {
                   onClick={handleCopy}
                   className="flex-1"
                 >
-                  <Copy className="mr-2 h-4 w-4" />
+                  <Copy className="h-4 w-4" aria-hidden="true" />
                   {copied ? 'Copied!' : 'Copy URL'}
                 </Button>
                 <Button
@@ -247,7 +245,7 @@ export function AdminStatusPage() {
                   onClick={() => window.open(publicUrl, '_blank')}
                   className="flex-1"
                 >
-                  <ExternalLink className="mr-2 h-4 w-4" />
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
                   Open Page
                 </Button>
               </div>

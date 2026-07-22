@@ -2,45 +2,69 @@ import { useParams, Link } from 'react-router-dom';
 import { usePublicIncidentDetails } from '../../hooks/queries';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { Timeline } from '../../components/incidents/Timeline';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, SearchX } from 'lucide-react';
+
+function getSeverityBadge(sev: string) {
+  switch (sev) {
+    case 'CRITICAL': return <Badge variant="danger">Critical</Badge>;
+    case 'HIGH': return <Badge variant="warning">High</Badge>;
+    case 'MEDIUM': return <Badge variant="info">Medium</Badge>;
+    default: return <Badge variant="info">Low</Badge>;
+  }
+}
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case 'RESOLVED': return <Badge variant="success">Resolved</Badge>;
+    case 'CLOSED': return <Badge variant="default">Closed</Badge>;
+    case 'ACKNOWLEDGED': return <Badge variant="warning">Acknowledged</Badge>;
+    default: return <Badge variant="danger">Investigating</Badge>;
+  }
+}
+
+function PublicIncidentDetailsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-4 w-40" />
+      <div className="space-y-3 border-b border-border pb-6">
+        <Skeleton className="h-8 w-80" />
+        <Skeleton className="h-4 w-48" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Skeleton className="lg:col-span-2 h-64 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </div>
+    </div>
+  );
+}
 
 export function PublicIncidentDetails() {
   const { orgId, id } = useParams<{ orgId: string, id: string }>();
   const { data: incident, isLoading } = usePublicIncidentDetails(orgId!, id!);
 
-  if (isLoading) return <div className="text-center text-gray-500 py-12">Loading incident details...</div>;
-  if (!incident) return <div className="text-center text-red-400 py-12">Incident not found.</div>;
-
-  const getSeverityBadge = (sev: string) => {
-    switch (sev) {
-      case 'CRITICAL': return <Badge variant="danger">Critical</Badge>;
-      case 'HIGH': return <Badge variant="warning">High</Badge>;
-      case 'MEDIUM': return <Badge variant="info">Medium</Badge>;
-      default: return <Badge variant="info">Low</Badge>;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'RESOLVED': return <Badge variant="success">Resolved</Badge>;
-      case 'CLOSED': return <Badge variant="default">Closed</Badge>;
-      case 'ACKNOWLEDGED': return <Badge variant="warning">Acknowledged</Badge>;
-      default: return <Badge variant="danger">Investigating</Badge>;
-    }
-  };
+  if (isLoading) return <PublicIncidentDetailsSkeleton />;
+  if (!incident) {
+    return (
+      <Card>
+        <EmptyState icon={SearchX} title="Incident not found" description="This incident may have been removed or the link is incorrect." />
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <Link to={`/status/${orgId}`} className="inline-flex items-center text-sm text-gray-400 hover:text-white transition-colors">
-        <ArrowLeft className="h-4 w-4 mr-1" />
+        <ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true" />
         Back to Status Overview
       </Link>
 
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-border pb-6">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold tracking-tight text-white">{incident.title}</h1>
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">{incident.title}</h1>
             {getStatusBadge(incident.status)}
             {getSeverityBadge(incident.severity)}
           </div>
@@ -86,9 +110,9 @@ export function PublicIncidentDetails() {
               <div className="flex flex-col gap-2">
                 {incident.affectedServices?.length > 0 ? (
                   incident.affectedServices.map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between">
-                      <span className="text-white font-medium">{s.name}</span>
-                      <Badge variant="warning">Affected</Badge>
+                    <div key={s.id} className="flex items-center justify-between gap-2">
+                      <span className="text-white font-medium truncate">{s.name}</span>
+                      <Badge variant="warning" className="shrink-0">Affected</Badge>
                     </div>
                   ))
                 ) : (
