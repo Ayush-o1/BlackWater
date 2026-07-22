@@ -4,8 +4,9 @@ import { Badge } from '../components/ui/Badge';
 import { Activity, Server, AlertTriangle, CheckCircle } from 'lucide-react';
 
 export function Dashboard() {
-  const { data: servicesData } = useServices();
-  const { data: incidentsData } = useIncidents({ limit: 100 });
+  const { data: servicesData, isLoading: isLoadingServices } = useServices();
+  const { data: incidentsData, isLoading: isLoadingIncidents } = useIncidents({ limit: 100 });
+  const isLoading = isLoadingServices || isLoadingIncidents;
 
   const totalServices = (Array.isArray(servicesData) ? servicesData : [])?.length || 0;
   
@@ -16,6 +17,7 @@ export function Dashboard() {
   const criticalIncidents = activeIncidents.filter((i: any) => i.severity === 'CRITICAL').length;
 
   const getSystemStatus = () => {
+    if (isLoading) return { label: 'Loading…', color: 'text-gray-400', icon: Activity };
     if (activeIncidents.length === 0) return { label: 'All Systems Operational', color: 'text-green-400', icon: CheckCircle };
     if (criticalIncidents > 0) return { label: 'Major Outage Active', color: 'text-red-500', icon: AlertTriangle };
     return { label: 'Degraded Performance', color: 'text-yellow-400', icon: Activity };
@@ -48,7 +50,7 @@ export function Dashboard() {
             <Activity className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">{activeIncidents.length}</div>
+            <div className="text-3xl font-bold text-white">{isLoading ? '—' : activeIncidents.length}</div>
           </CardContent>
         </Card>
 
@@ -58,7 +60,7 @@ export function Dashboard() {
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">{criticalIncidents}</div>
+            <div className="text-3xl font-bold text-white">{isLoading ? '—' : criticalIncidents}</div>
           </CardContent>
         </Card>
 
@@ -68,7 +70,7 @@ export function Dashboard() {
             <Server className="h-4 w-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">{totalServices}</div>
+            <div className="text-3xl font-bold text-white">{isLoading ? '—' : totalServices}</div>
           </CardContent>
         </Card>
       </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { useIncidents, useServices, useOrganization } from '../hooks/queries';
+import { useIncidents, useServices } from '../hooks/queries';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -36,7 +36,6 @@ export function AdminStatusPage() {
 
   const { data: servicesData, isLoading: loadingServices } = useServices();
   const { data: incidentsData, isLoading: loadingIncidents } = useIncidents({ limit: 100 });
-  const { data: _orgData } = useOrganization();
 
   const orgId = user?.orgId ?? '';
   const publicUrl = `${window.location.origin}/status/${orgId}`;
@@ -50,6 +49,7 @@ export function AdminStatusPage() {
   const operationalCount = services.filter((s: any) => s.status === 'OPERATIONAL').length;
 
   const getOverallStatus = () => {
+    if (loadingServices || loadingIncidents) return { label: 'Loading…', color: 'text-gray-400', icon: Activity, bg: 'bg-gray-500/10 border-gray-500/20' };
     if (criticalCount > 0) return { label: 'Major Outage', color: 'text-red-500', icon: AlertTriangle, bg: 'bg-red-500/10 border-red-500/20' };
     if (activeIncidents.length > 0) return { label: 'Degraded Performance', color: 'text-yellow-400', icon: Activity, bg: 'bg-yellow-500/10 border-yellow-500/20' };
     return { label: 'All Systems Operational', color: 'text-green-400', icon: CheckCircle, bg: 'bg-green-500/10 border-green-500/20' };

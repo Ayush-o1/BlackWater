@@ -46,8 +46,9 @@ export function IncidentDetails() {
   const getSeverityBadge = (sev: string) => {
     switch (sev) {
       case 'CRITICAL': return <Badge variant="danger">Critical</Badge>;
-      case 'MAJOR': return <Badge variant="warning">Major</Badge>;
-      default: return <Badge variant="info">Minor</Badge>;
+      case 'HIGH': return <Badge variant="warning">High</Badge>;
+      case 'MEDIUM': return <Badge variant="info">Medium</Badge>;
+      default: return <Badge variant="info">Low</Badge>;
     }
   };
 
