@@ -77,7 +77,7 @@ frontend/src/
 
 ## Routing
 
-Routes are defined in `App.tsx` using React Router v7.
+Routes are defined in `App.tsx` using React Router v7. Every page component is loaded via `React.lazy()` and rendered inside a single `<Suspense>` boundary, so each route ships its own JS chunk instead of bloating the initial bundle.
 
 ```
 /login                          → LoginPage (public)
