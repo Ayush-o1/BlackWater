@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '../ui/Table';
 import { Badge } from '../ui/Badge';
 import { Input } from '../ui/Input';
+import { Avatar } from '../ui/Avatar';
 import { Skeleton } from '../ui/Skeleton';
 import { EmptyState } from '../ui/EmptyState';
 import { Search, Users } from 'lucide-react';
@@ -66,9 +67,12 @@ export function TeamSettings() {
                   {filteredUsers.map((user: any) => (
                     <TableRow key={user.id}>
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-white">{user.name}</span>
-                          <span className="text-sm text-gray-500">{user.email}</span>
+                        <div className="flex items-center gap-3">
+                          <Avatar name={user.name} size="sm" />
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-medium text-white truncate">{user.name}</span>
+                            <span className="text-sm text-gray-500 truncate">{user.email}</span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -89,9 +93,12 @@ export function TeamSettings() {
             <div className="sm:hidden space-y-2">
               {filteredUsers.map((user: any) => (
                 <div key={user.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/40">
-                  <div className="min-w-0">
-                    <p className="font-medium text-white truncate">{user.name}</p>
-                    <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={user.name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-white truncate">{user.name}</p>
+                      <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                    </div>
                   </div>
                   <Badge variant={user.role === 'ADMIN' ? 'info' : 'default'} className="shrink-0">
                     {user.role}

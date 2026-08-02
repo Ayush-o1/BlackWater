@@ -1,6 +1,7 @@
 import { useAuthStore } from '../../store/useAuthStore';
-import { LogOut, User as UserIcon, Menu } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import { queryClient } from '../../api/queryClient';
+import { Avatar } from '../ui/Avatar';
 
 interface TopNavProps {
   onMenuClick?: () => void;
@@ -29,11 +30,9 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         </div>
       </div>
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 text-sm text-gray-300">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-            <UserIcon className="h-4 w-4" aria-hidden="true" />
-          </div>
-          <span className="hidden sm:inline-block">{user?.name}</span>
+        <div className="flex items-center gap-2.5 text-sm text-gray-300">
+          <Avatar name={user?.name ?? ''} size="sm" />
+          <span className="hidden sm:inline-block font-medium">{user?.name}</span>
         </div>
         <button
           onClick={handleLogout}

@@ -31,7 +31,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             className={({ isActive }) =>
               twMerge(
                 clsx(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
+                  'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
                   isActive
                     ? 'bg-primary/10 text-primary'
                     : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
@@ -39,8 +39,18 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
               )
             }
           >
-            <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {item.name}
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span
+                    className="absolute -left-1 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+                    aria-hidden="true"
+                  />
+                )}
+                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                {item.name}
+              </>
+            )}
           </NavLink>
         );
       })}
