@@ -31,7 +31,7 @@ function StatusOverviewSkeleton() {
 
 export function StatusOverview() {
   const { orgId } = useParams<{ orgId: string }>();
-  const { data, isLoading } = useStatusOverview(orgId!);
+  const { data, isLoading, dataUpdatedAt } = useStatusOverview(orgId!);
 
   if (isLoading) return <StatusOverviewSkeleton />;
   if (!data) {
@@ -87,7 +87,12 @@ export function StatusOverview() {
     <div className="space-y-12">
       <div className="text-center">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-2">{organization.name} Status</h1>
-        <p className="text-gray-400">Real-time status tracking and incident history</p>
+        <p className="text-gray-400">Current service health and incident history</p>
+        {dataUpdatedAt > 0 && (
+          <p className="text-xs text-gray-600 mt-2">
+            Last checked {new Date(dataUpdatedAt).toLocaleTimeString()}
+          </p>
+        )}
       </div>
 
       {renderHeroBanner()}
