@@ -31,9 +31,15 @@ function paletteIndexFor(seed: string) {
 
 interface AvatarProps {
   name: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
+
+const SIZE_CLASSES: Record<NonNullable<AvatarProps['size']>, string> = {
+  sm: 'h-8 w-8 text-xs',
+  md: 'h-9 w-9 text-sm',
+  lg: 'h-14 w-14 text-lg',
+};
 
 export function Avatar({ name, size = 'md', className }: AvatarProps) {
   return (
@@ -41,7 +47,7 @@ export function Avatar({ name, size = 'md', className }: AvatarProps) {
       aria-hidden="true"
       className={cn(
         'flex items-center justify-center rounded-full font-semibold shrink-0 select-none',
-        size === 'sm' ? 'h-8 w-8 text-xs' : 'h-9 w-9 text-sm',
+        SIZE_CLASSES[size],
         PALETTE[paletteIndexFor(name || '?')],
         className
       )}

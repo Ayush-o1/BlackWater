@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { Avatar } from '../ui/Avatar';
 import { Skeleton } from '../ui/Skeleton';
 
 interface ProfileUser {
@@ -35,6 +36,13 @@ function ProfileForm({ user }: { user: ProfileUser }) {
         <p className="text-sm text-gray-500 mt-1">Manage your personal information.</p>
       </CardHeader>
       <CardContent>
+        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border/50">
+          <Avatar name={user.name} size="lg" />
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-white truncate">{user.name}</p>
+            <p className="text-sm text-gray-500 truncate">{user.email}</p>
+          </div>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-6 max-w-xl">
           <Input
             label="Full Name"
@@ -79,10 +87,19 @@ function ProfileSettingsSkeleton() {
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-4 w-56 mt-2" />
       </CardHeader>
-      <CardContent className="space-y-6 max-w-xl">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-6 w-16" />
+      <CardContent>
+        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border/50">
+          <Skeleton className="h-14 w-14 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3.5 w-40" />
+          </div>
+        </div>
+        <div className="space-y-6 max-w-xl">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-6 w-16" />
+        </div>
       </CardContent>
     </Card>
   );
