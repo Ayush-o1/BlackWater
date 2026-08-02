@@ -135,7 +135,7 @@ export function IncidentDetails() {
               Resolve Incident
             </Button>
           )}
-          {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && (
+          {incident.status === 'RESOLVED' && (
             <Button variant="secondary" onClick={() => handleStatusChange('TRIGGERED')} isLoading={isUpdatingStatus}>
               Reopen
             </Button>
@@ -159,27 +159,31 @@ export function IncidentDetails() {
               <CardTitle>Add Update</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleAddUpdate} className="space-y-4">
-                <Textarea
-                  required
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  placeholder="Provide an update on the investigation..."
-                  aria-label="Update message"
-                />
-                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-                  <Select
-                    className="sm:w-48"
-                    value={isPublic}
-                    onChange={e => setIsPublic(e.target.value)}
-                    aria-label="Update visibility"
-                  >
-                    <option value="false">Internal Note</option>
-                    <option value="true">Public Update</option>
-                  </Select>
-                  <Button type="submit" isLoading={isAddingUpdate} disabled={!message.trim()}>Post Update</Button>
-                </div>
-              </form>
+              {incident.status === 'CLOSED' ? (
+                <p className="text-sm text-gray-500">This incident is closed and can no longer be updated.</p>
+              ) : (
+                <form onSubmit={handleAddUpdate} className="space-y-4">
+                  <Textarea
+                    required
+                    value={message}
+                    onChange={e => setMessage(e.target.value)}
+                    placeholder="Provide an update on the investigation..."
+                    aria-label="Update message"
+                  />
+                  <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+                    <Select
+                      className="sm:w-48"
+                      value={isPublic}
+                      onChange={e => setIsPublic(e.target.value)}
+                      aria-label="Update visibility"
+                    >
+                      <option value="false">Internal Note</option>
+                      <option value="true">Public Update</option>
+                    </Select>
+                    <Button type="submit" isLoading={isAddingUpdate} disabled={!message.trim()}>Post Update</Button>
+                  </div>
+                </form>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -194,7 +198,7 @@ export function IncidentDetails() {
                 <span className="text-gray-500 block mb-1">Assignee</span>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-white font-medium">{incident.assignee?.name || 'Unassigned'}</span>
-                  {(!incident.assigneeId || incident.assigneeId !== user?.id) && (
+                  {incident.status !== 'CLOSED' && (!incident.assigneeId || incident.assigneeId !== user?.id) && (
                     <Button
                       variant="secondary"
                       onClick={handleAssignToMe}
