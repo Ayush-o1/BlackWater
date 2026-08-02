@@ -9,6 +9,7 @@ import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
 import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Avatar } from '../components/ui/Avatar';
 import { Timeline } from '../components/incidents/Timeline';
 import { AlertOctagon, MessageSquare } from 'lucide-react';
 
@@ -195,20 +196,39 @@ export function IncidentDetails() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div>
-                <span className="text-gray-500 block mb-1">Assignee</span>
+                <span className="text-gray-500 block mb-1.5">Assignee</span>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-white font-medium">{incident.assignee?.name || 'Unassigned'}</span>
+                  {incident.assignee ? (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar name={incident.assignee.name} size="sm" />
+                      <span className="text-white font-medium truncate">{incident.assignee.name}</span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-500">Unassigned</span>
+                  )}
                   {incident.status !== 'CLOSED' && (!incident.assigneeId || incident.assigneeId !== user?.id) && (
                     <Button
                       variant="secondary"
                       onClick={handleAssignToMe}
                       isLoading={isAssigning}
                       size="sm"
+                      className="shrink-0"
                     >
                       Assign to Me
                     </Button>
                   )}
                 </div>
+              </div>
+              <div>
+                <span className="text-gray-500 block mb-1.5">Reported By</span>
+                {incident.creator ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar name={incident.creator.name} size="sm" />
+                    <span className="text-white font-medium truncate">{incident.creator.name}</span>
+                  </div>
+                ) : (
+                  <span className="text-gray-500">Unknown</span>
+                )}
               </div>
               <div>
                 <span className="text-gray-500 block mb-1">Affected Services</span>
@@ -240,8 +260,11 @@ export function IncidentDetails() {
               ) : (
                 incident.updates.map((u: any) => (
                   <div key={u.id} className="border-b border-border/50 pb-3 last:border-0 last:pb-0">
-                    <div className="flex justify-between items-start mb-1 gap-2">
-                      <span className="text-xs font-semibold text-gray-300">{u.author?.name}</span>
+                    <div className="flex justify-between items-start mb-1.5 gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Avatar name={u.user?.name ?? '?'} size="sm" className="h-5 w-5 text-[10px]" />
+                        <span className="text-xs font-semibold text-gray-300 truncate">{u.user?.name}</span>
+                      </div>
                       <Badge variant={u.isPublic ? 'info' : 'default'} className="text-[10px] shrink-0">
                         {u.isPublic ? 'Public' : 'Internal'}
                       </Badge>

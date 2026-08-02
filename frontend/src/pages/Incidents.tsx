@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
 import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Avatar } from '../components/ui/Avatar';
 import { useIncidents } from '../hooks/queries';
 import { CreateIncidentModal } from '../components/incidents/CreateIncidentModal';
 import { PlusCircle, AlertTriangle, ChevronRight } from 'lucide-react';
@@ -90,7 +91,16 @@ export function Incidents() {
                     </TableCell>
                     <TableCell>{getStatusBadge(incident.status)}</TableCell>
                     <TableCell>{getSeverityBadge(incident.severity)}</TableCell>
-                    <TableCell>{incident.assignee?.name || 'Unassigned'}</TableCell>
+                    <TableCell>
+                      {incident.assignee ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar name={incident.assignee.name} size="sm" className="h-6 w-6 text-[10px]" />
+                          <span>{incident.assignee.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">Unassigned</span>
+                      )}
+                    </TableCell>
                     <TableCell>{new Date(incident.createdAt).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}
