@@ -5,13 +5,15 @@ import { useAuthStore } from '../store/useAuthStore';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Activity } from 'lucide-react';
+import { AuthLayout } from '../components/layout/AuthLayout';
+import { AlertCircle, Check } from 'lucide-react';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const setAuth = useAuthStore(state => state.setAuth);
@@ -20,74 +22,85 @@ export function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       const response = await AuthAPI.login({ email, password });
-      setAuth(response.user, response.token);
+      setAuth(response.user, response.token, remember);
+      setSuccess(true);
+      // Brief affirmation before handing off to the dashboard — long enough
+      // to register, short enough to never feel like a delay.
+      await new Promise((resolve) => setTimeout(resolve, 350));
       navigate('/');
     } catch (err: any) {
       const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to login';
       setError(msg);
       toast.error(msg);
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-8 animate-fade-in">
-        <div className="flex flex-col items-center justify-center text-center">
-          <div className="h-12 w-12 rounded-xl bg-primary/20 flex items-center justify-center mb-4">
-            <Activity className="h-6 w-6 text-primary" aria-hidden="true" />
-          </div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Welcome back</h2>
-          <p className="text-sm text-gray-400 mt-2">Sign in to your BlackWater account</p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Authentication</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <Input
-                label="Email address"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
-              />
-              <Input
-                label="Password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-              
-              {error && (
-                <div role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400 animate-fade-in">
-                  {error}
-                </div>
-              )}
-
-              <Button type="submit" className="w-full" isLoading={loading}>
-                Sign in
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <p className="text-center text-sm text-gray-400">
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Sign in to your BlackWater account"
+      footer={
+        <>
           Don't have an account?{' '}
-          <Link to="/register" className="font-medium text-primary hover:text-blue-400">
+          <Link to="/register" className="font-medium text-primary hover:text-blue-400 transition-colors">
             Sign up here
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <Input
+          label="Email address"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="priya.sharma@technova.in"
+        />
+        <div>
+          <Input
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+          <label className="flex items-center gap-2 mt-3 text-sm text-gray-400 cursor-pointer select-none w-fit">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-border bg-surface accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated"
+            />
+            Remember me
+          </label>
+        </div>
+
+        {error && (
+          <div role="alert" className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400 animate-fade-in">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <Button type="submit" className="w-full" isLoading={loading && !success} disabled={success}>
+          {success ? (
+            <>
+              <Check className="h-4 w-4" aria-hidden="true" />
+              Signed in
+            </>
+          ) : (
+            'Sign in'
+          )}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

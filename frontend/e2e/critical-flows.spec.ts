@@ -11,7 +11,7 @@ async function register(page: Page, overrides: { name?: string; email?: string; 
   await page.goto('/register');
   await page.getByLabel('Full Name').fill(name);
   await page.getByLabel('Email address').fill(email);
-  await page.getByLabel('Password').fill('CorrectHorse!9');
+  await page.getByLabel('Password', { exact: true }).fill('CorrectHorse!9');
   await page.getByLabel('Organization Name').fill(orgName);
   await page.getByRole('button', { name: 'Create Account' }).click();
 
@@ -40,7 +40,7 @@ test.describe('authentication', () => {
     await page.goto('/login');
 
     await page.getByLabel('Email address').fill(email);
-    await page.getByLabel('Password').fill('CorrectHorse!9');
+    await page.getByLabel('Password', { exact: true }).fill('CorrectHorse!9');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/');
@@ -54,7 +54,7 @@ test.describe('authentication', () => {
     await page.goto('/login');
 
     await page.getByLabel('Email address').fill(email);
-    await page.getByLabel('Password').fill('WrongPassword!1');
+    await page.getByLabel('Password', { exact: true }).fill('WrongPassword!1');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page.getByRole('alert')).toHaveText(/invalid credentials/i);
