@@ -2,6 +2,7 @@
 
 **Full-stack incident management platform with role-based access control and a real-time public status page.**
 
+[![CI](https://github.com/Ayush-o1/BlackWater/actions/workflows/ci.yml/badge.svg)](https://github.com/Ayush-o1/BlackWater/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)

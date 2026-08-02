@@ -25,7 +25,7 @@ export default defineConfig({
       cwd: repoRoot,
       url: 'http://localhost:8001/health',
       reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
+      timeout: 120_000,
     },
     {
       command: 'npm run dev -- --port 5173 --strictPort',
@@ -33,7 +33,7 @@ export default defineConfig({
       env: { VITE_API_URL: 'http://localhost:8001' },
       url: 'http://localhost:5173',
       reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
+      timeout: 120_000,
     },
   ],
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],

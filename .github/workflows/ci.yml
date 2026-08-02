@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+  TEST_DATABASE_URL: postgresql://blackwater:blackwater@localhost:5432/blackwater_test?schema=public
+
+jobs:
+  backend:
+    name: Backend build & tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: blackwater
+          POSTGRES_PASSWORD: blackwater
+          POSTGRES_DB: blackwater_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Write .env.test
+        run: |
+          cat <<EOF > .env.test
+          DATABASE_URL=${{ env.TEST_DATABASE_URL }}
+          JWT_SECRET=ci_only_secret_at_least_32_characters_long
+          JWT_EXPIRES_IN=1d
+          PORT=8001
+          NODE_ENV=test
+          CORS_ORIGIN=http://localhost:5173
+          EOF
+
+      - name: Type-check & build
+        run: npm run build
+
+      - name: Run unit + integration tests
+        run: npm test
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: blackwater
+          POSTGRES_PASSWORD: blackwater
+          POSTGRES_DB: blackwater_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Write .env.test
+        run: |
+          cat <<EOF > .env.test
+          DATABASE_URL=${{ env.TEST_DATABASE_URL }}
+          JWT_SECRET=ci_only_secret_at_least_32_characters_long
+          JWT_EXPIRES_IN=1d
+          PORT=8001
+          NODE_ENV=test
+          CORS_ORIGIN=http://localhost:5173
+          EOF
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright suite
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
