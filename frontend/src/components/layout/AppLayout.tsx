@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopNav } from './TopNav';
 import { useSocketSubscriptions } from '../../hooks/useSocketSubscriptions';
@@ -7,6 +7,7 @@ import { useSocketSubscriptions } from '../../hooks/useSocketSubscriptions';
 export function AppLayout() {
   useSocketSubscriptions();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
@@ -15,7 +16,12 @@ export function AppLayout() {
         <TopNav onMenuClick={() => setIsMobileNavOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-6xl">
-            <Outlet />
+            {/* Keying on the route restarts the fade on every navigation —
+                a brief, consistent settle-in instead of content just
+                popping into place. */}
+            <div key={location.pathname} className="animate-fade-in">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>

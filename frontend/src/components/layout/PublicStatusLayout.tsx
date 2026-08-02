@@ -1,4 +1,4 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Activity, ArrowLeft, LayoutDashboard, LogIn } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSocketSubscriptions } from '../../hooks/useSocketSubscriptions';
@@ -8,6 +8,7 @@ export function PublicStatusLayout() {
 
   const { isAuthenticated, user } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -63,7 +64,9 @@ export function PublicStatusLayout() {
 
       {/* Page Content */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12">
-        <Outlet />
+        <div key={location.pathname} className="animate-fade-in">
+          <Outlet />
+        </div>
       </main>
 
       {/* Footer */}
