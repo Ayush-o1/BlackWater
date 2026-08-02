@@ -42,7 +42,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Dashboard</h1>
         <p className="text-gray-400 mt-2">Overview of your system health and recent incidents.</p>
       </div>
 
@@ -87,7 +87,7 @@ export function Dashboard() {
       </div>
 
       <div className="mt-8">
-        <h2 className="text-xl font-bold text-white mb-4">Recent Active Incidents</h2>
+        <h2 className="text-xl font-semibold text-white mb-4">Recent Active Incidents</h2>
         {isLoading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (

@@ -29,7 +29,7 @@ export function Services() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Services</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Services</h1>
           <p className="text-gray-400 mt-2">Manage your platform components and view their health.</p>
         </div>
         <Button onClick={() => setIsCreateOpen(true)} className="shrink-0">

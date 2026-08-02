@@ -38,7 +38,7 @@ export function Incidents() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Incidents</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Incidents</h1>
           <p className="text-gray-400 mt-2">Manage and track active platform incidents.</p>
         </div>
         <Button variant="primary" onClick={() => setIsCreateOpen(true)} className="shrink-0">

@@ -86,7 +86,7 @@ export function StatusOverview() {
   return (
     <div className="space-y-12">
       <div className="text-center">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{organization.name} Status</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-2">{organization.name} Status</h1>
         <p className="text-gray-400">Real-time status tracking and incident history</p>
       </div>
 
@@ -94,7 +94,7 @@ export function StatusOverview() {
 
       {activeIncidents?.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-xl font-bold text-white">Active Incidents</h3>
+          <h3 className="text-xl font-semibold text-white">Active Incidents</h3>
           <div className="space-y-4">
             {activeIncidents.map((incident: any) => (
               <Link key={incident.id} to={`/status/${orgId}/incidents/${incident.id}`} className="block">
@@ -102,7 +102,7 @@ export function StatusOverview() {
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start gap-3">
                       <div className="min-w-0">
-                        <h4 className="text-lg font-bold text-white truncate">{incident.title}</h4>
+                        <h4 className="text-lg font-semibold text-white truncate">{incident.title}</h4>
                         <p className="text-gray-400 text-sm mt-1">Started {new Date(incident.createdAt).toLocaleString()}</p>
                       </div>
                       <Badge variant={incident.severity === 'CRITICAL' ? 'danger' : 'warning'} className="shrink-0">{incident.severity}</Badge>
@@ -116,7 +116,7 @@ export function StatusOverview() {
       )}
 
       <div className="space-y-4">
-        <h3 className="text-xl font-bold text-white">System Metrics</h3>
+        <h3 className="text-xl font-semibold text-white">System Metrics</h3>
         <Card>
           <div className="divide-y divide-border">
             {services.map((service: any) => (
