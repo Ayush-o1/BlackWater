@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { queryClient } from './api/queryClient';
@@ -21,6 +21,7 @@ const StatusOverview = lazy(() => import('./pages/public/StatusOverview').then((
 const PublicIncidentDetails = lazy(() =>
   import('./pages/public/PublicIncidentDetails').then((m) => ({ default: m.PublicIncidentDetails }))
 );
+const NotFound = lazy(() => import('./pages/NotFound').then((m) => ({ default: m.NotFound })));
 
 function App() {
   return (
@@ -49,7 +50,7 @@ function App() {
               <Route path="/status/:orgId/incidents/:id" element={<PublicIncidentDetails />} />
             </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </BrowserRouter>
