@@ -117,7 +117,7 @@ export function AdminStatusPage() {
           isLoading={loadingIncidents}
         />
         <StatCard
-          label="Services Monitored"
+          label="Total Services"
           value={services.length}
           icon={Server}
           iconClassName="text-gray-300 bg-muted"

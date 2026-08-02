@@ -19,10 +19,12 @@ export function PublicStatusLayout() {
           {/* Brand */}
           <Link
             to={isAuthenticated ? '/' : '/login'}
-            className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight hover:opacity-80 transition-opacity shrink-0"
           >
             <Activity className="h-6 w-6" />
-            <span>BlackWater Status</span>
+            <span>
+              BlackWater<span className="hidden sm:inline"> Status</span>
+            </span>
           </Link>
 
           {/* Right-side navigation */}
