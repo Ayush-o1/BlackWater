@@ -41,7 +41,7 @@ export function Incidents() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Incidents</h1>
           <p className="text-gray-400 mt-2">Manage and track active platform incidents.</p>
         </div>
-        <Button variant="danger" onClick={() => setIsCreateOpen(true)} className="shrink-0">
+        <Button variant="primary" onClick={() => setIsCreateOpen(true)} className="shrink-0">
           <PlusCircle className="h-4 w-4" aria-hidden="true" />
           Declare Incident
         </Button>

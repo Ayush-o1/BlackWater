@@ -94,7 +94,7 @@ export function CreateIncidentModal({ isOpen, onClose }: CreateIncidentModalProp
 
         <div className="flex justify-end gap-3 mt-6">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="danger" isLoading={isPending}>Declare Incident</Button>
+          <Button type="submit" variant="primary" isLoading={isPending}>Declare Incident</Button>
         </div>
       </form>
     </Modal>

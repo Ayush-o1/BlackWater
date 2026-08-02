@@ -120,7 +120,7 @@ export function ServiceMultiSelect({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-[200] mt-1 w-full max-w-sm rounded-lg border border-border bg-[#1a1d27] shadow-2xl shadow-black/50 overflow-hidden">
+        <div className="absolute z-[200] mt-1 w-full max-w-sm rounded-lg border border-border bg-surface-elevated shadow-2xl shadow-black/40 overflow-hidden">
           {/* Search */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
             <Search className="w-3.5 h-3.5 text-gray-500 shrink-0" />

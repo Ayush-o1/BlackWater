@@ -96,7 +96,7 @@ export function Modal({ isOpen, onClose, title, description, children, className
         tabIndex={-1}
         className={twMerge(
           clsx(
-            'relative z-50 w-full max-w-lg rounded-xl border border-border bg-surface p-6 shadow-2xl shadow-black/40 animate-scale-in focus:outline-none',
+            'relative z-50 w-full max-w-lg rounded-xl border border-border bg-surface-elevated p-6 shadow-2xl shadow-black/40 animate-scale-in focus:outline-none',
             className
           )
         )}

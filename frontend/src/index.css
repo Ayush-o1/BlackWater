@@ -8,6 +8,10 @@
   --color-background: #09090b;
   --color-surface: #18181b;
   --color-surface-hover: #1f1f23;
+  /* One step up from `surface` — reserved for content that floats above the
+     page (modals, dropdowns, popovers), so those never blend into the cards
+     sitting underneath them. */
+  --color-surface-elevated: #1e1e23;
 
   /* Secondary / muted fills (chips, secondary buttons, avatars) */
   --color-muted: #27272a;
