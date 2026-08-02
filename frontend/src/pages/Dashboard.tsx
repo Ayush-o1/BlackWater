@@ -3,6 +3,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { useIncidents, useServices } from '../hooks/queries';
 import { Badge } from '../components/ui/Badge';
 import { StatCard } from '../components/ui/StatCard';
+import { Avatar } from '../components/ui/Avatar';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Activity, Server, AlertTriangle, CheckCircle, PartyPopper, ChevronRight } from 'lucide-react';
@@ -47,21 +48,14 @@ export function Dashboard() {
       </div>
 
       <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-5 flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-400 truncate">System Status</p>
-              {isLoading ? (
-                <Skeleton className="h-6 w-32 mt-2" />
-              ) : (
-                <p className={`text-base font-bold mt-1 leading-snug ${status.color}`}>{status.label}</p>
-              )}
-            </div>
-            <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 bg-muted ${status.color}`}>
-              <StatusIcon className="h-5 w-5" aria-hidden="true" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="System Status"
+          value={status.label}
+          icon={StatusIcon}
+          iconClassName={`bg-muted ${status.color}`}
+          valueClassName={`text-base leading-snug ${status.color}`}
+          isLoading={isLoading}
+        />
 
         <StatCard
           label="Active Incidents"
@@ -108,9 +102,15 @@ export function Dashboard() {
               <Link key={incident.id} to={`/incidents/${incident.id}`}>
                 <Card className="hover:border-border-hover hover:bg-surface-hover">
                   <CardContent className="p-4 flex justify-between items-center gap-4">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-white truncate">{incident.title}</h3>
-                      <p className="text-sm text-gray-400 mt-1">Started {new Date(incident.createdAt).toLocaleString()}</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {incident.assignee && <Avatar name={incident.assignee.name} size="sm" />}
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-white truncate">{incident.title}</h3>
+                        <p className="text-sm text-gray-400 mt-1">
+                          {incident.assignee ? `${incident.assignee.name} · ` : ''}
+                          Started {new Date(incident.createdAt).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       {severityBadge(incident.severity)}
