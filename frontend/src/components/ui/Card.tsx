@@ -7,11 +7,20 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  /** Applies the shared hover treatment for cards that act as a link/button. */
+  interactive?: boolean;
+}
+
+export const Card = forwardRef<HTMLDivElement, CardProps>(
+  ({ className, interactive, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('rounded-xl border border-border bg-surface shadow-sm shadow-black/20 overflow-hidden transition-colors duration-150', className)}
+      className={cn(
+        'rounded-xl border border-border bg-surface shadow-sm shadow-black/20 overflow-hidden transition-colors duration-150',
+        interactive && 'hover:border-border-hover hover:bg-surface-hover',
+        className
+      )}
       {...props}
     />
   )

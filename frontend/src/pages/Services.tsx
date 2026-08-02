@@ -91,7 +91,7 @@ export function Services() {
           <div className="sm:hidden space-y-3">
             {services.map((service: any) => (
               <Link key={service.id} to={`/services/${service.id}`}>
-                <Card className="hover:border-border-hover hover:bg-surface-hover">
+                <Card interactive>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">

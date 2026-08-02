@@ -112,7 +112,7 @@ export function Incidents() {
           <div className="sm:hidden space-y-3">
             {incidents.map((incident: any) => (
               <Link key={incident.id} to={`/incidents/${incident.id}`}>
-                <Card className="hover:border-border-hover hover:bg-surface-hover">
+                <Card interactive>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-medium text-white leading-snug">{incident.title}</p>

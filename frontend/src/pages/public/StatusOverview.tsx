@@ -103,7 +103,7 @@ export function StatusOverview() {
           <div className="space-y-4">
             {activeIncidents.map((incident: any) => (
               <Link key={incident.id} to={`/status/${orgId}/incidents/${incident.id}`} className="block">
-                <Card className="hover:border-border-hover hover:bg-surface-hover border-l-4 border-l-warning">
+                <Card interactive className="border-l-4 border-l-warning">
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start gap-3">
                       <div className="min-w-0">

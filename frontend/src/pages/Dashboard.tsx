@@ -100,7 +100,7 @@ export function Dashboard() {
           <div className="space-y-3">
             {activeIncidents.slice(0, 5).map((incident: any) => (
               <Link key={incident.id} to={`/incidents/${incident.id}`}>
-                <Card className="hover:border-border-hover hover:bg-surface-hover">
+                <Card interactive>
                   <CardContent className="p-4 flex justify-between items-center gap-4">
                     <div className="flex items-center gap-3 min-w-0">
                       {incident.assignee && <Avatar name={incident.assignee.name} size="sm" />}
