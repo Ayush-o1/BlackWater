@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useServiceDetails, useDeleteService } from '../hooks/queries';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
@@ -8,7 +8,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { EditServiceModal } from '../components/services/EditServiceModal';
-import { Trash2, Edit2, ServerCrash, ShieldCheck } from 'lucide-react';
+import { Trash2, Edit2, ServerCrash, ShieldCheck, ChevronRight } from 'lucide-react';
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -17,6 +17,15 @@ function getStatusBadge(status: string) {
     case 'PARTIAL_OUTAGE': return <Badge variant="danger">Partial Outage</Badge>;
     case 'MAJOR_OUTAGE': return <Badge variant="danger">Major Outage</Badge>;
     default: return <Badge variant="default">Unknown</Badge>;
+  }
+}
+
+function getSeverityBadge(sev: string) {
+  switch (sev) {
+    case 'CRITICAL': return <Badge variant="danger">Critical</Badge>;
+    case 'HIGH': return <Badge variant="warning">High</Badge>;
+    case 'MEDIUM': return <Badge variant="info">Medium</Badge>;
+    default: return <Badge variant="default">Low</Badge>;
   }
 }
 
@@ -118,9 +127,17 @@ export function ServiceDetails() {
             ) : (
               <ul className="space-y-3">
                 {activeIncidents.map((incident: any) => (
-                  <li key={incident.id} className="flex justify-between items-center gap-3 p-3 rounded-lg border border-border bg-background/40">
-                    <span className="font-medium text-white truncate">{incident.title}</span>
-                    <Badge variant="warning" className="shrink-0">Ongoing</Badge>
+                  <li key={incident.id}>
+                    <Link
+                      to={`/incidents/${incident.id}`}
+                      className="flex justify-between items-center gap-3 p-3 rounded-lg border border-border bg-background/40 hover:border-border-hover hover:bg-surface-hover transition-colors"
+                    >
+                      <span className="font-medium text-white truncate">{incident.title}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {getSeverityBadge(incident.severity)}
+                        <ChevronRight className="h-4 w-4 text-gray-600" aria-hidden="true" />
+                      </div>
+                    </Link>
                   </li>
                 ))}
               </ul>

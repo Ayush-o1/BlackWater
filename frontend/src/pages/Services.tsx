@@ -80,7 +80,7 @@ export function Services() {
                     </TableCell>
                     <TableCell className="max-w-md truncate">{service.description || '—'}</TableCell>
                     <TableCell>{getStatusBadge(service.status)}</TableCell>
-                    <TableCell>{new Date(service.updatedAt).toLocaleString()}</TableCell>
+                    <TableCell>{new Date(service.updatedAt).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
