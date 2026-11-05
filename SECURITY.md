@@ -1,107 +1,43 @@
 # Security
 
-This document describes the security measures implemented in BlackWater and their known limitations.
+## Reporting a vulnerability
 
----
+Please do not open a public issue for a security problem. Use GitHub's private vulnerability reporting on this repository (Security tab, "Report a vulnerability"). Include what you found, how to reproduce it and what it affects.
 
-## Authentication
+## How the application protects itself
 
-**Password storage:**
-- Passwords are hashed using `bcrypt` with 10 salt rounds before storage.
-- The raw password is never stored, logged, or returned in any response.
-- The `sanitizeUser()` helper in `AuthService` strips `passwordHash` before returning user objects.
+| Area | What is done | Where |
+|---|---|---|
+| Passwords | Hashed with bcrypt (cost 10). Length limited to 72 characters, bcrypt's real limit, instead of silently truncating. Login takes the same time for unknown emails, and gives the same message. | `services/auth.service.js` |
+| Sessions | JWT signed with HS256, with the algorithm pinned when verifying. The user is reloaded from the database on every request, so deleted accounts and changed roles take effect immediately. The secret must be at least 32 characters or the server will not start. | `utils/jwt.js`, `middleware/auth.middleware.js` |
+| Authorization | Role checks on every route, enforced on the server. Hiding a button in the interface is only a convenience. | `middleware/rbac.middleware.js`, `routes/` |
+| Tenant isolation | Every query filters by the signed-in user's organization; other organizations' records answer 404. Covered by tests for each resource. | `services/`, `tests/integration/` |
+| Input validation | Every request body, query and parameter is validated with zod; unknown fields are dropped, so fields such as `status`, `orgId` or `role` cannot be smuggled into an edit. | `validators/` |
+| Invitations | 256-bit random tokens; only the SHA-256 hash is stored. One use, 7-day expiry, claimed atomically so parallel attempts cannot both succeed. Invitations cannot create administrators, enforced in the validator, in the service and by a database `CHECK`. Unknown, expired and used links are indistinguishable. The token travels in the URL fragment and in POST bodies, never in a query string. | `services/invitation.service.js` |
+| Last admin | A lock on the organization's admin rows prevents demoting the last administrator, even under concurrent requests. | `services/user.service.js` |
+| Public data | The public API reads only published incidents and builds its output field by field from an allow-list. Health shown publicly is calculated from published incidents only. Actors and user ids never appear. | `services/status.service.js`, `utils/publicDto.js` |
+| Cross-site scripting | No `innerHTML` anywhere: user text is inserted only as text nodes. A strict Content-Security-Policy allows scripts and styles from the same origin only, and no inline scripts, handlers or styles. Tested in a real browser with hostile input. | `public/js/dom.js`, `app.js` |
+| Open redirects | The post-login destination is accepted only if it is a same-site path. | `public/js/auth.js` |
+| Transport and headers | `helmet` defaults (HSTS, no-sniff, frame protection, and more). `upgrade-insecure-requests` in production. | `app.js` |
+| Abuse | Rate limits on login, registration and invitation links, and a looser one on the API. | `middleware/rateLimit.middleware.js` |
+| Errors | Responses use one shape. Unexpected errors are logged and returned as a generic message in production, so SQL, paths and stack traces never reach clients. Invalid JSON gets 400, not 500. | `middleware/error.middleware.js` |
+| Cross-site WebSockets | The socket is authenticated by the token in its handshake, not by a cookie, so another site cannot connect as a visitor. Each socket joins only its own organization's room. | `socket/` |
+| Database | Queries go through Prisma (parameterised). The three raw queries (two row locks and the health check) use tagged templates, which bind their values. Migrations are plain SQL under version control. | `prisma/`, `services/` |
+| Dependencies | `npm audit` reports no known vulnerabilities at the time of writing. | |
 
-**JWT tokens:**
-- Tokens are signed with a `JWT_SECRET` loaded from environment variables (validated at startup).
-- The payload contains `{ userId, orgId, role }`.
-- Default expiry is `1d` (configurable via `JWT_EXPIRES_IN` env var).
-- On every protected request, the token is verified AND the user is fetched from the database. This catches cases where a user was deleted after the token was issued.
+## Known limitations
 
-**Login security:**
-- Both "email not found" and "incorrect password" return the same error message (`Invalid credentials`). This prevents user enumeration attacks.
+- **Tokens are not revocable.** A stolen token works until it expires (`JWT_EXPIRES_IN`, default one day). There is no refresh-token flow and no "sign out everywhere". Keep the lifetime short if this matters to you.
+- **The token is kept in the browser's storage** (`localStorage`, or `sessionStorage` when "keep me signed in" is off), so cross-site scripting would expose it. The Content-Security-Policy and the text-only rendering are the defences against that. An HttpOnly cookie would remove the exposure at the price of CSRF handling.
+- **Registration is open.** Anyone who can reach the server can create an organization.
+- **No multi-factor authentication, password reset or account lockout.** Rate limiting is the only brake on password guessing.
+- **Rate limits and sockets are per process.** Do not run several instances without moving both to a shared store.
+- **Public status pages are addressed by the organization id.** The id is a random UUID and is not a secret; the protection is that only published data is served.
+- **Users cannot be removed.** An administrator can reduce a person to Viewer but not delete them.
 
----
+## Operating it safely
 
-## Authorization (RBAC)
-
-Every protected route has an explicit role requirement enforced by `requireRole()` middleware:
-
-| Role | Capabilities |
-|------|-------------|
-| `VIEWER` | Read-only access to incidents and services |
-| `MEMBER` | Can create and manage incidents and services |
-| `ADMIN` | Full access, including deleting services and updating org settings |
-
-The first user who registers an organization is automatically assigned the `ADMIN` role.
-
-Multi-tenancy: all data is scoped by `orgId`. Every database query includes `where: { orgId: user.orgId }` to prevent cross-organization data access.
-
----
-
-## HTTP Security Headers
-
-[Helmet.js](https://helmetjs.github.io/) is applied as the first middleware in `app.ts`. It sets the following headers by default:
-
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: SAMEORIGIN`
-- `X-XSS-Protection: 0`
-- `Strict-Transport-Security` (for HTTPS)
-- `Referrer-Policy`
-- `Content-Security-Policy`
-- Others
-
----
-
-## Input Validation
-
-Every API route uses a `validateRequest(zodSchema)` middleware that validates `req.body`, `req.query`, and `req.params` against a Zod schema. Invalid requests are rejected with `400` before reaching any business logic. Error messages include field paths (e.g., `body.email: Invalid email format`).
-
----
-
-## Public Status Page Data Isolation
-
-The `/status` endpoints are intentionally public (no auth). A `StatusDTO` layer strips all internal-only fields before returning data:
-
-- No `description` of incidents
-- No `assigneeId` or `creatorId`
-- No `userId` from `IncidentUpdate`
-- No `metadata` from `TimelineEvent` (contains internal UUIDs)
-- Only updates with `isPublic: true` are returned
-
----
-
-## Error Handling in Production
-
-The global error handler in `error.middleware.ts` behaves differently based on environment:
-
-- **Development:** Returns full error details including stack trace.
-- **Production:** Returns a generic `Something went wrong!` message for unexpected errors. Only `AppError` instances with `isOperational: true` expose their message to the client.
-
-This prevents leaking database error messages, stack traces, or internal paths to end users in production.
-
----
-
-## WebSocket Security
-
-Socket.IO connections require JWT authentication via a socket handshake middleware:
-- The token is read from `socket.handshake.auth.token` or the `Authorization` header.
-- Unauthorized connections are rejected before the `connection` event fires.
-- Before a client can join an incident room, the server verifies the incident belongs to the user's organization.
-
----
-
-## Known Limitations
-
-1. **No refresh token.** The JWT is a single token with a fixed expiry. When it expires, the user must log in again. There is no silent refresh.
-
-2. **JWT is not revocable.** If a token is compromised, it remains valid until it expires. A proper token blacklist or short expiry window + refresh token pattern would mitigate this.
-
-3. **No HTTPS enforcement in the app itself.** HTTPS should be handled at the infrastructure level (reverse proxy, load balancer).
-
-4. **JWT is stored in `localStorage` on the frontend**, not an `httpOnly` cookie, so it is readable by any script that achieves XSS on the page. No such XSS vector was found during this audit, but this remains a defense-in-depth gap inherent to the current auth architecture.
-
-5. **No CSRF protection.** The API is stateless (JWT-based) so CSRF doesn't apply to the REST API, but if cookies were used in the future, this would need to be addressed.
-
-Resolved since the last audit pass:
-- `/auth/*` endpoints are now rate-limited (20 requests / 15 min per IP), with a looser baseline limit (300 / 15 min) applied to the whole API.
-- CORS (both HTTP and Socket.IO) is now restricted to the origin(s) configured in `CORS_ORIGIN`, instead of allowing any origin.
+- Use a long random `JWT_SECRET` and keep it out of version control. `.env` files are git-ignored.
+- Serve over HTTPS and set `TRUST_PROXY` correctly behind a proxy.
+- Give the application a database user with only the rights it needs.
+- Keep dependencies current (`npm audit`).

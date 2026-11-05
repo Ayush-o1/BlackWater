@@ -31,48 +31,31 @@ enum Severity {
   LOW
 }
 
-enum ServiceStatus {
-  OPERATIONAL
-  DEGRADED
-  PARTIAL_OUTAGE
-  MAJOR_OUTAGE
-}
-
-enum NotificationChannel {
-  EMAIL
-  SLACK
-  WEBHOOK
-}
-
-enum NotificationStatus {
-  SENT
-  FAILED
-}
-
-enum EscalationLevel {
-  PRIMARY
-  SECONDARY
-}
+// There is no ServiceStatus enum or column: a service's health is derived from
+// its open incidents every time it is read (see src/utils/serviceHealth.js), so
+// it can never disagree with the incidents it comes from.
 
 // -----------------------------------------------------------------------------
 // MODELS
 // -----------------------------------------------------------------------------
 
+// Every tenant-owned table below carries an orgId. Queries always filter on it;
+// that filter is what keeps one organization's data away from another's.
 model Organization {
   id        String   @id @default(uuid())
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  services  Service[]
-  incidents Incident[]
-  schedules OnCallSchedule[]
+  users       User[]
+  services    Service[]
+  incidents   Incident[]
+  invitations Invitation[]
 }
 
 model User {
   id           String       @id @default(uuid())
-  email        String       @unique
+  email        String       @unique // always stored lowercase
   name         String
   passwordHash String
   role         Role         @default(MEMBER)
@@ -81,31 +64,28 @@ model User {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  // Relationships
-  createdIncidents  Incident[]        @relation("IncidentCreator")
-  assignedIncidents Incident[]        @relation("IncidentAssignee")
-  incidentUpdates   IncidentUpdate[]
-  onCallMemberships OnCallMember[]
-  notifications     NotificationLog[]
+  createdIncidents    Incident[]       @relation("IncidentCreator")
+  assignedIncidents   Incident[]       @relation("IncidentAssignee")
+  incidentUpdates     IncidentUpdate[]
+  timelineEvents      TimelineEvent[]
+  invitationsCreated  Invitation[]     @relation("InvitationCreator")
+  invitationsAccepted Invitation[]     @relation("InvitationAcceptedBy")
 
-  @@index([orgId])
-  @@index([orgId, createdAt])
+  @@index([orgId, createdAt(sort: Desc), id(sort: Desc)])
 }
 
 model Service {
-  id           String        @id @default(uuid())
+  id           String       @id @default(uuid())
   name         String
   description  String?
-  status       ServiceStatus @default(OPERATIONAL)
   orgId        String
-  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   incidents Incident[] @relation("IncidentToService")
 
-  @@index([orgId])
-  @@index([orgId, createdAt])
+  @@index([orgId, createdAt(sort: Desc), id(sort: Desc)])
 }
 
 model Incident {
@@ -114,37 +94,34 @@ model Incident {
   description  String?
   status       IncidentStatus @default(TRIGGERED)
   severity     Severity
+  // Private by default. Only incidents with isPublic = true appear on the
+  // public status page or influence the health shown there.
+  isPublic     Boolean        @default(false)
   orgId        String
   organization Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  // Actor References
   creatorId  String
   creator    User    @relation("IncidentCreator", fields: [creatorId], references: [id])
   assigneeId String?
   assignee   User?   @relation("IncidentAssignee", fields: [assigneeId], references: [id])
 
-  // Analytics Timestamps
-  createdAt      DateTime  @default(now()) // Serves as the trigger timestamp
-  acknowledgedAt DateTime? // Captured when status changes to ACKNOWLEDGED
-  resolvedAt     DateTime? // Captured when status changes to RESOLVED
+  createdAt      DateTime  @default(now()) // when the incident was triggered
+  acknowledgedAt DateTime? // set when TRIGGERED -> ACKNOWLEDGED, cleared when reopened
+  resolvedAt     DateTime? // set when RESOLVED, cleared when reopened
   updatedAt      DateTime  @updatedAt
 
-  // Relationships
-  affectedServices Service[]         @relation("IncidentToService")
+  affectedServices Service[]        @relation("IncidentToService")
   updates          IncidentUpdate[]
   timelineEvents   TimelineEvent[]
-  notifications    NotificationLog[]
 
-  @@index([orgId])
-  @@index([status])
-  @@index([severity])
-  @@index([createdAt]) // Crucial for timeseries analytical queries
-  @@index([orgId, createdAt])
-  @@index([orgId, status]) // Common dashboard filter: open incidents for an org
+  @@index([orgId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([orgId, status])
+  @@index([orgId, isPublic, createdAt(sort: Desc)])
   @@index([creatorId])
   @@index([assigneeId])
 }
 
+// A message posted on an incident. Public ones are shown on the status page.
 model IncidentUpdate {
   id         String   @id @default(uuid())
   incidentId String
@@ -159,55 +136,39 @@ model IncidentUpdate {
   @@index([userId])
 }
 
+// One row per change to an incident. Rows are only ever inserted.
 model TimelineEvent {
   id         String   @id @default(uuid())
   incidentId String
   incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  eventType  String // e.g., "STATUS_CHANGE", "SEVERITY_CHANGE", "ASSIGNEE_ADDED"
-  metadata   Json? // Stores the delta (e.g., { "old_status": "TRIGGERED", "new_status": "ACKNOWLEDGED" })
+  eventType  String // see src/utils/timelineEvents.js
+  metadata   Json? // the details of the change, e.g. { oldStatus, newStatus }
+  // Who made the change. Null for system events, for rows that predate actor
+  // tracking, and when the user has since been deleted.
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
 
-  @@index([incidentId])
+  @@index([incidentId, createdAt])
+  @@index([actorId])
 }
 
-model OnCallSchedule {
+// A one-time link that lets a person join an organization. Only the SHA-256
+// hash of the token is stored, so a database leak does not leak usable links.
+// The migration adds CHECK ("role" <> 'ADMIN'): an invitation can never grant ADMIN.
+model Invitation {
   id           String       @id @default(uuid())
-  name         String
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  role         Role
+  tokenHash    String       @unique
+  expiresAt    DateTime
+  usedAt       DateTime? // set atomically when the invitation is accepted
+  usedById     String?
+  usedBy       User?        @relation("InvitationAcceptedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?        @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
 
-  members OnCallMember[]
-
-  @@index([orgId])
-}
-
-model OnCallMember {
-  id              String          @id @default(uuid())
-  scheduleId      String
-  schedule        OnCallSchedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  userId          String
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  escalationLevel EscalationLevel // Determines the order of paging (PRIMARY or SECONDARY)
-  createdAt       DateTime        @default(now())
-
-  @@unique([scheduleId, userId]) // A user can only appear once per on-call schedule
-  @@index([scheduleId])
-  @@index([userId])
-}
-
-model NotificationLog {
-  id         String              @id @default(uuid())
-  incidentId String?
-  incident   Incident?           @relation(fields: [incidentId], references: [id], onDelete: SetNull)
-  userId     String
-  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channel    NotificationChannel
-  status     NotificationStatus
-  error      String? // Null if SENT, populated if FAILED
-  sentAt     DateTime            @default(now())
-
-  @@index([incidentId])
-  @@index([userId])
+  @@index([orgId, createdAt(sort: Desc)])
 }
