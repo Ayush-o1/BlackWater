@@ -140,3 +140,10 @@ hr {
 }
 
 .noscript { padding: 24px; }
+
+/* Long unbroken text (a pasted URL, a hash) must wrap instead of stretching the
+   page sideways. `anywhere` also lowers the minimum width of flex and grid
+   children, which `break-word` does not. Rows that should stay on one line use
+   .truncate, which wins because it sets white-space: nowrap. */
+.page, .public-main, .dialog { overflow-wrap: anywhere; }
+.split > *, .stack > *, .stack-sm > * { min-width: 0; }

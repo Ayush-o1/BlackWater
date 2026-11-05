@@ -41,6 +41,7 @@ async function start() {
       await busy(save, async () => {
         const { data } = await api.patch('/users/me', { name: name.value });
         updateSessionUser(data);
+        document.querySelector('.sidebar-user-name').textContent = data.name; // the sidebar shows it too
         toast('Profile saved');
       });
     });

@@ -375,3 +375,129 @@ test.describe('lists and layout', () => {
     await expect(page.getByText('All systems operational')).toBeVisible();
   });
 });
+
+test.describe('service and profile management', () => {
+  test('an admin edits and deletes a service; a viewer sees neither control', async ({ page, browser }) => {
+    const { token } = await register(page);
+    const api = apiFor(page, token);
+    const created = await (await api.post('/services', { name: 'Billing', description: 'Invoices' })).json();
+
+    await page.goto(`/services/${created.data.id}`);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Name').fill('Billing API');
+    await page.getByLabel('Description').fill('Invoices and receipts');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByRole('heading', { name: 'Billing API' })).toBeVisible();
+    await expect(page.getByText('Invoices and receipts')).toBeVisible();
+
+    // A viewer joins and looks at the same service.
+    await page.goto('/settings');
+    await page.getByRole('button', { name: 'Invite someone' }).click();
+    await page.getByLabel('Role', { exact: true }).selectOption('VIEWER');
+    await page.getByRole('button', { name: 'Create invitation link' }).click();
+    const link = await page.getByLabel('Invitation link').inputValue();
+    const viewer = await (await browser.newContext()).newPage();
+    await viewer.goto(link);
+    await viewer.getByLabel('Your name').fill('Vera Viewer');
+    await viewer.getByLabel('Email address').fill(`vera-${unique()}@blackwater.test`);
+    await viewer.getByLabel('Choose a password').fill(PASSWORD);
+    await viewer.getByRole('button', { name: 'Join' }).click();
+    await expect(viewer.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await viewer.goto(`/services/${created.data.id}`);
+    await expect(viewer.getByRole('heading', { name: 'Billing API' })).toBeVisible();
+    await expect(viewer.getByRole('button', { name: 'Edit' })).toHaveCount(0);
+    await expect(viewer.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+    await viewer.goto('/services');
+    await expect(viewer.getByRole('button', { name: 'Add service' })).toHaveCount(0);
+
+    // The admin deletes it.
+    await page.goto(`/services/${created.data.id}`);
+    await page.getByRole('button', { name: 'Delete' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete service' }).click();
+    await expect(page).toHaveURL(/\/services$/);
+    await expect(page.getByText('No services yet')).toBeVisible();
+  });
+
+  test('profile and organization changes are saved', async ({ page }) => {
+    await register(page, { name: 'Ananya Gupta' });
+    await page.goto('/settings');
+
+    await page.getByLabel('Your name').fill('Ananya G. Rao');
+    await page.locator('form', { has: page.getByLabel('Your name') }).getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText('Profile saved')).toBeVisible();
+    await expect(page.locator('.sidebar-user-name')).toHaveText('Ananya G. Rao');
+
+    await page.getByLabel('Organization name').fill('Renamed Org');
+    await page.locator('form', { has: page.getByLabel('Organization name') }).getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText('Organization saved')).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByLabel('Your name')).toHaveValue('Ananya G. Rao');
+    await expect(page.getByLabel('Organization name')).toHaveValue('Renamed Org');
+  });
+});
+
+test.describe('failure handling', () => {
+  test('an expired or invalid session sends the user to the login page with an explanation', async ({ page }) => {
+    await register(page);
+    await page.evaluate(() => {
+      const session = JSON.parse(localStorage.getItem('blackwater.session'));
+      localStorage.setItem('blackwater.session', JSON.stringify({ ...session, token: 'not-a-valid-token' }));
+    });
+
+    await page.goto('/incidents');
+
+    await expect(page).toHaveURL(/\/login\?expired=1/);
+    await expect(page.getByRole('alert')).toContainText('session has ended');
+    expect(await page.evaluate(() => localStorage.getItem('blackwater.session'))).toBeNull();
+  });
+
+  test('shows an error with a retry when the server cannot be reached, and recovers', async ({ page }) => {
+    await register(page);
+    let failing = true;
+    await page.route('**/api/incidents?*', (route) => (failing ? route.abort('failed') : route.continue()));
+
+    await page.goto('/incidents');
+    await expect(page.getByText('Something went wrong')).toBeVisible();
+    await expect(page.getByText('Cannot reach the server')).toBeVisible();
+
+    failing = false;
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByText('No incidents yet')).toBeVisible();
+  });
+
+  test('shows the server\'s explanation when an action is refused', async ({ page }) => {
+    const { token } = await register(page);
+    const api = apiFor(page, token);
+    const incident = (await (await api.post('/incidents', { title: 'Will be closed soon', severity: 'LOW' })).json()).data;
+    await page.goto(`/incidents/${incident.id}`);
+    await expect(page.getByRole('button', { name: 'Acknowledge' })).toBeVisible();
+
+    // Someone else resolves and closes it while this page is open and stale.
+    await api.patch(`/incidents/${incident.id}/status`, { status: 'RESOLVED' });
+    await api.patch(`/incidents/${incident.id}/status`, { status: 'CLOSED' });
+    await page.getByRole('button', { name: 'Acknowledge' }).click();
+
+    await expect(page.getByText(/closed and cannot be modified/)).toBeVisible();
+  });
+});
+
+test.describe('phone layout', () => {
+  test('no page scrolls sideways, even with very long unbroken text', async ({ page }) => {
+    const { orgId, token } = await register(page);
+    const api = apiFor(page, token);
+    const long = 'A'.repeat(180);
+    const service = (await (await api.post('/services', { name: `S${long}`, description: long })).json()).data;
+    const incident = (await (await api.post('/incidents', { title: `T${long}`, description: long, severity: 'HIGH', serviceIds: [service.id], isPublic: true })).json()).data;
+    await api.post(`/incidents/${incident.id}/updates`, { message: long, isPublic: true });
+    await page.setViewportSize({ width: 360, height: 740 });
+
+    const paths = ['/', '/incidents', `/incidents/${incident.id}`, '/services', `/services/${service.id}`, '/settings', `/status/${orgId}`, `/status/${orgId}/incidents/${incident.id}`];
+    for (const path of paths) {
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+      const { scrollWidth, innerWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
+      expect(scrollWidth, `${path} is wider than the screen`).toBeLessThanOrEqual(innerWidth);
+    }
+  });
+});

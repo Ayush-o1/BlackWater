@@ -280,6 +280,11 @@ async function start() {
 
   load();
   subscribe(['incident:updated', 'service:changed'], load);
+  // A new teammate should appear in the assignee list without a reload.
+  subscribe(['team:changed'], () => {
+    team = [];
+    load();
+  });
 }
 
 if (requireSession()) start();
