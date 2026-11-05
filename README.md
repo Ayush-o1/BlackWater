@@ -75,6 +75,7 @@ Set in `.env` (see `.env.example`). Invalid or missing values stop the server at
 | `npm start` | Start |
 | `npm test` | Apply migrations to the test database and run the backend tests |
 | `npm run test:e2e` | Browser tests (Playwright) |
+| `SMOKE_URL=https://... npm run smoke` | The main workflows against a running deployment (see [Deployment](docs/deployment.md#verification)) |
 | `npm run lint` | ESLint |
 | `npm run prisma:migrate` | Create and apply a migration during development |
 | `npm run prisma:migrate:prod` | Apply pending migrations |
@@ -108,7 +109,7 @@ docs/            API, database, architecture, deployment
 - [API reference](docs/api.md)
 - [Architecture](docs/architecture.md)
 - [Database and migrations](docs/database.md)
-- [Deployment](docs/deployment.md): includes a Dockerfile, and explains why serverless hosting such as Vercel is not suitable
+- [Deployment](docs/deployment.md): Render Blueprint and Dockerfile, backup and recovery, and why serverless hosting such as Vercel is not suitable
 - [Security](SECURITY.md)
 - [Contributing and testing](CONTRIBUTING.md)
 
