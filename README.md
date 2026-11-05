@@ -63,8 +63,8 @@ Set in `.env` (see `.env.example`). Invalid or missing values stop the server at
 | `JWT_EXPIRES_IN` | `1d` | Token lifetime, e.g. `12h`, `7d` |
 | `PORT` | `8000` | |
 | `NODE_ENV` | `development` | `production` for deployments |
-| `AUTH_RATE_LIMIT` | `20` | Requests per IP per 15 min for login, registration and invitation links |
-| `API_RATE_LIMIT` | `300` | Requests per IP per 15 min for the rest of the API |
+| `AUTH_RATE_LIMIT` | `20` | Registrations, invitation links and failed logins per IP per 15 min |
+| `API_RATE_LIMIT` | `1000` | Requests per IP per 15 min for the rest of the API |
 | `TRUST_PROXY` | `0` | Number of reverse proxies in front of the app |
 
 ## Scripts

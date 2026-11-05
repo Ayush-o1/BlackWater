@@ -61,7 +61,7 @@ Run `npx prisma migrate deploy` on every release, before starting the new versio
 | `PORT` | Default 8000. Many platforms set it for you. |
 | `JWT_EXPIRES_IN` | Default `1d`. |
 | `TRUST_PROXY` | Number of proxies in front of the app, typically `1`. Without it every visitor looks like the proxy and shares one rate-limit bucket, so the login limit (20 per 15 minutes) would apply to all your users together. |
-| `AUTH_RATE_LIMIT`, `API_RATE_LIMIT` | Defaults 20 and 300 per IP per 15 minutes. |
+| `AUTH_RATE_LIMIT`, `API_RATE_LIMIT` | Defaults 20 and 1000 per IP per 15 minutes. See the API reference for what each covers. |
 
 ## Reverse proxy
 

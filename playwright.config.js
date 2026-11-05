@@ -5,6 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 // integration tests. Every test registers its own organization.
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: 'smoke.spec.js', // needs a running deployment: see playwright.smoke.config.js
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

@@ -91,7 +91,11 @@ async function refreshUser(knownUser) {
   try {
     const { data: fresh } = await api.get('/auth/me');
     updateSessionUser(fresh);
-    if (fresh.role !== knownUser.role || fresh.name !== knownUser.name) location.reload();
+    const changed = fresh.role !== knownUser.role || fresh.name !== knownUser.name;
+    // Reload only if the fresh profile was really saved: otherwise the reloaded
+    // page would see the same "change" again and reload forever.
+    const saved = getSession()?.user?.role === fresh.role && getSession()?.user?.name === fresh.name;
+    if (changed && saved) location.reload();
   } catch {
     /* a rejected token is handled centrally by the API client */
   }

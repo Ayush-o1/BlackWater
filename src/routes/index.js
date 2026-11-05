@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { authLimiter } from '../middleware/rateLimit.middleware.js';
 import authRoutes from './auth.routes.js';
 import incidentRoutes from './incident.routes.js';
 import serviceRoutes from './service.routes.js';
@@ -14,7 +13,7 @@ import dashboardRoutes from './dashboard.routes.js';
 // page, /api/status is the data behind it.
 const router = Router();
 
-router.use('/auth', authLimiter, authRoutes);
+router.use('/auth', authRoutes); // the strict limits are on the credential routes inside
 router.use('/incidents', incidentRoutes);
 router.use('/services', serviceRoutes);
 router.use('/status', statusRoutes); // public: no login required
