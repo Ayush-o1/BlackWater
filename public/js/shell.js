@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { getSession, isAdmin, signOut, updateSessionUser } from './auth.js';
+import { getSession, signOut, updateSessionUser } from './auth.js';
 import { h, render } from './dom.js';
 import { icon } from './icons.js';
 import { onConnectionChange, subscribe } from './realtime.js';
@@ -101,5 +101,3 @@ function watchForRoleChanges(user) {
   refreshUser(user);
   subscribe(['team:changed'], () => refreshUser(getSession()?.user ?? user));
 }
-
-export { isAdmin };

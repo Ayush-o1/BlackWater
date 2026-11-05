@@ -31,7 +31,7 @@ Node.js and Express, PostgreSQL through Prisma, Socket.IO, JWT and bcrypt, zod f
 
 ## Quick start
 
-You need Node.js 20.19 or newer and PostgreSQL (developed against 18, tested in CI on 16).
+You need Node.js 20.19 or newer (CI runs 20.19 and 22) and PostgreSQL (developed against 18, tested in CI on 16).
 
 ```bash
 git clone https://github.com/Ayush-o1/BlackWater.git

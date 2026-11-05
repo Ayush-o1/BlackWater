@@ -46,7 +46,7 @@ const person = (reference) => (reference?.name ? reference.name : 'someone');
 
 // Turns one timeline event into words. The wording lives here (not on the
 // server) so the API stays a plain record of what happened.
-export function describeEvent(event) {
+function describeEvent(event) {
   const m = event.metadata ?? {};
 
   switch (event.eventType) {

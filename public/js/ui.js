@@ -1,4 +1,4 @@
-import { h, render } from './dom.js';
+import { h } from './dom.js';
 import { icon } from './icons.js';
 import { ApiError } from './api.js';
 
@@ -29,7 +29,7 @@ export function timeAgo(iso) {
 
 export const titleCase = (value) => value.charAt(0) + value.slice(1).toLowerCase().replaceAll('_', ' ');
 
-export function initials(name) {
+function initials(name) {
   return (name ?? '?').trim().split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase() ?? '').join('') || '?';
 }
 
@@ -52,7 +52,7 @@ const INCIDENT_STATUS = {
   CLOSED: ['Closed', ''],
 };
 
-export const SERVICE_STATUS = {
+const SERVICE_STATUS = {
   OPERATIONAL: { label: 'Operational', tone: 'success' },
   DEGRADED: { label: 'Degraded', tone: 'warning' },
   PARTIAL_OUTAGE: { label: 'Partial outage', tone: 'orange' },
@@ -243,7 +243,7 @@ export function confirmDialog({ title, message, confirmLabel = 'Confirm', danger
 // Plain object of the form's values. A checkbox with a value attribute is one
 // choice in a group and the group becomes an array of the checked values (empty
 // when none, even for a group of one); a checkbox without one is a yes/no switch.
-export function readForm(form) {
+function readForm(form) {
   const values = {};
   for (const element of form.elements) {
     if (!element.name || element.disabled) continue;
@@ -288,5 +288,3 @@ export function loadMoreButton(onClick) {
   element.addEventListener('click', () => busy(element, onClick));
   return h('div', { class: 'load-more' }, element);
 }
-
-export { render };

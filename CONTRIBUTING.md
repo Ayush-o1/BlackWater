@@ -21,7 +21,9 @@ cp .env.test.example .env.test     # point DATABASE_URL at blackwater_test
 | `npm run test:e2e` | Browser tests: starts the app against the test database and drives the real interface with Playwright. First run: `npx playwright install chromium` |
 | `npm run lint` | ESLint over the whole repository |
 
-The tests cover, among other things: authentication and token handling; role permissions on every route; isolation between organizations; the incident lifecycle including concurrent changes; the audit timeline and its actors; service health; private incidents never reaching the public API; invitations (single use, expiry, races, roles); the last-administrator rule; pagination; Socket.IO authentication and tenancy; the page routes and security headers; and, in the browser, the complete incident workflow and rendering of hostile text.
+The tests cover, among other things: authentication and token handling; role permissions on every route; isolation between organizations; the incident lifecycle including concurrent changes; the audit timeline and its actors; service health; private incidents never reaching the public API; invitations (single use, expiry, races, roles); the last-administrator rule; pagination; Socket.IO authentication and tenancy; the page routes and security headers; and, in the browser, the complete incident workflow, rendering of hostile text, live updates reaching other signed-in sessions (and never another organization's), keyboard-only use of dialogs, and a crawl of every page that fails on any console error or failed request.
+
+CI runs the backend suite on the minimum supported Node.js (20.19) as well as on 22, runs the browser suite, and builds the Docker image and starts it against an empty database.
 
 Integration tests share one database and run one file at a time. Each test starts from an empty database, so tests create what they need with the helpers in `tests/helpers/factories.js`.
 

@@ -8,7 +8,7 @@ const unique = () => `${Date.now()}-${(counter++).toString(36)}`;
 
 export const bearer = (token) => `Bearer ${token}`;
 
-export async function createOrg(name = `Test Org ${unique()}`) {
+async function createOrg(name = `Test Org ${unique()}`) {
   return prisma.organization.create({ data: { name } });
 }
 
@@ -27,7 +27,7 @@ export async function createUser(orgId, role = Role.MEMBER, overrides = {}) {
   return { user, password };
 }
 
-export const tokenFor = (user) => generateToken({ userId: user.id, orgId: user.orgId, role: user.role });
+const tokenFor = (user) => generateToken({ userId: user.id, orgId: user.orgId, role: user.role });
 
 /** Creates an org + a single user with the given role, plus a ready-to-use bearer token. */
 export async function createOrgWithUser(role = Role.ADMIN, overrides = {}) {
