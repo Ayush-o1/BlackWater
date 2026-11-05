@@ -632,4 +632,45 @@ test.describe('live updates across sessions', () => {
     await expect(outsiderOnIncidents.getByText(title)).toHaveCount(0);
     await expect(outsiderOnIncidents.getByText('Second incident')).toHaveCount(0);
   });
+
+  test('a session that loses its connection misses a change, then catches up by itself', async ({ page, browser }) => {
+    const admin = await register(page, { name: 'Ananya Gupta' });
+    const request = page.request;
+    const incident = await post(request, admin.token, '/incidents', { title: `Offline test ${unique()}`, severity: 'LOW' });
+    const invitation = await post(request, admin.token, '/invitations', { role: 'VIEWER' });
+    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Vikram Shah', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
+
+    const context = await browser.newContext();
+    await context.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }, ['blackwater.session', JSON.stringify(viewer)]);
+    const watcher = await context.newPage();
+
+    // Every WebSocket the page opens passes through here, so the test can cut the
+    // connection and refuse new ones (emulated "offline" does not touch an open socket).
+    let connectionUp = true;
+    let openSocket = null;
+    await watcher.routeWebSocket(/socket\.io/, (socket) => {
+      if (!connectionUp) {
+        socket.close();
+        return;
+      }
+      openSocket = socket;
+      socket.connectToServer();
+    });
+
+    await watcher.goto(`/incidents/${incident.id}`);
+    await expect(watcher.locator('.live-indicator')).toContainText('Live');
+    await expect(watcher.locator('.header-badges')).toContainText('Triggered');
+
+    // The connection drops; the admin keeps working.
+    connectionUp = false;
+    await openSocket.close();
+    await expect(watcher.locator('.live-indicator')).not.toContainText('Live');
+    await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'ACKNOWLEDGED' });
+    await expect(watcher.locator('.header-badges')).toContainText('Triggered'); // it cannot know yet
+
+    // The connection returns: the socket reconnects and every open page refetches once.
+    connectionUp = true;
+    await expect(watcher.locator('.live-indicator')).toContainText('Live', { timeout: 30_000 });
+    await expect(watcher.locator('.header-badges')).toContainText('Acknowledged');
+  });
 });

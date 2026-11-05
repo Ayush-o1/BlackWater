@@ -77,6 +77,43 @@ describe('socket authentication', () => {
   });
 });
 
+// Cuts every connection at the transport level, the way a restart, a deploy or a
+// dropped network does. (socket.disconnect() would send an explicit "disconnect"
+// packet, which Socket.IO clients deliberately do not recover from.)
+const dropAllConnections = () => socketServer.sockets.sockets.forEach((socket) => socket.conn.close());
+
+describe('connection loss', () => {
+  it('reconnects by itself after the server drops it and is back in its organization room', async () => {
+    const { token } = await createOrgWithUser('ADMIN');
+    const socket = connect(url, { auth: { token }, transports: ['websocket'], reconnectionDelay: 50, reconnectionDelayMax: 100 });
+    openSockets.push(socket);
+    await connected(socket);
+
+    const reconnected = new Promise((resolve) => socket.io.once('reconnect', resolve));
+    dropAllConnections();
+    await reconnected;
+
+    // The new connection went through authentication and joined the room again.
+    const heard = nextEvent(socket, 'incident:created');
+    const res = await api().post('/api/incidents').set('Authorization', bearer(token)).send({ title: 'After the reconnect', severity: 'LOW' });
+    expect(await heard).toEqual({ id: res.body.data.id });
+  });
+
+  it('refuses to reconnect with a token that has stopped being valid', async () => {
+    const { user, token } = await createOrgWithUser('ADMIN');
+    const socket = connect(url, { auth: { token }, transports: ['websocket'], reconnectionDelay: 50, reconnectionDelayMax: 100 });
+    openSockets.push(socket);
+    await connected(socket);
+
+    // The account disappears while the connection is up; the next handshake must fail.
+    await prisma.user.delete({ where: { id: user.id } });
+    const rejected = new Promise((resolve) => socket.once('connect_error', resolve));
+    dropAllConnections();
+
+    expect((await rejected).message).toContain('Unauthorized');
+  });
+});
+
 describe('real-time events', () => {
   it('tells everyone in the organization when an incident is created', async () => {
     const { org, token } = await createOrgWithUser('ADMIN');
