@@ -83,6 +83,7 @@
 }
 
 .topbar-end {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -143,9 +144,16 @@
     z-index: 40;
     width: 264px;
     transform: translateX(-100%);
-    transition: transform 160ms ease-out;
+    /* visibility keeps the closed drawer's links out of the tab order and away
+       from screen readers; it flips only after the slide-out has finished. */
+    visibility: hidden;
+    transition: transform 160ms ease-out, visibility 0s linear 160ms;
   }
-  .app[data-nav-open] .sidebar { transform: translateX(0); }
+  .app[data-nav-open] .sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 160ms ease-out, visibility 0s;
+  }
 
   .sidebar-backdrop {
     position: fixed;

@@ -243,21 +243,19 @@ export function confirmDialog({ title, message, confirmLabel = 'Confirm', danger
   });
 }
 
-// Plain object of the form's values. Checkboxes are true/false; a group of
-// checkboxes sharing a name becomes an array.
+// Plain object of the form's values. A checkbox with a value attribute is one
+// choice in a group and the group becomes an array of the checked values (empty
+// when none, even for a group of one); a checkbox without one is a yes/no switch.
 export function readForm(form) {
   const values = {};
   for (const element of form.elements) {
     if (!element.name || element.disabled) continue;
 
-    if (element.type === 'checkbox') {
-      const siblings = form.querySelectorAll(`input[type=checkbox][name="${element.name}"]`);
-      if (siblings.length > 1) {
-        values[element.name] ??= [];
-        if (element.checked) values[element.name].push(element.value);
-      } else {
-        values[element.name] = element.checked;
-      }
+    if (element.type === 'checkbox' && element.hasAttribute('value')) {
+      values[element.name] ??= [];
+      if (element.checked) values[element.name].push(element.value);
+    } else if (element.type === 'checkbox') {
+      values[element.name] = element.checked;
     } else {
       values[element.name] = element.value;
     }

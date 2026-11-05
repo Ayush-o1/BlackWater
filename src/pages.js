@@ -12,6 +12,13 @@ export const pages = [
   ['/login', 'login.html'],
   ['/register', 'register.html'],
   ['/invite', 'invite.html'],
+  ['/incidents', 'incidents.html'],
+  ['/incidents/:id', 'incident.html'],
+  ['/services', 'services.html'],
+  ['/services/:id', 'service.html'],
+  ['/settings', 'settings.html'],
+  ['/status/:orgId', 'status.html'],
+  ['/status/:orgId/incidents/:id', 'status-incident.html'],
 ];
 
 export const notFoundPage = 'not-found.html';
