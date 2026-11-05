@@ -1,5 +1,4 @@
 import { Server } from 'socket.io';
-import { env } from '../config/env.js';
 import { authenticateSocket } from './auth.js';
 import { registerSocketServer } from './emitter.js';
 
@@ -8,11 +7,10 @@ import { registerSocketServer } from './emitter.js';
 // organization. There is deliberately nothing a client can send to join a
 // different room.
 export function initSocketServer(httpServer) {
-  const allowedOrigins = env.CORS_ORIGIN.split(',').map((origin) => origin.trim());
-
-  const io = new Server(httpServer, {
-    cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
-  });
+  // No CORS settings: the page and the socket are served from the same origin.
+  // The connection is authenticated by the token in the handshake, not by
+  // cookies, so another website cannot make a visitor's browser connect as them.
+  const io = new Server(httpServer);
 
   registerSocketServer(io);
   io.use(authenticateSocket);

@@ -74,11 +74,6 @@ export function healthLabel(status) {
   return h('span', { class: 'inline-status' }, h('span', { class: tone ? `dot dot-${tone}` : 'dot' }), label);
 }
 
-export function healthBadge(status) {
-  const { label, tone } = SERVICE_STATUS[status] ?? { label: status, tone: '' };
-  return badge(label, tone);
-}
-
 // ---------- Toasts ----------
 
 function toastContainer() {

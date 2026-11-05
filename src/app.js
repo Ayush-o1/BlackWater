@@ -1,7 +1,7 @@
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import { env } from './config/env.js';
+import { prisma } from './database/prisma.js';
 import { globalErrorHandler } from './middleware/error.middleware.js';
 import { apiLimiter } from './middleware/rateLimit.middleware.js';
 import apiRoutes from './routes/index.js';
@@ -16,26 +16,33 @@ if (env.TRUST_PROXY > 0) {
   app.set('trust proxy', env.TRUST_PROXY);
 }
 
-// helmet's default Content-Security-Policy is kept: scripts and styles may only
-// load from this server, and inline scripts and event-handler attributes are
-// blocked. That is what makes text inserted into a page unable to run as code.
+// helmet's default Content-Security-Policy, tightened: scripts and styles may
+// only load from this server, and inline scripts, event-handler attributes and
+// inline styles are all blocked (no page uses any of them). That is what makes
+// text inserted into a page unable to run as code.
 // 'upgrade-insecure-requests' is only meaningful behind HTTPS and breaks
 // http://localhost in Safari, so it is sent in production only.
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
+        'style-src': ["'self'"],
         'upgrade-insecure-requests': env.NODE_ENV === 'production' ? [] : null,
       },
     },
   })
 );
 
-// Only the configured frontend origin(s) may call the API from a browser.
-app.use(cors({ origin: env.CORS_ORIGIN.split(',').map((origin) => origin.trim()), credentials: true }));
-
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'UP', message: 'BlackWater API is healthy' });
+// For load balancers and uptime monitors. It reports the database too: a server
+// that is running but cannot reach its database is not healthy, and should be
+// taken out of rotation rather than answering every request with an error.
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'UP', database: 'UP' });
+  } catch {
+    res.status(503).json({ status: 'DOWN', database: 'DOWN' });
+  }
 });
 
 // The rate limit and JSON body parsing apply to the API only: one page load

@@ -292,6 +292,29 @@ test.describe('team and invitations', () => {
 });
 
 test.describe('lists and layout', () => {
+  test('uses every page without breaking the Content-Security-Policy', async ({ page }) => {
+    const violations = [];
+    page.on('console', (message) => {
+      if (/content security policy/i.test(message.text())) violations.push(message.text());
+    });
+
+    const { orgId, token } = await register(page);
+    const api = apiFor(page, token);
+    const service = (await (await api.post('/services', { name: 'Search' })).json()).data;
+    const incident = (await (await api.post('/incidents', { title: 'Search is slow today', severity: 'HIGH', serviceIds: [service.id], isPublic: true })).json()).data;
+
+    for (const path of ['/', '/incidents', `/incidents/${incident.id}`, '/services', `/services/${service.id}`, '/settings', `/status/${orgId}`, `/status/${orgId}/incidents/${incident.id}`]) {
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+    }
+    // Open every dialog, since dialogs are built on demand.
+    await page.goto('/incidents');
+    await page.getByRole('button', { name: 'Declare incident' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    expect(violations).toEqual([]);
+  });
+
   test('pages through more than one page of services with Load more', async ({ page }) => {
     const { token } = await register(page);
     const api = apiFor(page, token);

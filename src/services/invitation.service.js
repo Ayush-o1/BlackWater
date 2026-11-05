@@ -132,7 +132,7 @@ export async function acceptInvitation({ token, name, email, password }) {
 
   emitToOrg(user.orgId, SocketEvent.TEAM_CHANGED, { id: user.id });
 
-  const { passwordHash: _omitted, ...safeUser } = user;
+  const { passwordHash: _hash, ...safeUser } = user; // never return the hash
   return {
     token: generateToken({ userId: user.id, orgId: user.orgId, role: user.role }),
     user: safeUser,

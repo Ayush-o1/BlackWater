@@ -2,6 +2,12 @@
   "name": "blackwater",
   "version": "1.0.0",
   "description": "Incident management platform with a public status page",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
@@ -15,25 +21,28 @@
     "test": "dotenv -e .env.test -- vitest run",
     "test:watch": "dotenv -e .env.test -- vitest",
     "test:coverage": "dotenv -e .env.test -- vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@prisma/client": "^5.10.2",
     "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.3",
     "express-rate-limit": "^7.5.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.3",
+    "prisma": "^5.10.2",
     "socket.io": "^4.8.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.62.1",
     "@vitest/coverage-v8": "^4.1.12",
     "dotenv-cli": "^11.0.0",
-    "prisma": "^5.10.2",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
     "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2",
     "vitest": "^4.1.12"
@@ -41,14 +50,11 @@
   "prisma": {
     "seed": "node prisma/seed.js"
   },
-  "type": "module",
-  "engines": {
-    "node": ">=20.6"
-  },
   "allowScripts": {
     "@prisma/client@5.22.0": true,
     "@prisma/engines@5.22.0": true,
     "bcrypt@6.0.0": true,
+    "fsevents@2.3.2": true,
     "fsevents@2.3.3": true,
     "prisma@5.22.0": true
   }

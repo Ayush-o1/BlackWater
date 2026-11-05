@@ -5,8 +5,11 @@ node_modules/
 dist/
 build/
 
-# Test coverage
+# Test output
 coverage/
+playwright-report/
+test-results/
+blob-report/
 
 # Environment variables — NEVER commit real .env files
 .env
@@ -54,13 +57,3 @@ generated/
 
 # Private documentation (interview prep, personal notes)
 docs/private/
-
-# Unused/duplicate asset directories (screenshots/ is the canonical location)
-assets/
-docs/images/
-
-# Vite boilerplate default assets (not used in this project)
-frontend/src/assets/react.svg
-frontend/src/assets/vite.svg
-frontend/src/assets/hero.png
-frontend/src/App.css

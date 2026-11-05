@@ -1,12 +1,11 @@
 import { api, getAll } from '../api.js';
 import { getSession, isAdmin, requireSession, updateSessionUser } from '../auth.js';
 import { h, render } from '../dom.js';
-import { icon } from '../icons.js';
 import { subscribe } from '../realtime.js';
 import { renderShell, roleLabel } from '../shell.js';
 import {
-  avatar, busy, button, confirmDialog, emptyState, errorState, formatDate, loadingRows, openDialog,
-  selectField, setTitle, textField, toast, toastError,
+  avatar, busy, button, confirmDialog, errorState, formatDate, loadingRows, openDialog,
+  selectField, setTitle, toast, toastError,
 } from '../ui.js';
 
 async function start() {

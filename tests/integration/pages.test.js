@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import { api } from '../helpers/request.js';
 import { prisma } from '../helpers/db.js';
 import { pages, publicDir } from '../../src/pages.js';
@@ -54,6 +54,7 @@ describe('security headers', () => {
     expect(csp).toContain("script-src 'self'");
     expect(csp).toContain("script-src-attr 'none'");
     expect(csp).toContain("object-src 'none'");
+    expect(csp).toMatch(/style-src 'self'(;|$)/); // no inline styles either
     expect(csp).not.toMatch(/script-src[^;]*unsafe-inline/);
     expect(csp).not.toMatch(/script-src[^;]*unsafe-eval/);
     expect(res.headers['x-content-type-options']).toBe('nosniff');
@@ -67,5 +68,24 @@ describe('security headers', () => {
       expect(inlineScripts, `${file} has an inline script`).toHaveLength(0);
       expect(html, `${file} has an inline handler`).not.toMatch(/\son[a-z]+\s*=/i);
     }
+  });
+});
+
+describe('health check', () => {
+  it('reports the server and the database', async () => {
+    const res = await api().get('/health');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'UP', database: 'UP' });
+  });
+
+  it('answers 503 when the database cannot be reached', async () => {
+    const spy = vi.spyOn(prisma, '$queryRaw').mockRejectedValueOnce(new Error('connection refused'));
+
+    const res = await api().get('/health');
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ status: 'DOWN', database: 'DOWN' });
+    spy.mockRestore();
   });
 });
