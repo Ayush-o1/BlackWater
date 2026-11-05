@@ -11,7 +11,7 @@ describe('POST /services', () => {
     const { token } = await createOrgWithUser('MEMBER');
 
     const res = await api()
-      .post('/services')
+      .post('/api/services')
       .set('Authorization', bearer(token))
       .send({ name: 'Payments API', description: 'Handles checkout charges' });
 
@@ -23,7 +23,7 @@ describe('POST /services', () => {
     const { token } = await createOrgWithUser('MEMBER');
 
     const res = await api()
-      .post('/services')
+      .post('/api/services')
       .set('Authorization', bearer(token))
       .send({ name: 'Payments API', status: 'MAJOR_OUTAGE' });
 
@@ -34,7 +34,7 @@ describe('POST /services', () => {
   it('returns 403 for a VIEWER', async () => {
     const { token } = await createOrgWithUser('VIEWER');
 
-    const res = await api().post('/services').set('Authorization', bearer(token)).send({ name: 'Payments API' });
+    const res = await api().post('/api/services').set('Authorization', bearer(token)).send({ name: 'Payments API' });
 
     expect(res.status).toBe(403);
   });
@@ -47,7 +47,7 @@ describe('GET /services', () => {
     await createService(org.id, { name: 'Mine' });
     await createService(otherOrg.id, { name: 'Not mine' });
 
-    const res = await api().get('/services').set('Authorization', bearer(token));
+    const res = await api().get('/api/services').set('Authorization', bearer(token));
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
@@ -61,15 +61,15 @@ describe('service health', () => {
     const service = await createService(org.id);
 
     await createIncident(org.id, user.id, { severity: 'LOW', serviceIds: [service.id] });
-    expect((await api().get(`/services/${service.id}`).set('Authorization', bearer(token))).body.data.status).toBe('DEGRADED');
+    expect((await api().get(`/api/services/${service.id}`).set('Authorization', bearer(token))).body.data.status).toBe('DEGRADED');
 
     // A private critical incident still counts for the team's own view.
     const critical = await createIncident(org.id, user.id, { severity: 'CRITICAL', serviceIds: [service.id], isPublic: false });
-    expect((await api().get(`/services/${service.id}`).set('Authorization', bearer(token))).body.data.status).toBe('MAJOR_OUTAGE');
+    expect((await api().get(`/api/services/${service.id}`).set('Authorization', bearer(token))).body.data.status).toBe('MAJOR_OUTAGE');
 
     // Resolving it drops health back to the remaining LOW incident.
-    await api().patch(`/incidents/${critical.id}/status`).set('Authorization', bearer(token)).send({ status: 'RESOLVED' });
-    expect((await api().get(`/services/${service.id}`).set('Authorization', bearer(token))).body.data.status).toBe('DEGRADED');
+    await api().patch(`/api/incidents/${critical.id}/status`).set('Authorization', bearer(token)).send({ status: 'RESOLVED' });
+    expect((await api().get(`/api/services/${service.id}`).set('Authorization', bearer(token))).body.data.status).toBe('DEGRADED');
   });
 
   it('returns to OPERATIONAL when the incident is resolved, and shows it in the list too', async () => {
@@ -77,12 +77,12 @@ describe('service health', () => {
     const service = await createService(org.id);
     const incident = await createIncident(org.id, user.id, { severity: 'HIGH', serviceIds: [service.id] });
 
-    const during = await api().get('/services').set('Authorization', bearer(token));
+    const during = await api().get('/api/services').set('Authorization', bearer(token));
     expect(during.body.data[0].status).toBe('PARTIAL_OUTAGE');
 
-    await api().patch(`/incidents/${incident.id}/status`).set('Authorization', bearer(token)).send({ status: 'RESOLVED' });
+    await api().patch(`/api/incidents/${incident.id}/status`).set('Authorization', bearer(token)).send({ status: 'RESOLVED' });
 
-    const after = await api().get('/services').set('Authorization', bearer(token));
+    const after = await api().get('/api/services').set('Authorization', bearer(token));
     expect(after.body.data[0].status).toBe('OPERATIONAL');
   });
 
@@ -92,7 +92,7 @@ describe('service health', () => {
     const service = await createService(org.id);
     await createIncident(otherOrg.id, otherUser.id, { severity: 'CRITICAL' });
 
-    const res = await api().get(`/services/${service.id}`).set('Authorization', bearer(token));
+    const res = await api().get(`/api/services/${service.id}`).set('Authorization', bearer(token));
     expect(res.body.data.status).toBe('OPERATIONAL');
   });
 });
@@ -103,7 +103,7 @@ describe('GET and PATCH /services/:id', () => {
     const service = await createService(org.id);
     await createIncident(org.id, user.id, { title: 'Earlier problem', serviceIds: [service.id] });
 
-    const res = await api().get(`/services/${service.id}`).set('Authorization', bearer(token));
+    const res = await api().get(`/api/services/${service.id}`).set('Authorization', bearer(token));
 
     expect(res.status).toBe(200);
     expect(res.body.data.incidents.map((i) => i.title)).toEqual(['Earlier problem']);
@@ -115,8 +115,8 @@ describe('GET and PATCH /services/:id', () => {
     const { token: viewerToken } = await createOrgWithUser('VIEWER');
     const service = await createService(org.id, { name: 'Old name' });
 
-    const ok = await api().patch(`/services/${service.id}`).set('Authorization', bearer(token)).send({ name: 'New name' });
-    const denied = await api().patch(`/services/${service.id}`).set('Authorization', bearer(viewerToken)).send({ name: 'Hacked' });
+    const ok = await api().patch(`/api/services/${service.id}`).set('Authorization', bearer(token)).send({ name: 'New name' });
+    const denied = await api().patch(`/api/services/${service.id}`).set('Authorization', bearer(viewerToken)).send({ name: 'Hacked' });
 
     expect(ok.status).toBe(200);
     expect(ok.body.data.name).toBe('New name');
@@ -128,8 +128,8 @@ describe('GET and PATCH /services/:id', () => {
     const { org: otherOrg } = await createOrgWithUser('ADMIN');
     const foreign = await createService(otherOrg.id);
 
-    expect((await api().get(`/services/${foreign.id}`).set('Authorization', bearer(token))).status).toBe(404);
-    expect((await api().patch(`/services/${foreign.id}`).set('Authorization', bearer(token)).send({ name: 'Taken over' })).status).toBe(404);
+    expect((await api().get(`/api/services/${foreign.id}`).set('Authorization', bearer(token))).status).toBe(404);
+    expect((await api().patch(`/api/services/${foreign.id}`).set('Authorization', bearer(token)).send({ name: 'Taken over' })).status).toBe(404);
   });
 });
 
@@ -138,7 +138,7 @@ describe('DELETE /services/:id', () => {
     const { org, token } = await createOrgWithUser('ADMIN');
     const service = await createService(org.id);
 
-    const res = await api().delete(`/services/${service.id}`).set('Authorization', bearer(token));
+    const res = await api().delete(`/api/services/${service.id}`).set('Authorization', bearer(token));
 
     expect(res.status).toBe(200);
     await expect(prisma.service.findUnique({ where: { id: service.id } })).resolves.toBeNull();
@@ -148,7 +148,7 @@ describe('DELETE /services/:id', () => {
     const { org, token } = await createOrgWithUser('MEMBER');
     const service = await createService(org.id);
 
-    const res = await api().delete(`/services/${service.id}`).set('Authorization', bearer(token));
+    const res = await api().delete(`/api/services/${service.id}`).set('Authorization', bearer(token));
 
     expect(res.status).toBe(403);
     await expect(prisma.service.findUnique({ where: { id: service.id } })).resolves.not.toBeNull();
@@ -159,7 +159,7 @@ describe('DELETE /services/:id', () => {
     const { org: otherOrg } = await createOrgWithUser('ADMIN');
     const foreignService = await createService(otherOrg.id);
 
-    const res = await api().delete(`/services/${foreignService.id}`).set('Authorization', bearer(token));
+    const res = await api().delete(`/api/services/${foreignService.id}`).set('Authorization', bearer(token));
 
     expect(res.status).toBe(404);
     await expect(prisma.service.findUnique({ where: { id: foreignService.id } })).resolves.not.toBeNull();

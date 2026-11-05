@@ -8,7 +8,7 @@ afterAll(() => prisma.$disconnect());
 
 describe('POST /auth/register', () => {
   it('creates an organization and an ADMIN user, returning a usable token', async () => {
-    const res = await api().post('/auth/register').send({
+    const res = await api().post('/api/auth/register').send({
       name: 'Ananya Gupta',
       email: 'ananya@blackwater.test',
       password: 'CorrectHorse!9',
@@ -22,20 +22,20 @@ describe('POST /auth/register', () => {
     expect(res.body.data.user.passwordHash).toBeUndefined();
     expect(typeof res.body.data.token).toBe('string');
 
-    const me = await api().get('/auth/me').set('Authorization', bearer(res.body.data.token));
+    const me = await api().get('/api/auth/me').set('Authorization', bearer(res.body.data.token));
     expect(me.status).toBe(200);
     expect(me.body.data.email).toBe('ananya@blackwater.test');
   });
 
   it('rejects a duplicate email with 409', async () => {
-    await api().post('/auth/register').send({
+    await api().post('/api/auth/register').send({
       name: 'Rohit Kumar',
       email: 'rohit@blackwater.test',
       password: 'CorrectHorse!9',
       orgName: 'Org One',
     });
 
-    const res = await api().post('/auth/register').send({
+    const res = await api().post('/api/auth/register').send({
       name: 'Rohit Kumar Again',
       email: 'rohit@blackwater.test',
       password: 'AnotherPass!9',
@@ -48,7 +48,7 @@ describe('POST /auth/register', () => {
   });
 
   it('rejects a payload that fails validation with 400', async () => {
-    const res = await api().post('/auth/register').send({
+    const res = await api().post('/api/auth/register').send({
       name: 'A',
       email: 'not-an-email',
       password: 'short',
@@ -61,7 +61,7 @@ describe('POST /auth/register', () => {
   });
 
   it('treats emails as case-insensitive and stores them lowercase', async () => {
-    const first = await api().post('/auth/register').send({
+    const first = await api().post('/api/auth/register').send({
       name: 'Meera Iyer',
       email: '  Meera.Iyer@BlackWater.test ',
       password: 'CorrectHorse!9',
@@ -70,7 +70,7 @@ describe('POST /auth/register', () => {
     expect(first.status).toBe(201);
     expect(first.body.data.user.email).toBe('meera.iyer@blackwater.test');
 
-    const duplicate = await api().post('/auth/register').send({
+    const duplicate = await api().post('/api/auth/register').send({
       name: 'Meera Again',
       email: 'MEERA.IYER@blackwater.test',
       password: 'CorrectHorse!9',
@@ -80,14 +80,14 @@ describe('POST /auth/register', () => {
 
     // Logging in works with any casing of the same address.
     const login = await api()
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'Meera.Iyer@BLACKWATER.test', password: 'CorrectHorse!9' });
     expect(login.status).toBe(200);
   });
 
   it('lets exactly one of two simultaneous registrations with the same email win', async () => {
     const attempt = (orgName) =>
-      api().post('/auth/register').send({
+      api().post('/api/auth/register').send({
         name: 'Race Runner',
         email: 'race@blackwater.test',
         password: 'CorrectHorse!9',
@@ -107,7 +107,7 @@ describe('POST /auth/login', () => {
   it('logs in with correct credentials', async () => {
     const { user, password } = await createOrgWithUser('ADMIN', { email: 'login-ok@blackwater.test' });
 
-    const res = await api().post('/auth/login').send({ email: user.email, password });
+    const res = await api().post('/api/auth/login').send({ email: user.email, password });
 
     expect(res.status).toBe(200);
     expect(res.body.data.user.id).toBe(user.id);
@@ -117,7 +117,7 @@ describe('POST /auth/login', () => {
   it('rejects an incorrect password with 401 and a generic message', async () => {
     const { user } = await createOrgWithUser('ADMIN', { email: 'login-wrong-pw@blackwater.test' });
 
-    const res = await api().post('/auth/login').send({ email: user.email, password: 'TotallyWrong!1' });
+    const res = await api().post('/api/auth/login').send({ email: user.email, password: 'TotallyWrong!1' });
 
     expect(res.status).toBe(401);
     expect(res.body.message).toBe('Invalid credentials');
@@ -125,7 +125,7 @@ describe('POST /auth/login', () => {
 
   it('rejects an unknown email with the same generic message (no user enumeration)', async () => {
     const res = await api()
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'nobody@blackwater.test', password: 'Whatever!123' });
 
     expect(res.status).toBe(401);
@@ -135,12 +135,12 @@ describe('POST /auth/login', () => {
 
 describe('GET /auth/me', () => {
   it('returns 401 without a token', async () => {
-    const res = await api().get('/auth/me');
+    const res = await api().get('/api/auth/me');
     expect(res.status).toBe(401);
   });
 
   it('returns 401 for a malformed Authorization header', async () => {
-    const res = await api().get('/auth/me').set('Authorization', 'NotBearer sometoken');
+    const res = await api().get('/api/auth/me').set('Authorization', 'NotBearer sometoken');
     expect(res.status).toBe(401);
   });
 });

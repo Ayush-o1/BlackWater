@@ -3,15 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { env } from './config/env.js';
 import { globalErrorHandler } from './middleware/error.middleware.js';
-import { apiLimiter, authLimiter } from './middleware/rateLimit.middleware.js';
-import authRoutes from './routes/auth.routes.js';
-import incidentRoutes from './routes/incident.routes.js';
-import serviceRoutes from './routes/service.routes.js';
-import statusRoutes from './routes/status.routes.js';
-import userRoutes from './routes/user.routes.js';
-import organizationRoutes from './routes/organization.routes.js';
-import invitationRoutes from './routes/invitation.routes.js';
-import dashboardRoutes from './routes/dashboard.routes.js';
+import { apiLimiter } from './middleware/rateLimit.middleware.js';
+import apiRoutes from './routes/index.js';
+import { pages, publicDir, notFoundPage } from './pages.js';
 
 const app = express();
 
@@ -22,30 +16,41 @@ if (env.TRUST_PROXY > 0) {
   app.set('trust proxy', env.TRUST_PROXY);
 }
 
-app.use(helmet());
+// helmet's default Content-Security-Policy is kept: scripts and styles may only
+// load from this server, and inline scripts and event-handler attributes are
+// blocked. That is what makes text inserted into a page unable to run as code.
+// 'upgrade-insecure-requests' is only meaningful behind HTTPS and breaks
+// http://localhost in Safari, so it is sent in production only.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        'upgrade-insecure-requests': env.NODE_ENV === 'production' ? [] : null,
+      },
+    },
+  })
+);
 
 // Only the configured frontend origin(s) may call the API from a browser.
 app.use(cors({ origin: env.CORS_ORIGIN.split(',').map((origin) => origin.trim()), credentials: true }));
-
-app.use(apiLimiter);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'UP', message: 'BlackWater API is healthy' });
 });
 
-app.use('/auth', authLimiter, authRoutes);
-app.use('/incidents', incidentRoutes);
-app.use('/services', serviceRoutes);
-app.use('/status', statusRoutes);
-app.use('/users', userRoutes);
-app.use('/organizations', organizationRoutes);
-app.use('/invitations', invitationRoutes);
-app.use('/dashboard', dashboardRoutes);
+// The rate limit and JSON body parsing apply to the API only: one page load
+// fetches a dozen static files, and those must not eat into the request budget.
+app.use('/api', apiLimiter, express.json(), apiRoutes);
 
-app.use('*', (req, res) => {
-  res.status(404).json({ success: false, message: `Cannot find ${req.originalUrl} on this server` });
+// The web pages and their assets (public/css, public/js).
+app.use(express.static(publicDir, { index: false, extensions: false }));
+
+for (const [urlPattern, file] of pages) {
+  app.get(urlPattern, (req, res) => res.sendFile(file, { root: publicDir }));
+}
+
+app.use((req, res) => {
+  res.status(404).sendFile(notFoundPage, { root: publicDir });
 });
 
 // Must be registered last so it receives errors from everything above.

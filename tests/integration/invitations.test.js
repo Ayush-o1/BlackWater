@@ -8,9 +8,9 @@ beforeEach(cleanDatabase);
 afterAll(() => prisma.$disconnect());
 
 const invite = (token, role = 'MEMBER') =>
-  api().post('/invitations').set('Authorization', bearer(token)).send({ role });
+  api().post('/api/invitations').set('Authorization', bearer(token)).send({ role });
 
-const accept = (body) => api().post('/invitations/accept').send(body);
+const accept = (body) => api().post('/api/invitations/accept').send(body);
 
 const newcomer = (token, overrides = {}) => ({
   token,
@@ -37,7 +37,7 @@ describe('creating invitations', () => {
     expect(days).toBeLessThanOrEqual(7);
 
     // Listing never returns tokens.
-    const list = await api().get('/invitations').set('Authorization', bearer(token));
+    const list = await api().get('/api/invitations').set('Authorization', bearer(token));
     expect(list.status).toBe(200);
     expect(list.body.data).toHaveLength(1);
     expect(JSON.stringify(list.body)).not.toContain(res.body.data.token);
@@ -76,8 +76,8 @@ describe('creating invitations', () => {
 
     expect((await invite(memberToken)).status).toBe(403);
     expect((await invite(viewerToken)).status).toBe(403);
-    expect((await api().post('/invitations').send({ role: 'MEMBER' })).status).toBe(401);
-    expect((await api().get('/invitations').set('Authorization', bearer(memberToken))).status).toBe(403);
+    expect((await api().post('/api/invitations').send({ role: 'MEMBER' })).status).toBe(401);
+    expect((await api().get('/api/invitations').set('Authorization', bearer(memberToken))).status).toBe(403);
   });
 });
 
@@ -92,11 +92,11 @@ describe('accepting invitations', () => {
     expect(res.body.data.user).toMatchObject({ email: 'kavya@blackwater.test', role: 'VIEWER', orgId: org.id });
     expect(res.body.data.user.passwordHash).toBeUndefined();
 
-    const me = await api().get('/auth/me').set('Authorization', bearer(res.body.data.token));
+    const me = await api().get('/api/auth/me').set('Authorization', bearer(res.body.data.token));
     expect(me.body.data.orgId).toBe(org.id);
 
     // The invited user chose their own password, and can log in with it.
-    const login = await api().post('/auth/login').send({ email: 'kavya@blackwater.test', password: 'CorrectHorse!9' });
+    const login = await api().post('/api/auth/login').send({ email: 'kavya@blackwater.test', password: 'CorrectHorse!9' });
     expect(login.status).toBe(200);
   });
 
@@ -196,7 +196,7 @@ describe('previewing invitations', () => {
     const { org, token } = await createOrgWithUser('ADMIN');
     const { body } = await invite(token, 'MEMBER');
 
-    const res = await api().post('/invitations/preview').send({ token: body.data.token });
+    const res = await api().post('/api/invitations/preview').send({ token: body.data.token });
 
     expect(res.status).toBe(200);
     expect(Object.keys(res.body.data).sort()).toEqual(['expiresAt', 'organizationName', 'role']);
@@ -205,7 +205,7 @@ describe('previewing invitations', () => {
   });
 
   it('returns 410 for an invalid link', async () => {
-    const res = await api().post('/invitations/preview').send({ token: crypto.randomBytes(32).toString('base64url') });
+    const res = await api().post('/api/invitations/preview').send({ token: crypto.randomBytes(32).toString('base64url') });
     expect(res.status).toBe(410);
   });
 });
@@ -219,10 +219,10 @@ describe('managing pending invitations', () => {
     const expired = (await invite(token)).body.data;
     await prisma.invitation.update({ where: { id: expired.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
 
-    const list = await api().get('/invitations').set('Authorization', bearer(token));
+    const list = await api().get('/api/invitations').set('Authorization', bearer(token));
     expect(list.body.data.map((i) => i.id)).toEqual([pending.id]);
 
-    const revoke = await api().delete(`/invitations/${pending.id}`).set('Authorization', bearer(token));
+    const revoke = await api().delete(`/api/invitations/${pending.id}`).set('Authorization', bearer(token));
     expect(revoke.status).toBe(200);
     expect((await accept(newcomer(pending.token))).status).toBe(410);
   });
@@ -232,8 +232,8 @@ describe('managing pending invitations', () => {
     const { token: tokenB } = await createOrgWithUser('ADMIN');
     const aInvite = (await invite(tokenA)).body.data;
 
-    const list = await api().get('/invitations').set('Authorization', bearer(tokenB));
-    const revoke = await api().delete(`/invitations/${aInvite.id}`).set('Authorization', bearer(tokenB));
+    const list = await api().get('/api/invitations').set('Authorization', bearer(tokenB));
+    const revoke = await api().delete(`/api/invitations/${aInvite.id}`).set('Authorization', bearer(tokenB));
 
     expect(list.body.data).toEqual([]);
     expect(revoke.status).toBe(404);

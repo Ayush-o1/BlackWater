@@ -86,7 +86,7 @@ describe('real-time events', () => {
     const heard = nextEvent(colleague, 'incident:created');
 
     const res = await api()
-      .post('/incidents')
+      .post('/api/incidents')
       .set('Authorization', bearer(token))
       .send({ title: 'Live update test', severity: 'LOW' });
 
@@ -100,7 +100,7 @@ describe('real-time events', () => {
     await connected(outsider);
     const heard = nextEvent(outsider, 'incident:created', 700);
 
-    await api().post('/incidents').set('Authorization', bearer(token)).send({ title: 'Private to org A', severity: 'LOW' });
+    await api().post('/api/incidents').set('Authorization', bearer(token)).send({ title: 'Private to org A', severity: 'LOW' });
 
     expect(await heard).toBeNull();
   });
@@ -112,15 +112,15 @@ describe('real-time events', () => {
     const incident = await createIncident(org.id, user.id);
 
     const statusHeard = nextEvent(listener, 'incident:updated');
-    await api().patch(`/incidents/${incident.id}/status`).set('Authorization', bearer(token)).send({ status: 'ACKNOWLEDGED' });
+    await api().patch(`/api/incidents/${incident.id}/status`).set('Authorization', bearer(token)).send({ status: 'ACKNOWLEDGED' });
     expect(await statusHeard).toEqual({ id: incident.id });
 
     const visibilityHeard = nextEvent(listener, 'incident:updated');
-    await api().patch(`/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic: true });
+    await api().patch(`/api/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic: true });
     expect(await visibilityHeard).toEqual({ id: incident.id });
 
     const serviceHeard = nextEvent(listener, 'service:changed');
-    await api().post('/services').set('Authorization', bearer(token)).send({ name: 'New service' });
+    await api().post('/api/services').set('Authorization', bearer(token)).send({ name: 'New service' });
     expect(await serviceHeard).toMatchObject({ id: expect.any(String) });
   });
 
@@ -131,7 +131,7 @@ describe('real-time events', () => {
     const incident = await createIncident(org.id, user.id);
     const heard = nextEvent(listener, 'incident:updated', 700);
 
-    const res = await api().patch(`/incidents/${incident.id}/status`).set('Authorization', bearer(token)).send({ status: 'CLOSED' });
+    const res = await api().patch(`/api/incidents/${incident.id}/status`).set('Authorization', bearer(token)).send({ status: 'CLOSED' });
 
     expect(res.status).toBe(400);
     expect(await heard).toBeNull();
@@ -141,10 +141,10 @@ describe('real-time events', () => {
     const { token } = await createOrgWithUser('ADMIN');
     const listener = connectAs(token);
     await connected(listener);
-    const invitation = await api().post('/invitations').set('Authorization', bearer(token)).send({ role: 'MEMBER' });
+    const invitation = await api().post('/api/invitations').set('Authorization', bearer(token)).send({ role: 'MEMBER' });
     const heard = nextEvent(listener, 'team:changed');
 
-    await api().post('/invitations/accept').send({
+    await api().post('/api/invitations/accept').send({
       token: invitation.body.data.token,
       name: 'New Person',
       email: 'new.person@blackwater.test',
@@ -164,7 +164,7 @@ describe('real-time events', () => {
     attacker.emit('join', `organization:${otherOrg.id}`);
     const heard = nextEvent(attacker, 'incident:created', 700);
 
-    await api().post('/incidents').set('Authorization', bearer(otherToken)).send({ title: 'Other org incident', severity: 'LOW' });
+    await api().post('/api/incidents').set('Authorization', bearer(otherToken)).send({ title: 'Other org incident', severity: 'LOW' });
 
     expect(await heard).toBeNull();
     expect(otherUser).toBeDefined();

@@ -7,14 +7,14 @@ beforeEach(cleanDatabase);
 afterAll(() => prisma.$disconnect());
 
 const changeRole = (token, userId, role) =>
-  api().patch(`/users/${userId}/role`).set('Authorization', bearer(token)).send({ role });
+  api().patch(`/api/users/${userId}/role`).set('Authorization', bearer(token)).send({ role });
 
 describe('PATCH /users/:id/role', () => {
   it('lets an ADMIN change a teammate\'s role, and the new role applies on their very next request', async () => {
     const { org, token: adminToken } = await createOrgWithUser('ADMIN');
     const { user: member, token: memberToken } = await addUserToOrg(org.id, 'MEMBER');
     const createIncident = () =>
-      api().post('/incidents').set('Authorization', bearer(memberToken)).send({ title: 'Some incident', severity: 'LOW' });
+      api().post('/api/incidents').set('Authorization', bearer(memberToken)).send({ title: 'Some incident', severity: 'LOW' });
 
     expect((await createIncident()).status).toBe(201);
 

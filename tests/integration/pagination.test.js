@@ -41,10 +41,10 @@ describe('cursor pagination', () => {
       })),
     });
 
-    const everything = await api().get('/incidents').query({ limit: 100 }).set('Authorization', bearer(token));
+    const everything = await api().get('/api/incidents').query({ limit: 100 }).set('Authorization', bearer(token));
     const expected = everything.body.data.map((row) => row.id);
 
-    const paged = await readAllPages('/incidents', token, 2);
+    const paged = await readAllPages('/api/incidents', token, 2);
 
     expect(expected).toHaveLength(7);
     expect(paged).toEqual(expected);
@@ -57,12 +57,12 @@ describe('cursor pagination', () => {
       data: Array.from({ length: 3 }, (_, i) => ({ name: `Service ${i}`, orgId: org.id })),
     });
 
-    const first = await api().get('/services').query({ limit: 2 }).set('Authorization', bearer(token));
+    const first = await api().get('/api/services').query({ limit: 2 }).set('Authorization', bearer(token));
     expect(first.body.pagination.hasMore).toBe(true);
     expect(first.body.pagination.nextCursor).toBe(first.body.data[1].id);
 
     const second = await api()
-      .get('/services')
+      .get('/api/services')
       .query({ limit: 2, cursor: first.body.pagination.nextCursor })
       .set('Authorization', bearer(token));
     expect(second.body.data).toHaveLength(1);
@@ -75,14 +75,14 @@ describe('cursor pagination', () => {
       data: Array.from({ length: 5 }, (_, i) => ({ name: `Service ${i}`, orgId: org.id })),
     });
 
-    expect(await readAllPages('/services', token, 2)).toHaveLength(5);
-    expect(await readAllPages('/users', token, 1)).toHaveLength(1);
+    expect(await readAllPages('/api/services', token, 2)).toHaveLength(5);
+    expect(await readAllPages('/api/users', token, 1)).toHaveLength(1);
   });
 
   it('rejects limits outside 1 to 100', async () => {
     const { token } = await createOrgWithUser('ADMIN');
     for (const limit of ['0', '101', '-1', '2.5']) {
-      const res = await api().get('/services').query({ limit }).set('Authorization', bearer(token));
+      const res = await api().get('/api/services').query({ limit }).set('Authorization', bearer(token));
       expect(res.status).toBe(400);
     }
   });

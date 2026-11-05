@@ -13,7 +13,7 @@ describe('GET /users', () => {
     const { org: otherOrg } = await createOrgWithUser('ADMIN');
     await createUser(otherOrg.id, 'MEMBER', { name: 'Should not appear' });
 
-    const res = await api().get('/users').set('Authorization', `Bearer ${token}`);
+    const res = await api().get('/api/users').set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
     const names = res.body.data.map((u) => u.name);
@@ -28,7 +28,7 @@ describe('PATCH /users/me', () => {
   it('updates the caller own display name', async () => {
     const { token } = await createOrgWithUser('MEMBER', { name: 'Old Name' });
 
-    const res = await api().patch('/users/me').set('Authorization', `Bearer ${token}`).send({ name: 'New Name' });
+    const res = await api().patch('/api/users/me').set('Authorization', `Bearer ${token}`).send({ name: 'New Name' });
 
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe('New Name');
@@ -37,7 +37,7 @@ describe('PATCH /users/me', () => {
   it('rejects a name shorter than 2 characters', async () => {
     const { token } = await createOrgWithUser('MEMBER');
 
-    const res = await api().patch('/users/me').set('Authorization', `Bearer ${token}`).send({ name: 'A' });
+    const res = await api().patch('/api/users/me').set('Authorization', `Bearer ${token}`).send({ name: 'A' });
 
     expect(res.status).toBe(400);
   });
@@ -48,7 +48,7 @@ describe('GET /organizations/me', () => {
     const { org, token } = await createOrgWithUser('ADMIN');
     await createUser(org.id, 'MEMBER');
 
-    const res = await api().get('/organizations/me').set('Authorization', `Bearer ${token}`);
+    const res = await api().get('/api/organizations/me').set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe(org.id);
@@ -61,7 +61,7 @@ describe('PATCH /organizations/me', () => {
     const { token } = await createOrgWithUser('ADMIN');
 
     const res = await api()
-      .patch('/organizations/me')
+      .patch('/api/organizations/me')
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Renamed Org' });
 
@@ -73,7 +73,7 @@ describe('PATCH /organizations/me', () => {
     const { token } = await createOrgWithUser('MEMBER');
 
     const res = await api()
-      .patch('/organizations/me')
+      .patch('/api/organizations/me')
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Renamed Org' });
 

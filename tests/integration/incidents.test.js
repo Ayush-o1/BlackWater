@@ -16,7 +16,7 @@ const timelineOf = (incidentId) =>
   prisma.timelineEvent.findMany({ where: { incidentId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
 
 const setStatus = (token, incidentId, status) =>
-  api().patch(`/incidents/${incidentId}/status`).set('Authorization', bearer(token)).send({ status });
+  api().patch(`/api/incidents/${incidentId}/status`).set('Authorization', bearer(token)).send({ status });
 
 describe('POST /incidents', () => {
   it('lets a MEMBER declare an incident, private by default, and links affected services', async () => {
@@ -24,7 +24,7 @@ describe('POST /incidents', () => {
     const service = await createService(org.id);
 
     const res = await api()
-      .post('/incidents')
+      .post('/api/incidents')
       .set('Authorization', bearer(token))
       .send({ title: 'Elevated latency on checkout', severity: 'HIGH', serviceIds: [service.id] });
 
@@ -33,7 +33,7 @@ describe('POST /incidents', () => {
     expect(res.body.data.isPublic).toBe(false);
     expect(res.body.data.creatorId).toBe(user.id);
 
-    const details = await api().get(`/incidents/${res.body.data.id}`).set('Authorization', bearer(token));
+    const details = await api().get(`/api/incidents/${res.body.data.id}`).set('Authorization', bearer(token));
     expect(details.body.data.affectedServices).toEqual([
       { id: service.id, name: service.name, status: 'PARTIAL_OUTAGE' },
     ]);
@@ -43,7 +43,7 @@ describe('POST /incidents', () => {
     const { token } = await createOrgWithUser('MEMBER');
 
     const res = await api()
-      .post('/incidents')
+      .post('/api/incidents')
       .set('Authorization', bearer(token))
       .send({ title: 'Public from the start', severity: 'LOW', isPublic: true });
 
@@ -55,7 +55,7 @@ describe('POST /incidents', () => {
     const { user, token } = await createOrgWithUser('MEMBER');
 
     const res = await api()
-      .post('/incidents')
+      .post('/api/incidents')
       .set('Authorization', bearer(token))
       .send({ title: 'Who did this', severity: 'LOW' });
 
@@ -67,7 +67,7 @@ describe('POST /incidents', () => {
   it('rejects a title shorter than 5 characters with 400', async () => {
     const { token } = await createOrgWithUser('MEMBER');
 
-    const res = await api().post('/incidents').set('Authorization', bearer(token)).send({ title: 'Bad', severity: 'LOW' });
+    const res = await api().post('/api/incidents').set('Authorization', bearer(token)).send({ title: 'Bad', severity: 'LOW' });
 
     expect(res.status).toBe(400);
   });
@@ -78,7 +78,7 @@ describe('POST /incidents', () => {
     const foreignService = await createService(otherOrg.id);
 
     const res = await api()
-      .post('/incidents')
+      .post('/api/incidents')
       .set('Authorization', bearer(token))
       .send({ title: 'Cross tenant attempt', severity: 'LOW', serviceIds: [foreignService.id] });
 
@@ -91,7 +91,7 @@ describe('POST /incidents', () => {
     const { token } = await createOrgWithUser('VIEWER');
 
     const res = await api()
-      .post('/incidents')
+      .post('/api/incidents')
       .set('Authorization', bearer(token))
       .send({ title: 'Should not be allowed', severity: 'LOW' });
 
@@ -106,7 +106,7 @@ describe('GET /incidents', () => {
     await createIncident(org.id, user.id, { title: 'Mine to see' });
     await createIncident(otherOrg.id, otherUser.id, { title: 'Not mine' });
 
-    const res = await api().get('/incidents').set('Authorization', bearer(token));
+    const res = await api().get('/api/incidents').set('Authorization', bearer(token));
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
@@ -118,7 +118,7 @@ describe('GET /incidents', () => {
     await createIncident(org.id, user.id, { title: 'Low severity issue', severity: 'LOW' });
     await createIncident(org.id, user.id, { title: 'Critical outage', severity: 'CRITICAL' });
 
-    const res = await api().get('/incidents').query({ severity: 'CRITICAL' }).set('Authorization', bearer(token));
+    const res = await api().get('/api/incidents').query({ severity: 'CRITICAL' }).set('Authorization', bearer(token));
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
@@ -128,7 +128,7 @@ describe('GET /incidents', () => {
   it('rejects a non-numeric limit with 400', async () => {
     const { token } = await createOrgWithUser('ADMIN');
 
-    const res = await api().get('/incidents').query({ limit: 'abc' }).set('Authorization', bearer(token));
+    const res = await api().get('/api/incidents').query({ limit: 'abc' }).set('Authorization', bearer(token));
 
     expect(res.status).toBe(400);
   });
@@ -140,7 +140,7 @@ describe('GET /incidents/:id', () => {
     const { org: otherOrg, user: otherUser } = await createOrgWithUser('ADMIN');
     const foreignIncident = await createIncident(otherOrg.id, otherUser.id);
 
-    const res = await api().get(`/incidents/${foreignIncident.id}`).set('Authorization', bearer(token));
+    const res = await api().get(`/api/incidents/${foreignIncident.id}`).set('Authorization', bearer(token));
 
     expect(res.status).toBe(404);
   });
@@ -150,7 +150,7 @@ describe('GET /incidents/:id', () => {
     const incident = await createIncident(org.id, user.id);
     await setStatus(token, incident.id, 'ACKNOWLEDGED');
 
-    const res = await api().get(`/incidents/${incident.id}`).set('Authorization', bearer(token));
+    const res = await api().get(`/api/incidents/${incident.id}`).set('Authorization', bearer(token));
 
     const statusEvent = res.body.data.timelineEvents.find((e) => e.eventType === 'STATUS_CHANGED');
     expect(statusEvent.actor).toEqual({ id: user.id, name: 'Tara Nair' });
@@ -203,7 +203,7 @@ describe('PATCH /incidents/:id/status', () => {
     const service = await createService(org.id);
     const incident = await createIncident(org.id, user.id, { severity: 'CRITICAL', serviceIds: [service.id] });
     const health = async () =>
-      (await api().get(`/services/${service.id}`).set('Authorization', bearer(token))).body.data.status;
+      (await api().get(`/api/services/${service.id}`).set('Authorization', bearer(token))).body.data.status;
 
     await setStatus(token, incident.id, 'RESOLVED');
     expect(await health()).toBe('OPERATIONAL');
@@ -284,7 +284,7 @@ describe('PATCH /incidents/:id (edit)', () => {
     const incident = await createIncident(org.id, user.id, { title: 'Original title', severity: 'LOW' });
 
     const res = await api()
-      .patch(`/incidents/${incident.id}`)
+      .patch(`/api/incidents/${incident.id}`)
       .set('Authorization', bearer(token))
       .send({ title: 'Corrected title', severity: 'CRITICAL', description: 'Now with details' });
 
@@ -305,10 +305,10 @@ describe('PATCH /incidents/:id (edit)', () => {
     const service = await createService(org.id);
     const incident = await createIncident(org.id, user.id, { severity: 'LOW', serviceIds: [service.id] });
     const health = async () =>
-      (await api().get(`/services/${service.id}`).set('Authorization', bearer(token))).body.data.status;
+      (await api().get(`/api/services/${service.id}`).set('Authorization', bearer(token))).body.data.status;
 
     expect(await health()).toBe('DEGRADED');
-    await api().patch(`/incidents/${incident.id}`).set('Authorization', bearer(token)).send({ severity: 'CRITICAL' });
+    await api().patch(`/api/incidents/${incident.id}`).set('Authorization', bearer(token)).send({ severity: 'CRITICAL' });
     expect(await health()).toBe('MAJOR_OUTAGE');
   });
 
@@ -320,7 +320,7 @@ describe('PATCH /incidents/:id (edit)', () => {
     const incident = await createIncident(org.id, user.id, { serviceIds: [keep.id, drop.id] });
 
     const res = await api()
-      .patch(`/incidents/${incident.id}`)
+      .patch(`/api/incidents/${incident.id}`)
       .set('Authorization', bearer(token))
       .send({ serviceIds: [keep.id, add.id] });
 
@@ -343,7 +343,7 @@ describe('PATCH /incidents/:id (edit)', () => {
     const incident = await createIncident(org.id, user.id);
 
     const res = await api()
-      .patch(`/incidents/${incident.id}`)
+      .patch(`/api/incidents/${incident.id}`)
       .set('Authorization', bearer(token))
       .send({ serviceIds: [foreign.id] });
 
@@ -355,7 +355,7 @@ describe('PATCH /incidents/:id (edit)', () => {
     const incident = await createIncident(org.id, user.id, { title: 'Same title here' });
 
     const res = await api()
-      .patch(`/incidents/${incident.id}`)
+      .patch(`/api/incidents/${incident.id}`)
       .set('Authorization', bearer(token))
       .send({ title: 'Same title here' });
 
@@ -368,7 +368,7 @@ describe('PATCH /incidents/:id (edit)', () => {
     const incident = await createIncident(org.id, user.id);
 
     const res = await api()
-      .patch(`/incidents/${incident.id}`)
+      .patch(`/api/incidents/${incident.id}`)
       .set('Authorization', bearer(token))
       .send({ title: 'A fine new title', status: 'CLOSED', isPublic: true, orgId: 'x', creatorId: 'x' });
 
@@ -381,8 +381,8 @@ describe('PATCH /incidents/:id (edit)', () => {
     const { org, user, token } = await createOrgWithUser('MEMBER');
     const incident = await createIncident(org.id, user.id, { status: 'CLOSED' });
 
-    const empty = await api().patch(`/incidents/${incident.id}`).set('Authorization', bearer(token)).send({});
-    const closed = await api().patch(`/incidents/${incident.id}`).set('Authorization', bearer(token)).send({ title: 'Too late now' });
+    const empty = await api().patch(`/api/incidents/${incident.id}`).set('Authorization', bearer(token)).send({});
+    const closed = await api().patch(`/api/incidents/${incident.id}`).set('Authorization', bearer(token)).send({ title: 'Too late now' });
 
     expect(empty.status).toBe(400);
     expect(closed.status).toBe(400);
@@ -393,7 +393,7 @@ describe('PATCH /incidents/:id (edit)', () => {
     const { token: viewerToken } = await addUserToOrg(org.id, 'VIEWER');
     const incident = await createIncident(org.id, user.id);
 
-    const res = await api().patch(`/incidents/${incident.id}`).set('Authorization', bearer(viewerToken)).send({ title: 'Nope nope' });
+    const res = await api().patch(`/api/incidents/${incident.id}`).set('Authorization', bearer(viewerToken)).send({ title: 'Nope nope' });
 
     expect(res.status).toBe(403);
   });
@@ -406,7 +406,7 @@ describe('PATCH /incidents/:id/assign', () => {
     const incident = await createIncident(org.id, admin.id);
 
     const res = await api()
-      .patch(`/incidents/${incident.id}/assign`)
+      .patch(`/api/incidents/${incident.id}/assign`)
       .set('Authorization', bearer(token))
       .send({ assigneeId: assignee.id });
 
@@ -424,7 +424,7 @@ describe('PATCH /incidents/:id/assign', () => {
     await prisma.incident.update({ where: { id: incident.id }, data: { assigneeId: admin.id } });
 
     const res = await api()
-      .patch(`/incidents/${incident.id}/assign`)
+      .patch(`/api/incidents/${incident.id}/assign`)
       .set('Authorization', bearer(token))
       .send({ assigneeId: null });
 
@@ -439,7 +439,7 @@ describe('PATCH /incidents/:id/assign', () => {
     const { org, user: admin, token } = await createOrgWithUser('ADMIN');
     const incident = await createIncident(org.id, admin.id);
 
-    await api().patch(`/incidents/${incident.id}/assign`).set('Authorization', bearer(token)).send({ assigneeId: null });
+    await api().patch(`/api/incidents/${incident.id}/assign`).set('Authorization', bearer(token)).send({ assigneeId: null });
 
     expect(await timelineOf(incident.id)).toHaveLength(0);
   });
@@ -450,7 +450,7 @@ describe('PATCH /incidents/:id/assign', () => {
     const incident = await createIncident(org.id, user.id);
 
     const res = await api()
-      .patch(`/incidents/${incident.id}/assign`)
+      .patch(`/api/incidents/${incident.id}/assign`)
       .set('Authorization', bearer(token))
       .send({ assigneeId: foreignUser.id });
 
@@ -465,7 +465,7 @@ describe('POST /incidents/:id/updates', () => {
     const incident = await createIncident(org.id, user.id);
 
     const res = await api()
-      .post(`/incidents/${incident.id}/updates`)
+      .post(`/api/incidents/${incident.id}/updates`)
       .set('Authorization', bearer(token))
       .send({ message: 'Investigating the root cause.', isPublic: true });
 
@@ -479,7 +479,7 @@ describe('POST /incidents/:id/updates', () => {
     const { org, user, token } = await createOrgWithUser('MEMBER');
     const incident = await createIncident(org.id, user.id);
 
-    const res = await api().post(`/incidents/${incident.id}/updates`).set('Authorization', bearer(token)).send({ message: '' });
+    const res = await api().post(`/api/incidents/${incident.id}/updates`).set('Authorization', bearer(token)).send({ message: '' });
 
     expect(res.status).toBe(400);
   });
@@ -488,7 +488,7 @@ describe('POST /incidents/:id/updates', () => {
     const { org, user, token } = await createOrgWithUser('MEMBER');
     const incident = await createIncident(org.id, user.id, { status: 'CLOSED' });
 
-    const res = await api().post(`/incidents/${incident.id}/updates`).set('Authorization', bearer(token)).send({ message: 'Late note' });
+    const res = await api().post(`/api/incidents/${incident.id}/updates`).set('Authorization', bearer(token)).send({ message: 'Late note' });
 
     expect(res.status).toBe(400);
   });
@@ -499,7 +499,7 @@ describe('PATCH /incidents/:id/visibility', () => {
     const { org, user, token } = await createOrgWithUser('MEMBER');
     const incident = await createIncident(org.id, user.id);
     const set = (isPublic) =>
-      api().patch(`/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic });
+      api().patch(`/api/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic });
 
     const published = await set(true);
     expect(published.status).toBe(200);
@@ -519,7 +519,7 @@ describe('PATCH /incidents/:id/visibility', () => {
     const { org, user, token } = await createOrgWithUser('MEMBER');
     const incident = await createIncident(org.id, user.id);
 
-    await api().patch(`/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic: false });
+    await api().patch(`/api/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic: false });
 
     expect(await timelineOf(incident.id)).toHaveLength(0);
   });
@@ -530,7 +530,7 @@ describe('PATCH /incidents/:id/visibility', () => {
     const { token: outsiderToken } = await createOrgWithUser('ADMIN');
     const incident = await createIncident(org.id, user.id);
     const attempt = (token) =>
-      api().patch(`/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic: true });
+      api().patch(`/api/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic: true });
 
     expect((await attempt(viewerToken)).status).toBe(403);
     expect((await attempt(outsiderToken)).status).toBe(404);
@@ -541,7 +541,7 @@ describe('PATCH /incidents/:id/visibility', () => {
     const { org, user, token } = await createOrgWithUser('MEMBER');
     const incident = await createIncident(org.id, user.id, { status: 'CLOSED', isPublic: true });
 
-    const res = await api().patch(`/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic: false });
+    const res = await api().patch(`/api/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic: false });
 
     expect(res.status).toBe(200);
     expect(res.body.data.isPublic).toBe(false);

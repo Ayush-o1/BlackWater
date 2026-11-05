@@ -149,7 +149,7 @@ test.describe('incident lifecycle', () => {
 
     // Incidents are private until published, and this UI has no publish control
     // yet, so publish through the API the way the new interface will.
-    const publish = await page.request.patch(`http://localhost:8001/incidents/${incidentId}/visibility`, {
+    const publish = await page.request.patch(`http://localhost:8001/api/incidents/${incidentId}/visibility`, {
       headers: { Authorization: `Bearer ${parsed.state.token}` },
       data: { isPublic: true },
     });
@@ -177,7 +177,7 @@ test.describe('incident lifecycle', () => {
       () => JSON.parse(localStorage.getItem('blackwater-auth-storage')!).state.token
     );
 
-    const response = await page.request.patch(`http://localhost:8001/incidents/${incidentId}/status`, {
+    const response = await page.request.patch(`http://localhost:8001/api/incidents/${incidentId}/status`, {
       headers: { Authorization: `Bearer ${token}` },
       data: { status: 'CLOSED' },
     });

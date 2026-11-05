@@ -30,6 +30,15 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   // The user is re-read from the database on every request instead of trusting
   // the role and orgId stored in the token. A deleted user stops working at once
   // and a changed role takes effect immediately, instead of after the token expires.
-  req.user = await authService.getUserById(payload.userId);
+  try {
+    req.user = await authService.getUserById(payload.userId);
+  } catch (error) {
+    // A valid token for a user who no longer exists is an authentication
+    // failure (401), not "resource not found", so clients sign the user out.
+    if (error instanceof AppError && error.statusCode === 404) {
+      throw new AppError('Unauthorized: User no longer exists', 401);
+    }
+    throw error;
+  }
   next();
 });

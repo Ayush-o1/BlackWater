@@ -13,7 +13,7 @@ describe('GET /status (public overview)', () => {
     const { org } = await createOrgWithUser('ADMIN');
     await createService(org.id);
 
-    const res = await publicGet('/status', org.id);
+    const res = await publicGet('/api/status', org.id);
 
     expect(res.status).toBe(200);
     expect(res.body.data.overallStatus).toBe('OPERATIONAL');
@@ -25,7 +25,7 @@ describe('GET /status (public overview)', () => {
     const service = await createService(org.id);
     await createIncident(org.id, user.id, { severity: 'MEDIUM', serviceIds: [service.id], isPublic: true });
 
-    const res = await publicGet('/status', org.id);
+    const res = await publicGet('/api/status', org.id);
 
     expect(res.body.data.overallStatus).toBe('DEGRADED');
     expect(res.body.data.services[0].status).toBe('DEGRADED');
@@ -41,7 +41,7 @@ describe('GET /status (public overview)', () => {
       isPublic: true,
     });
 
-    const res = await publicGet('/status', org.id);
+    const res = await publicGet('/api/status', org.id);
 
     const [publicIncident] = res.body.data.activeIncidents;
     expect(publicIncident.id).toBe(incident.id);
@@ -53,13 +53,13 @@ describe('GET /status (public overview)', () => {
   });
 
   it('returns 404 for an unknown organization', async () => {
-    const res = await api().get('/status').query({ orgId: '3f2b8c1e-6a4d-4f5b-9c7e-1a2b3c4d5e6f' });
+    const res = await api().get('/api/status').query({ orgId: '3f2b8c1e-6a4d-4f5b-9c7e-1a2b3c4d5e6f' });
     expect(res.status).toBe(404);
   });
 
   it('rejects a missing or malformed organization id with 400', async () => {
-    expect((await api().get('/status')).status).toBe(400);
-    expect((await api().get('/status').query({ orgId: 'not-a-uuid' })).status).toBe(400);
+    expect((await api().get('/api/status')).status).toBe(400);
+    expect((await api().get('/api/status').query({ orgId: 'not-a-uuid' })).status).toBe(400);
   });
 });
 
@@ -78,7 +78,7 @@ describe('private incidents never reach the public API', () => {
       isPublic: false,
     });
     await api()
-      .post(`/incidents/${incident.id}/updates`)
+      .post(`/api/incidents/${incident.id}/updates`)
       .set('Authorization', bearer(token))
       .send({ message: 'Public-looking message on a private incident', isPublic: true });
     return { org, user, token, service, incident };
@@ -87,7 +87,7 @@ describe('private incidents never reach the public API', () => {
   it('is absent from the overview, the incident list and the service list', async () => {
     const { org } = await orgWithPrivateIncident();
 
-    for (const path of ['/status', '/status/incidents', '/status/services']) {
+    for (const path of ['/api/status', '/api/status/incidents', '/api/status/services']) {
       const res = await publicGet(path, org.id);
       expect(res.status).toBe(200);
       const body = JSON.stringify(res.body);
@@ -95,14 +95,14 @@ describe('private incidents never reach the public API', () => {
       expect(body).not.toContain(SECRET_DESCRIPTION);
       expect(body).not.toContain('Public-looking message');
     }
-    expect((await publicGet('/status/incidents', org.id)).body.data).toEqual([]);
+    expect((await publicGet('/api/status/incidents', org.id)).body.data).toEqual([]);
   });
 
   it('looks exactly like a nonexistent incident when requested directly', async () => {
     const { org, incident } = await orgWithPrivateIncident();
 
-    const privateRes = await publicGet(`/status/incidents/${incident.id}`, org.id);
-    const missingRes = await publicGet('/status/incidents/3f2b8c1e-6a4d-4f5b-9c7e-1a2b3c4d5e6f', org.id);
+    const privateRes = await publicGet(`/api/status/incidents/${incident.id}`, org.id);
+    const missingRes = await publicGet('/api/status/incidents/3f2b8c1e-6a4d-4f5b-9c7e-1a2b3c4d5e6f', org.id);
 
     expect(privateRes.status).toBe(404);
     expect(privateRes.body).toEqual(missingRes.body);
@@ -112,14 +112,14 @@ describe('private incidents never reach the public API', () => {
     const { org, token, service } = await orgWithPrivateIncident();
 
     // The team sees the truth...
-    const internal = await api().get(`/services/${service.id}`).set('Authorization', bearer(token));
+    const internal = await api().get(`/api/services/${service.id}`).set('Authorization', bearer(token));
     expect(internal.body.data.status).toBe('MAJOR_OUTAGE');
 
     // ...visitors see nothing wrong, because nothing wrong has been published.
-    const overview = await publicGet('/status', org.id);
+    const overview = await publicGet('/api/status', org.id);
     expect(overview.body.data.overallStatus).toBe('OPERATIONAL');
     expect(overview.body.data.services[0].status).toBe('OPERATIONAL');
-    const services = await publicGet('/status/services', org.id);
+    const services = await publicGet('/api/status/services', org.id);
     expect(services.body.data.services[0].status).toBe('OPERATIONAL');
   });
 
@@ -127,7 +127,7 @@ describe('private incidents never reach the public API', () => {
     const { incident } = await orgWithPrivateIncident();
     const { org: otherOrg } = await createOrgWithUser('ADMIN');
 
-    const res = await publicGet(`/status/incidents/${incident.id}`, otherOrg.id);
+    const res = await publicGet(`/api/status/incidents/${incident.id}`, otherOrg.id);
 
     expect(res.status).toBe(404);
   });
@@ -141,7 +141,7 @@ describe('private incidents never reach the public API', () => {
       isPublic: true,
     });
 
-    const detail = await publicGet(`/status/incidents/${published.id}`, org.id);
+    const detail = await publicGet(`/api/status/incidents/${published.id}`, org.id);
 
     // Visitors see the LOW incident's effect (DEGRADED), not the private CRITICAL one (MAJOR_OUTAGE).
     expect(detail.body.data.affectedServices[0].status).toBe('DEGRADED');
@@ -155,24 +155,24 @@ describe('publishing and unpublishing', () => {
     const service = await createService(org.id);
     const incident = await createIncident(org.id, user.id, { severity: 'HIGH', serviceIds: [service.id] });
     const setVisibility = (isPublic) =>
-      api().patch(`/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic });
+      api().patch(`/api/incidents/${incident.id}/visibility`).set('Authorization', bearer(token)).send({ isPublic });
 
-    expect((await publicGet('/status', org.id)).body.data.overallStatus).toBe('OPERATIONAL');
+    expect((await publicGet('/api/status', org.id)).body.data.overallStatus).toBe('OPERATIONAL');
 
     await setVisibility(true);
-    const shown = await publicGet('/status', org.id);
+    const shown = await publicGet('/api/status', org.id);
     expect(shown.body.data.overallStatus).toBe('PARTIAL_OUTAGE');
     expect(shown.body.data.activeIncidents).toHaveLength(1);
-    expect((await publicGet(`/status/incidents/${incident.id}`, org.id)).status).toBe(200);
+    expect((await publicGet(`/api/status/incidents/${incident.id}`, org.id)).status).toBe(200);
 
     await setVisibility(false);
-    const hidden = await publicGet('/status', org.id);
+    const hidden = await publicGet('/api/status', org.id);
     expect(hidden.body.data.overallStatus).toBe('OPERATIONAL');
     expect(hidden.body.data.activeIncidents).toHaveLength(0);
-    expect((await publicGet(`/status/incidents/${incident.id}`, org.id)).status).toBe(404);
+    expect((await publicGet(`/api/status/incidents/${incident.id}`, org.id)).status).toBe(404);
 
     // The incident itself is untouched for the team.
-    expect((await api().get(`/incidents/${incident.id}`).set('Authorization', bearer(token))).status).toBe(200);
+    expect((await api().get(`/api/incidents/${incident.id}`).set('Authorization', bearer(token))).status).toBe(200);
   });
 });
 
@@ -182,15 +182,15 @@ describe('GET /status/incidents/:id (public incident detail)', () => {
     const incident = await createIncident(org.id, user.id, { isPublic: true });
     const auth = { Authorization: bearer(token) };
 
-    await api().post(`/incidents/${incident.id}/updates`).set(auth).send({ message: 'Internal note about root cause', isPublic: false });
-    await api().post(`/incidents/${incident.id}/updates`).set(auth).send({ message: 'We are aware and investigating', isPublic: true });
-    await api().patch(`/incidents/${incident.id}/status`).set(auth).send({ status: 'ACKNOWLEDGED' });
-    await api().patch(`/incidents/${incident.id}`).set(auth).send({ title: 'A quietly edited title' });
-    await api().patch(`/incidents/${incident.id}/assign`).set(auth).send({ assigneeId: user.id });
-    await api().patch(`/incidents/${incident.id}/visibility`).set(auth).send({ isPublic: false });
-    await api().patch(`/incidents/${incident.id}/visibility`).set(auth).send({ isPublic: true });
+    await api().post(`/api/incidents/${incident.id}/updates`).set(auth).send({ message: 'Internal note about root cause', isPublic: false });
+    await api().post(`/api/incidents/${incident.id}/updates`).set(auth).send({ message: 'We are aware and investigating', isPublic: true });
+    await api().patch(`/api/incidents/${incident.id}/status`).set(auth).send({ status: 'ACKNOWLEDGED' });
+    await api().patch(`/api/incidents/${incident.id}`).set(auth).send({ title: 'A quietly edited title' });
+    await api().patch(`/api/incidents/${incident.id}/assign`).set(auth).send({ assigneeId: user.id });
+    await api().patch(`/api/incidents/${incident.id}/visibility`).set(auth).send({ isPublic: false });
+    await api().patch(`/api/incidents/${incident.id}/visibility`).set(auth).send({ isPublic: true });
 
-    const res = await publicGet(`/status/incidents/${incident.id}`, org.id);
+    const res = await publicGet(`/api/status/incidents/${incident.id}`, org.id);
 
     expect(res.status).toBe(200);
     expect(res.body.data.updates.map((u) => u.message)).toEqual(['We are aware and investigating']);
