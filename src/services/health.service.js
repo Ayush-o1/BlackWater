@@ -1,59 +1,40 @@
-import { IncidentStatus, ServiceStatus, Severity } from '@prisma/client';
-import { prisma } from '../database/prisma.js';
-import { emitToOrg } from '../socket/emitter.js';
+import { IncidentStatus } from '@prisma/client';
+import { statusFromSeverities, worstStatus } from '../utils/serviceHealth.js';
 
-// Recalculates the stored health of one service from its open incidents
-// (anything not RESOLVED or CLOSED). The worst open severity decides the status:
-//   CRITICAL -> MAJOR_OUTAGE, HIGH -> PARTIAL_OUTAGE, MEDIUM/LOW -> DEGRADED,
-//   no open incidents -> OPERATIONAL.
-export async function recalculateServiceStatus(orgId, serviceId) {
-  const service = await prisma.service.findFirst({
-    where: { id: serviceId, orgId },
-    select: { id: true, status: true },
-  });
-  if (!service) return;
+// Health is calculated at read time from a service's open incidents, never
+// stored. That removes the whole class of bugs where a stored status and the
+// incidents it came from disagree after a crash or two overlapping requests.
 
-  const openIncidents = await prisma.incident.findMany({
-    where: {
-      orgId,
-      affectedServices: { some: { id: serviceId } },
-      status: { notIn: [IncidentStatus.RESOLVED, IncidentStatus.CLOSED] },
+const CLOSED_STATUSES = [IncidentStatus.RESOLVED, IncidentStatus.CLOSED];
+
+// Prisma `select` fragment: load just the severities of the open incidents
+// linked to a service. Spread it into any service select/include.
+//
+// `publicOnly` is the privacy switch. The internal dashboard reports true
+// health (all open incidents). The public status page passes publicOnly: true
+// so that only incidents an organization chose to publish can change what
+// visitors see; a private incident can neither colour a service nor reveal
+// its severity.
+export function healthSelect(orgId, { publicOnly = false } = {}) {
+  return {
+    incidents: {
+      where: {
+        orgId,
+        status: { notIn: CLOSED_STATUSES },
+        ...(publicOnly && { isPublic: true }),
+      },
+      select: { severity: true },
     },
-    select: { severity: true },
-  });
-
-  const severities = openIncidents.map((incident) => incident.severity);
-
-  let newStatus = ServiceStatus.OPERATIONAL;
-  if (severities.includes(Severity.CRITICAL)) {
-    newStatus = ServiceStatus.MAJOR_OUTAGE;
-  } else if (severities.includes(Severity.HIGH)) {
-    newStatus = ServiceStatus.PARTIAL_OUTAGE;
-  } else if (severities.length > 0) {
-    newStatus = ServiceStatus.DEGRADED;
-  }
-
-  // Write and broadcast only on a real change so clients are not told to
-  // refetch for nothing.
-  if (newStatus !== service.status) {
-    await prisma.service.update({ where: { id: service.id }, data: { status: newStatus } });
-
-    emitToOrg(orgId, 'service:status_changed', { id: service.id, status: newStatus });
-    emitToOrg(orgId, 'status:updated', { orgId });
-  }
+  };
 }
 
-export async function recalculateServices(orgId, serviceIds) {
-  await Promise.all(serviceIds.map((serviceId) => recalculateServiceStatus(orgId, serviceId)));
+// Replaces the loaded `incidents` severities with the derived `status`.
+export function withHealth(service) {
+  const { incidents, ...rest } = service;
+  return { ...rest, status: statusFromSeverities(incidents.map((incident) => incident.severity)) };
 }
 
-// The status of a whole organization is its worst service status.
-export async function calculateOverallHealth(orgId) {
-  const services = await prisma.service.findMany({ where: { orgId }, select: { status: true } });
-  const statuses = services.map((service) => service.status);
-
-  if (statuses.includes(ServiceStatus.MAJOR_OUTAGE)) return ServiceStatus.MAJOR_OUTAGE;
-  if (statuses.includes(ServiceStatus.PARTIAL_OUTAGE)) return ServiceStatus.PARTIAL_OUTAGE;
-  if (statuses.includes(ServiceStatus.DEGRADED)) return ServiceStatus.DEGRADED;
-  return ServiceStatus.OPERATIONAL;
+// An organization is as healthy as its least healthy service.
+export function overallStatusOf(servicesWithHealth) {
+  return worstStatus(servicesWithHealth.map((service) => service.status));
 }

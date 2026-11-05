@@ -1,12 +1,16 @@
 import { z } from 'zod';
-import { paginationQuery } from './common.validators.js';
+import { Role } from '@prisma/client';
+import { paginationQuery, personNameField, uuid } from './common.validators.js';
 
 export const updateProfileSchema = z.object({
-  body: z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name must be at most 100 characters'),
-  }),
+  body: z.object({ name: personNameField }),
 });
 
 export const listUsersSchema = z.object({
   query: z.object(paginationQuery),
+});
+
+export const changeRoleSchema = z.object({
+  params: z.object({ id: uuid('user ID') }),
+  body: z.object({ role: z.enum(Object.values(Role)) }),
 });

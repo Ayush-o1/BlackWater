@@ -35,14 +35,10 @@ export function useSocketSubscriptions() {
 
     // Map of events to query invalidations
     const eventMapping: Record<string, string[]> = {
-      'incident:created': ['incidents', 'statusOverview'],
-      'incident:status_changed': ['incidents', 'incidentDetails', 'statusOverview', 'publicIncidentDetails'],
-      'incident:update_added': ['incidentDetails', 'publicIncidentDetails'],
-      'incident:assigned': ['incidents', 'incidentDetails'],
-      'timeline:event_created': ['incidentDetails', 'publicIncidentDetails'],
-      'service:status_changed': ['services', 'serviceDetails', 'statusOverview'],
-      'service:created': ['services'],
-      'status:updated': ['statusOverview', 'publicIncidentDetails'],
+      'incident:created': ['incidents', 'services', 'statusOverview'],
+      'incident:updated': ['incidents', 'incidentDetails', 'services', 'serviceDetails', 'statusOverview', 'publicIncidentDetails'],
+      'service:changed': ['services', 'serviceDetails', 'statusOverview'],
+      'team:changed': ['users'],
     };
 
     const activeSocket = socket;

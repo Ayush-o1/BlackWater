@@ -147,6 +147,14 @@ test.describe('incident lifecycle', () => {
     const parsed = JSON.parse(token!);
     orgId = parsed.state.user.orgId;
 
+    // Incidents are private until published, and this UI has no publish control
+    // yet, so publish through the API the way the new interface will.
+    const publish = await page.request.patch(`http://localhost:8001/incidents/${incidentId}/visibility`, {
+      headers: { Authorization: `Bearer ${parsed.state.token}` },
+      data: { isPublic: true },
+    });
+    expect(publish.ok()).toBe(true);
+
     // The incident was already resolved in the previous step, so it no longer
     // appears in the overview's "Active Incidents" list (that's by design —
     // see StatusService.getOverview, which only returns non-resolved

@@ -6,3 +6,9 @@ import dotenv from 'dotenv';
 // test database/secret win over whatever `.env` has (dotenv never overwrites
 // vars that are already set on `process.env`).
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env.test') });
+
+// The suite sends far more requests from one IP than the production limits allow.
+// Raise them here (never in .env.test, so CI behaves the same); the limiter
+// itself is tested separately with its own small limits.
+process.env.AUTH_RATE_LIMIT ??= '100000';
+process.env.API_RATE_LIMIT ??= '100000';

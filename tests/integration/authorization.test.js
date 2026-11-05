@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { api } from '../helpers/request.js';
 import { cleanDatabase, prisma } from '../helpers/db.js';
+import jwt from 'jsonwebtoken';
 import { createOrgWithUser } from '../helpers/factories.js';
 
 beforeEach(cleanDatabase);
@@ -48,6 +49,31 @@ describe('VIEWER role', () => {
 });
 
 describe('an expired or forged token', () => {
+  it('is rejected with a specific message once it has expired', async () => {
+    const { user } = await createOrgWithUser('ADMIN');
+    const expired = jwt.sign({ userId: user.id, orgId: user.orgId, role: user.role }, process.env.JWT_SECRET, {
+      algorithm: 'HS256',
+      expiresIn: -10,
+    });
+
+    const res = await api().get('/incidents').set('Authorization', `Bearer ${expired}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe('Unauthorized: Token expired');
+  });
+
+  it('is rejected when signed with the wrong key or with the "none" algorithm', async () => {
+    const { user } = await createOrgWithUser('ADMIN');
+    const payload = { userId: user.id, orgId: user.orgId, role: 'ADMIN' };
+    const wrongKey = jwt.sign(payload, 'a-completely-different-secret-of-sufficient-length');
+    const unsigned = jwt.sign(payload, '', { algorithm: 'none' });
+
+    for (const token of [wrongKey, unsigned]) {
+      const res = await api().get('/incidents').set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(401);
+    }
+  });
+
   it('is rejected with 401', async () => {
     const res = await api().get('/incidents').set('Authorization', 'Bearer not-a-real-jwt');
     expect(res.status).toBe(401);

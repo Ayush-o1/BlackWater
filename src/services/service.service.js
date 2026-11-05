@@ -1,18 +1,18 @@
-import { ServiceStatus } from '@prisma/client';
 import { prisma } from '../database/prisma.js';
 import { AppError } from '../utils/AppError.js';
-import { paginate, cursorOptions } from '../utils/pagination.js';
+import { paginate, cursorOptions, NEWEST_FIRST } from '../utils/pagination.js';
 import { emitToOrg } from '../socket/emitter.js';
+import { SocketEvent } from '../socket/events.js';
+import { healthSelect, withHealth } from './health.service.js';
 
 export async function createService(orgId, { name, description }) {
-  // Health is never supplied by the client; it is calculated from incidents,
-  // so a new service always starts healthy.
   const service = await prisma.service.create({
-    data: { name, description, orgId, status: ServiceStatus.OPERATIONAL },
+    data: { name, description, orgId },
+    include: healthSelect(orgId),
   });
 
-  emitToOrg(orgId, 'service:created', { id: service.id, name: service.name });
-  return service;
+  emitToOrg(orgId, SocketEvent.SERVICE_CHANGED, { id: service.id });
+  return withHealth(service);
 }
 
 export async function listServices(orgId, { cursor, limit }) {
@@ -20,61 +20,63 @@ export async function listServices(orgId, { cursor, limit }) {
     where: { orgId },
     take: limit + 1,
     ...cursorOptions(cursor),
-    orderBy: { createdAt: 'desc' },
+    orderBy: NEWEST_FIRST,
+    include: healthSelect(orgId),
   });
 
-  return paginate(services, limit);
+  const page = paginate(services, limit);
+  return { data: page.data.map(withHealth), pagination: page.pagination };
 }
 
 export async function getServiceDetails(orgId, serviceId) {
-  const service = await prisma.service.findFirst({
-    where: { id: serviceId, orgId },
+  const service = await findServiceWithHealth(orgId, serviceId);
+
+  // The ten most recent incidents that affected this service, newest first.
+  const recentIncidents = await prisma.incident.findMany({
+    where: { orgId, affectedServices: { some: { id: serviceId } } },
+    orderBy: NEWEST_FIRST,
+    take: 10,
     include: {
-      incidents: {
-        where: { orgId },
-        orderBy: { createdAt: 'desc' },
-        take: 10, // the most recent incidents that affected this service
-        include: {
-          creator: { select: { name: true } },
-          assignee: { select: { name: true } },
-        },
-      },
+      creator: { select: { name: true } },
+      assignee: { select: { name: true } },
     },
   });
 
-  if (!service) {
-    throw new AppError('Service not found', 404);
-  }
-
-  return service;
+  return { ...service, incidents: recentIncidents };
 }
 
 export async function updateService(orgId, serviceId, { name, description }) {
-  await getServiceInOrg(orgId, serviceId);
+  await findServiceWithHealth(orgId, serviceId);
 
   const service = await prisma.service.update({
     where: { id: serviceId },
     data: { name, description },
+    include: healthSelect(orgId),
   });
 
-  emitToOrg(orgId, 'service:updated', { id: service.id });
-  return service;
+  emitToOrg(orgId, SocketEvent.SERVICE_CHANGED, { id: serviceId });
+  return withHealth(service);
 }
 
 export async function deleteService(orgId, serviceId) {
-  await getServiceInOrg(orgId, serviceId);
+  await findServiceWithHealth(orgId, serviceId);
 
   await prisma.service.delete({ where: { id: serviceId } });
 
-  emitToOrg(orgId, 'service:deleted', { id: serviceId });
+  emitToOrg(orgId, SocketEvent.SERVICE_CHANGED, { id: serviceId });
 }
 
 // Looking the service up by id AND orgId is the tenant check: another
 // organization's service looks exactly like a missing one (404).
-async function getServiceInOrg(orgId, serviceId) {
-  const service = await prisma.service.findFirst({ where: { id: serviceId, orgId } });
+async function findServiceWithHealth(orgId, serviceId) {
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, orgId },
+    include: healthSelect(orgId),
+  });
+
   if (!service) {
     throw new AppError('Service not found', 404);
   }
-  return service;
+
+  return withHealth(service);
 }

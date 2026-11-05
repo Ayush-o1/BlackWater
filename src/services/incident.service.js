@@ -1,13 +1,15 @@
 import { IncidentStatus } from '@prisma/client';
 import { prisma } from '../database/prisma.js';
 import { AppError } from '../utils/AppError.js';
-import { paginate, cursorOptions } from '../utils/pagination.js';
-import { emitToOrg, emitToIncident } from '../socket/emitter.js';
-import { recalculateServices } from './health.service.js';
+import { paginate, cursorOptions, NEWEST_FIRST } from '../utils/pagination.js';
+import { TimelineEventType } from '../utils/timelineEvents.js';
+import { emitToOrg } from '../socket/emitter.js';
+import { SocketEvent } from '../socket/events.js';
+import { healthSelect, withHealth } from './health.service.js';
 
 // The lifecycle as a table: each status lists the statuses it may move to.
-// RESOLVED -> TRIGGERED is how a "resolved" incident is reopened when the
-// problem comes back. CLOSED is final.
+// RESOLVED -> TRIGGERED is how a resolved incident is reopened when the problem
+// comes back. CLOSED is final: a closed incident is a finished record.
 const ALLOWED_TRANSITIONS = {
   [IncidentStatus.TRIGGERED]: [IncidentStatus.ACKNOWLEDGED, IncidentStatus.RESOLVED],
   [IncidentStatus.ACKNOWLEDGED]: [IncidentStatus.RESOLVED, IncidentStatus.TRIGGERED],
@@ -25,59 +27,97 @@ export function validateTransition(currentStatus, newStatus) {
   }
 }
 
+function assertNotClosed(incident) {
+  if (incident.status === IncidentStatus.CLOSED) {
+    throw new AppError('Incident is closed and cannot be modified', 400);
+  }
+}
+
+// Loads an incident and locks its row (SELECT ... FOR UPDATE) until the
+// surrounding transaction ends. Every change to an incident starts here, for
+// two reasons:
+//   1. Two people acting on the same incident at once are handled one after
+//      the other. The second request therefore sees the first one's result and
+//      is validated against it, instead of both passing the same check
+//      against the same old status.
+//   2. The orgId in the WHERE clause is the tenant check: another
+//      organization's incident is "not found".
+async function lockIncident(tx, orgId, incidentId) {
+  const rows = await tx.$queryRaw`
+    SELECT "id", "title", "description", "status", "severity", "isPublic", "assigneeId"
+    FROM "Incident"
+    WHERE "id" = ${incidentId} AND "orgId" = ${orgId}
+    FOR UPDATE`;
+
+  if (rows.length === 0) {
+    throw new AppError('Incident not found', 404);
+  }
+  return rows[0];
+}
+
+// Every audit entry goes through here so the actor is always the authenticated
+// user passed down from the request, never a value supplied by the client.
+function recordEvent(tx, { incidentId, actorId, eventType, metadata }) {
+  return tx.timelineEvent.create({ data: { incidentId, actorId, eventType, metadata } });
+}
+
+function announce(orgId, event, incidentId) {
+  emitToOrg(orgId, event, { id: incidentId });
+}
+
+// Returns the services (id and name) with the given ids, but only if every one
+// belongs to the organization. Otherwise an incident could be attached to, and
+// change the health of, another tenant's service.
+async function loadOrgServices(tx, orgId, serviceIds) {
+  if (serviceIds.length === 0) return [];
+
+  const services = await tx.service.findMany({
+    where: { id: { in: serviceIds }, orgId },
+    select: { id: true, name: true },
+  });
+
+  if (services.length !== serviceIds.length) {
+    throw new AppError('One or more services were not found in this organization', 400);
+  }
+  return services;
+}
+
 const personFields = { id: true, name: true, email: true };
 
-export async function createIncident(orgId, creatorId, { title, description, severity, serviceIds }) {
-  // Every linked service must belong to the caller's organization; otherwise an
-  // incident could be attached to (and change the health of) another tenant's service.
-  if (serviceIds.length > 0) {
-    const ownedServices = await prisma.service.findMany({
-      where: { id: { in: serviceIds }, orgId },
-      select: { id: true },
-    });
-    if (ownedServices.length !== serviceIds.length) {
-      throw new AppError('One or more services were not found in this organization', 400);
-    }
-  }
+export async function createIncident(orgId, actorId, { title, description, severity, serviceIds, isPublic }) {
+  const uniqueServiceIds = [...new Set(serviceIds)];
 
   // The incident and its first timeline entry are written together so the
   // audit trail can never be missing the creation event.
-  const { incident, timelineEvent } = await prisma.$transaction(async (tx) => {
-    const incident = await tx.incident.create({
+  const incident = await prisma.$transaction(async (tx) => {
+    await loadOrgServices(tx, orgId, uniqueServiceIds);
+
+    const created = await tx.incident.create({
       data: {
         title,
         description,
         severity,
+        isPublic,
         orgId,
-        creatorId,
+        creatorId: actorId,
         status: IncidentStatus.TRIGGERED,
-        ...(serviceIds.length > 0 && {
-          affectedServices: { connect: serviceIds.map((id) => ({ id })) },
-        }),
+        affectedServices: { connect: uniqueServiceIds.map((id) => ({ id })) },
       },
     });
 
-    const timelineEvent = await tx.timelineEvent.create({
-      data: {
-        incidentId: incident.id,
-        eventType: 'INCIDENT_CREATED',
-        metadata: { severity: incident.severity },
-      },
+    await recordEvent(tx, {
+      incidentId: created.id,
+      actorId,
+      eventType: TimelineEventType.INCIDENT_CREATED,
+      metadata: { severity, isPublic },
     });
 
-    return { incident, timelineEvent };
+    return created;
   });
 
   // Broadcast only after the transaction has committed, so no client is told
   // about a change that could still be rolled back.
-  emitToOrg(orgId, 'incident:created', { id: incident.id, title: incident.title, severity: incident.severity });
-  emitToIncident(incident.id, 'timeline:event_created', { incidentId: incident.id, eventType: timelineEvent.eventType });
-  emitToOrg(orgId, 'status:updated', { orgId });
-
-  if (serviceIds.length > 0) {
-    await recalculateServices(orgId, serviceIds);
-  }
-
+  announce(orgId, SocketEvent.INCIDENT_CREATED, incident.id);
   return incident;
 }
 
@@ -92,15 +132,16 @@ export async function listIncidents(orgId, { status, severity, assigneeId, servi
     where,
     take: limit + 1,
     ...cursorOptions(cursor),
-    orderBy: { createdAt: 'desc' },
+    orderBy: NEWEST_FIRST,
     include: {
       creator: { select: personFields },
       assignee: { select: personFields },
-      affectedServices: { select: { id: true, name: true, status: true } },
+      affectedServices: { select: { id: true, name: true, ...healthSelect(orgId) } },
     },
   });
 
-  return paginate(incidents, limit);
+  const page = paginate(incidents, limit);
+  return { data: page.data.map(withServiceHealth), pagination: page.pagination };
 }
 
 export async function getIncidentDetails(orgId, incidentId) {
@@ -109,12 +150,15 @@ export async function getIncidentDetails(orgId, incidentId) {
     include: {
       creator: { select: personFields },
       assignee: { select: personFields },
-      affectedServices: { select: { id: true, name: true, status: true } },
+      affectedServices: { select: { id: true, name: true, ...healthSelect(orgId) } },
       updates: {
         include: { user: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       },
-      timelineEvents: { orderBy: { createdAt: 'asc' } },
+      timelineEvents: {
+        include: { actor: { select: { id: true, name: true } } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      },
     },
   });
 
@@ -122,128 +166,197 @@ export async function getIncidentDetails(orgId, incidentId) {
     throw new AppError('Incident not found', 404);
   }
 
+  return withServiceHealth(incident);
+}
+
+function withServiceHealth(incident) {
+  return { ...incident, affectedServices: incident.affectedServices.map(withHealth) };
+}
+
+export async function editIncident(orgId, incidentId, actorId, changes) {
+  const { incident, changed } = await prisma.$transaction(async (tx) => {
+    const current = await lockIncident(tx, orgId, incidentId);
+    assertNotClosed(current);
+
+    const data = {};
+    const recorded = {}; // what actually changed, for the timeline
+
+    for (const field of ['title', 'description', 'severity']) {
+      if (changes[field] === undefined) continue;
+
+      const before = current[field] ?? null;
+      const after = changes[field] ?? null;
+      if (before !== after) {
+        data[field] = after;
+        recorded[field] = { from: before, to: after };
+      }
+    }
+
+    if (changes.serviceIds !== undefined) {
+      const newIds = [...new Set(changes.serviceIds)];
+      const newServices = await loadOrgServices(tx, orgId, newIds);
+      const { affectedServices: oldServices } = await tx.incident.findUnique({
+        where: { id: incidentId },
+        select: { affectedServices: { select: { id: true, name: true } } },
+      });
+
+      const added = newServices.filter((s) => !oldServices.some((old) => old.id === s.id));
+      const removed = oldServices.filter((old) => !newIds.includes(old.id));
+
+      if (added.length > 0 || removed.length > 0) {
+        data.affectedServices = { set: newIds.map((id) => ({ id })) };
+        recorded.services = { added, removed };
+      }
+    }
+
+    // Saving without changing anything must not add noise to the audit trail.
+    if (Object.keys(recorded).length === 0) {
+      return { incident: await tx.incident.findUnique({ where: { id: incidentId } }), changed: false };
+    }
+
+    const updated = await tx.incident.update({ where: { id: incidentId }, data });
+    await recordEvent(tx, {
+      incidentId,
+      actorId,
+      eventType: TimelineEventType.INCIDENT_EDITED,
+      metadata: { changes: recorded },
+    });
+
+    return { incident: updated, changed: true };
+  });
+
+  if (changed) announce(orgId, SocketEvent.INCIDENT_UPDATED, incidentId);
   return incident;
 }
 
-export async function assignIncident(orgId, incidentId, { assigneeId }) {
-  const { updatedIncident, timelineEvent } = await prisma.$transaction(async (tx) => {
-    const incident = await tx.incident.findFirst({
-      where: { id: incidentId, orgId },
-      select: { id: true, assigneeId: true, status: true },
+// `assigneeId: null` removes the assignee.
+export async function assignIncident(orgId, incidentId, actorId, assigneeId) {
+  const { incident, changed } = await prisma.$transaction(async (tx) => {
+    const current = await lockIncident(tx, orgId, incidentId);
+    assertNotClosed(current);
+
+    if ((current.assigneeId ?? null) === assigneeId) {
+      return { incident: await tx.incident.findUnique({ where: { id: incidentId } }), changed: false };
+    }
+
+    // The assignee must belong to the same organization as the incident.
+    let assignee = null;
+    if (assigneeId !== null) {
+      assignee = await tx.user.findFirst({ where: { id: assigneeId, orgId }, select: { id: true, name: true } });
+      if (!assignee) throw new AppError('Assignee not found in this organization', 400);
+    }
+
+    const previous = current.assigneeId
+      ? await tx.user.findUnique({ where: { id: current.assigneeId }, select: { id: true, name: true } })
+      : null;
+
+    const updated = await tx.incident.update({ where: { id: incidentId }, data: { assigneeId } });
+
+    // Names are stored in the event as well as ids: the history should keep
+    // reading correctly even if someone is renamed later.
+    await recordEvent(tx, {
+      incidentId,
+      actorId,
+      eventType: TimelineEventType.ASSIGNEE_CHANGED,
+      metadata: { from: previous, to: assignee },
     });
-    if (!incident) throw new AppError('Incident not found', 404);
-    if (incident.status === IncidentStatus.CLOSED) throw new AppError('Incident is closed', 400);
 
-    // The assignee must be in the same organization as the incident.
-    const assignee = await tx.user.findFirst({ where: { id: assigneeId, orgId } });
-    if (!assignee) throw new AppError('Assignee not found in this organization', 400);
-
-    const updatedIncident = await tx.incident.update({
-      where: { id: incident.id },
-      data: { assigneeId },
-    });
-
-    const timelineEvent = await tx.timelineEvent.create({
-      data: {
-        incidentId: incident.id,
-        eventType: 'ASSIGNEE_CHANGED',
-        metadata: { oldAssigneeId: incident.assigneeId, newAssigneeId: assigneeId },
-      },
-    });
-
-    return { updatedIncident, timelineEvent };
+    return { incident: updated, changed: true };
   });
 
-  emitToOrg(orgId, 'incident:assigned', { id: updatedIncident.id, assigneeId });
-  emitToIncident(updatedIncident.id, 'timeline:event_created', { incidentId: updatedIncident.id, eventType: timelineEvent.eventType });
-
-  return updatedIncident;
+  if (changed) announce(orgId, SocketEvent.INCIDENT_UPDATED, incidentId);
+  return incident;
 }
 
-export async function updateStatus(orgId, incidentId, { status: newStatus }) {
-  const { updatedIncident, timelineEvent } = await prisma.$transaction(async (tx) => {
-    const incident = await tx.incident.findFirst({
-      where: { id: incidentId, orgId },
-      select: { id: true, status: true },
-    });
-    if (!incident) throw new AppError('Incident not found', 404);
+export async function updateStatus(orgId, incidentId, actorId, newStatus) {
+  const incident = await prisma.$transaction(async (tx) => {
+    const current = await lockIncident(tx, orgId, incidentId);
 
-    // Validated before any write: an illegal move must not leave a half-applied change.
-    validateTransition(incident.status, newStatus);
+    // Checked against the locked, current status and before any write, so an
+    // illegal move (or a request that lost a race to another one) changes nothing.
+    validateTransition(current.status, newStatus);
 
-    // acknowledgedAt and resolvedAt are kept for response-time metrics, so they
-    // are stamped only at the moment the matching transition happens.
+    // acknowledgedAt and resolvedAt describe the incident's current cycle, so
+    // they follow the status: set when it is reached, cleared when the incident
+    // goes back to TRIGGERED (reopened, or un-acknowledged).
+    const now = new Date();
     const timestamps = {};
-    if (newStatus === IncidentStatus.ACKNOWLEDGED && incident.status === IncidentStatus.TRIGGERED) {
-      timestamps.acknowledgedAt = new Date();
-    }
-    if (newStatus === IncidentStatus.RESOLVED) {
-      timestamps.resolvedAt = new Date();
+    if (newStatus === IncidentStatus.TRIGGERED) {
+      timestamps.acknowledgedAt = null;
+      timestamps.resolvedAt = null;
+    } else if (newStatus === IncidentStatus.ACKNOWLEDGED) {
+      timestamps.acknowledgedAt = now;
+    } else if (newStatus === IncidentStatus.RESOLVED) {
+      timestamps.resolvedAt = now;
     }
 
-    const updatedIncident = await tx.incident.update({
-      where: { id: incident.id },
+    const updated = await tx.incident.update({
+      where: { id: incidentId },
       data: { status: newStatus, ...timestamps },
     });
 
-    const timelineEvent = await tx.timelineEvent.create({
-      data: {
-        incidentId: incident.id,
-        eventType: 'STATUS_CHANGED',
-        metadata: { oldStatus: incident.status, newStatus },
-      },
+    await recordEvent(tx, {
+      incidentId,
+      actorId,
+      eventType: TimelineEventType.STATUS_CHANGED,
+      metadata: { oldStatus: current.status, newStatus },
     });
 
-    return { updatedIncident, timelineEvent };
+    return updated;
   });
 
-  emitToOrg(orgId, 'incident:status_changed', { id: updatedIncident.id, status: newStatus });
-  emitToIncident(updatedIncident.id, 'timeline:event_created', { incidentId: updatedIncident.id, eventType: timelineEvent.eventType });
-  emitToOrg(orgId, 'status:updated', { orgId });
-
-  // Open incidents drive service health, so a status change can change it.
-  const affected = await prisma.incident.findUnique({
-    where: { id: incidentId },
-    select: { affectedServices: { select: { id: true } } },
-  });
-  if (affected && affected.affectedServices.length > 0) {
-    await recalculateServices(orgId, affected.affectedServices.map((service) => service.id));
-  }
-
-  return updatedIncident;
+  // Service health is derived from open incidents, so there is nothing to
+  // recalculate here: the next read already reflects this change.
+  announce(orgId, SocketEvent.INCIDENT_UPDATED, incidentId);
+  return incident;
 }
 
-export async function addUpdate(orgId, incidentId, userId, { message, isPublic }) {
-  const { update, timelineEvent } = await prisma.$transaction(async (tx) => {
-    const incident = await tx.incident.findFirst({
-      where: { id: incidentId, orgId },
-      select: { id: true, status: true },
-    });
-    if (!incident) throw new AppError('Incident not found', 404);
-    if (incident.status === IncidentStatus.CLOSED) throw new AppError('Incident is closed', 400);
+export async function addUpdate(orgId, incidentId, actorId, { message, isPublic }) {
+  const update = await prisma.$transaction(async (tx) => {
+    const current = await lockIncident(tx, orgId, incidentId);
+    assertNotClosed(current);
 
-    const update = await tx.incidentUpdate.create({
-      data: { incidentId: incident.id, userId, message, isPublic },
+    const created = await tx.incidentUpdate.create({
+      data: { incidentId, userId: actorId, message, isPublic },
     });
 
-    const timelineEvent = await tx.timelineEvent.create({
-      data: {
-        incidentId: incident.id,
-        eventType: 'UPDATE_ADDED',
-        metadata: { updateId: update.id, isPublic },
-      },
+    await recordEvent(tx, {
+      incidentId,
+      actorId,
+      eventType: TimelineEventType.UPDATE_ADDED,
+      metadata: { updateId: created.id, isPublic },
     });
 
-    return { update, timelineEvent };
+    return created;
   });
 
-  emitToOrg(orgId, 'incident:update_added', { id: incidentId, updateId: update.id, isPublic });
-  emitToIncident(incidentId, 'timeline:event_created', { incidentId, eventType: timelineEvent.eventType });
-
-  // Only public updates change what the status page shows.
-  if (isPublic) {
-    emitToOrg(orgId, 'status:updated', { orgId });
-  }
-
+  announce(orgId, SocketEvent.INCIDENT_UPDATED, incidentId);
   return update;
+}
+
+// Publishing makes the incident (title, severity, status, affected services and
+// its public updates) visible on the public status page. Unpublishing is allowed
+// even on a CLOSED incident: taking something off the public page should never
+// be blocked by the incident's lifecycle.
+export async function setVisibility(orgId, incidentId, actorId, isPublic) {
+  const { incident, changed } = await prisma.$transaction(async (tx) => {
+    const current = await lockIncident(tx, orgId, incidentId);
+
+    if (current.isPublic === isPublic) {
+      return { incident: await tx.incident.findUnique({ where: { id: incidentId } }), changed: false };
+    }
+
+    const updated = await tx.incident.update({ where: { id: incidentId }, data: { isPublic } });
+    await recordEvent(tx, {
+      incidentId,
+      actorId,
+      eventType: TimelineEventType.VISIBILITY_CHANGED,
+      metadata: { isPublic },
+    });
+
+    return { incident: updated, changed: true };
+  });
+
+  if (changed) announce(orgId, SocketEvent.INCIDENT_UPDATED, incidentId);
+  return incident;
 }

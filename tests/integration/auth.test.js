@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { api } from '../helpers/request.js';
 import { cleanDatabase, prisma } from '../helpers/db.js';
-import { createOrgWithUser } from '../helpers/factories.js';
+import { createOrgWithUser, bearer } from '../helpers/factories.js';
 
 beforeEach(cleanDatabase);
 afterAll(() => prisma.$disconnect());
@@ -22,7 +22,7 @@ describe('POST /auth/register', () => {
     expect(res.body.data.user.passwordHash).toBeUndefined();
     expect(typeof res.body.data.token).toBe('string');
 
-    const me = await api().get('/auth/me').set('Authorization', `Bearer ${res.body.data.token}`);
+    const me = await api().get('/auth/me').set('Authorization', bearer(res.body.data.token));
     expect(me.status).toBe(200);
     expect(me.body.data.email).toBe('ananya@blackwater.test');
   });
@@ -43,7 +43,7 @@ describe('POST /auth/register', () => {
     });
 
     expect(res.status).toBe(409);
-    expect(res.body.status).toBe('error');
+    expect(res.body.success).toBe(false);
     expect(res.body.message).toBe('Email already in use');
   });
 
@@ -56,8 +56,50 @@ describe('POST /auth/register', () => {
     });
 
     expect(res.status).toBe(400);
-    expect(res.body.status).toBe('error');
+    expect(res.body.success).toBe(false);
     expect(res.body.message).toContain('Validation Error');
+  });
+
+  it('treats emails as case-insensitive and stores them lowercase', async () => {
+    const first = await api().post('/auth/register').send({
+      name: 'Meera Iyer',
+      email: '  Meera.Iyer@BlackWater.test ',
+      password: 'CorrectHorse!9',
+      orgName: 'Case Test One',
+    });
+    expect(first.status).toBe(201);
+    expect(first.body.data.user.email).toBe('meera.iyer@blackwater.test');
+
+    const duplicate = await api().post('/auth/register').send({
+      name: 'Meera Again',
+      email: 'MEERA.IYER@blackwater.test',
+      password: 'CorrectHorse!9',
+      orgName: 'Case Test Two',
+    });
+    expect(duplicate.status).toBe(409);
+
+    // Logging in works with any casing of the same address.
+    const login = await api()
+      .post('/auth/login')
+      .send({ email: 'Meera.Iyer@BLACKWATER.test', password: 'CorrectHorse!9' });
+    expect(login.status).toBe(200);
+  });
+
+  it('lets exactly one of two simultaneous registrations with the same email win', async () => {
+    const attempt = (orgName) =>
+      api().post('/auth/register').send({
+        name: 'Race Runner',
+        email: 'race@blackwater.test',
+        password: 'CorrectHorse!9',
+        orgName,
+      });
+
+    const results = await Promise.all([attempt('Race Org A'), attempt('Race Org B')]);
+
+    expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+    // The loser's organization must have been rolled back with its failed user.
+    expect(await prisma.user.count({ where: { email: 'race@blackwater.test' } })).toBe(1);
+    expect(await prisma.organization.count()).toBe(1);
   });
 });
 

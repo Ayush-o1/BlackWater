@@ -11,3 +11,8 @@ export function paginate(rows, limit) {
 
 // Prisma options that continue a query after the row with the given id.
 export const cursorOptions = (cursor) => (cursor ? { skip: 1, cursor: { id: cursor } } : {});
+
+// Newest first, with id as a tiebreaker. Two rows can share a createdAt
+// (bulk inserts, same millisecond); ordering by createdAt alone would let such
+// rows swap places between requests and be skipped or repeated across pages.
+export const NEWEST_FIRST = [{ createdAt: 'desc' }, { id: 'desc' }];

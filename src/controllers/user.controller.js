@@ -16,3 +16,8 @@ export const updateProfile = asyncHandler(async (req, res) => {
   const user = await userService.updateProfile(req.user.id, req.user.orgId, req.body);
   res.status(200).json(successResponse(user, 'Profile updated successfully'));
 });
+
+export const changeRole = asyncHandler(async (req, res) => {
+  const user = await userService.changeRole(req.user.orgId, req.params.id, req.body.role);
+  res.status(200).json(successResponse(user, 'Role updated successfully'));
+});
