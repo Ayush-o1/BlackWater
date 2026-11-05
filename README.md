@@ -108,7 +108,7 @@ docs/            API, database, architecture, deployment
 - [API reference](docs/api.md)
 - [Architecture](docs/architecture.md)
 - [Database and migrations](docs/database.md)
-- [Deployment](docs/deployment.md)
+- [Deployment](docs/deployment.md): includes a Dockerfile, and explains why serverless hosting such as Vercel is not suitable
 - [Security](SECURITY.md)
 - [Contributing and testing](CONTRIBUTING.md)
 

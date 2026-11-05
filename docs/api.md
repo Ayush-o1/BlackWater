@@ -29,6 +29,8 @@ Errors always have this shape, with the matching HTTP status:
 | 413 | Request body too large |
 | 429 | Rate limit exceeded |
 
+**Caching.** Every `/api` response carries `Cache-Control: no-store`; the data is private and differs per user.
+
 **Pagination.** List endpoints return newest first and take `limit` (1 to 100, default 20) and `cursor` (the `nextCursor` of the previous page). Rows with the same creation time are ordered by id, so paging never skips or repeats a row.
 
 **Rate limits.** Per IP and 15 minutes: login, registration and the two public invitation endpoints share `AUTH_RATE_LIMIT` (default 20); everything else under `/api` shares `API_RATE_LIMIT` (default 300).
@@ -84,7 +86,7 @@ A service's `status` is calculated on every read from its open incidents (those 
 | `GET /services` | any | | Paginated, with `status`. |
 | `POST /services` | MEMBER | `name` (2 to 200), `description?` | Any `status` in the body is ignored. |
 | `GET /services/:id` | any | | Also `incidents`: the 10 most recent that affected it. |
-| `PATCH /services/:id` | MEMBER | `name?`, `description?` | |
+| `PATCH /services/:id` | MEMBER | `name?`, `description?` | At least one field. |
 | `DELETE /services/:id` | ADMIN | | Removed from past incidents; the incidents are kept. |
 
 ## Incidents
@@ -132,7 +134,7 @@ Concurrent changes to one incident are applied one after another, each checked a
 
 ## Public status
 
-No authentication. Every request needs `?orgId=<organization id>`. Only incidents with `isPublic: true` exist as far as these endpoints are concerned: a private incident answers 404, exactly like a missing one. Health shown here is calculated from published incidents only, so a private incident never changes it.
+No authentication. Every request needs `?orgId=<organization id>`; an unknown id answers 404 on every endpoint. Only incidents with `isPublic: true` exist as far as these endpoints are concerned: a private incident answers 404, exactly like a missing one. Health shown here is calculated from published incidents only, so a private incident never changes it.
 
 | Method and path | Notes |
 |---|---|
