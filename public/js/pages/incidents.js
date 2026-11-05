@@ -24,7 +24,7 @@ async function start() {
   const listPanel = h('section', { class: 'panel' });
 
   const filterSelect = (name, label, options) =>
-    selectField({ name, label: null, options: [{ value: '', label }, ...options], value: filters[name], small: true });
+    selectField({ name, label: null, ariaLabel: `Filter by ${name}`, options: [{ value: '', label }, ...options], value: filters[name], small: true });
 
   const statusFilter = filterSelect('status', 'All statuses', [
     { value: 'TRIGGERED', label: 'Triggered' },

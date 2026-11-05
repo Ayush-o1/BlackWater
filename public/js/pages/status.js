@@ -43,7 +43,7 @@ function paint() {
   const [tone, iconName, title, text] = BANNERS[overview.overallStatus];
   setOrganizationName(overview.organization.name);
 
-  render(bannerHost, h('div', { class: `banner banner-${tone}` }, icon(iconName, 'lg'), h('div', {}, h('h2', {}, title), h('p', {}, text))));
+  render(bannerHost, h('div', { class: `banner banner-${tone}` }, icon(iconName, 'lg'), h('div', {}, h('h1', {}, title), h('p', {}, text))));
 
   render(
     activeHost,
@@ -101,7 +101,7 @@ async function load() {
     render(
       main,
       h('div', { class: 'panel' }, error.status === 404 || error.status === 400
-        ? emptyState({ iconName: 'search', title: 'Status page not found', description: 'This status page does not exist or is no longer available.' })
+        ? emptyState({ iconName: 'search', title: 'Status page not found', level: 1, description: 'This status page does not exist or is no longer available.' })
         : errorState(error, load))
     );
   }

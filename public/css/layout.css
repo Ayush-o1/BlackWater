@@ -51,7 +51,7 @@
   font-weight: 500;
 }
 .nav-link:hover { background: var(--surface-hover); color: var(--text); text-decoration: none; }
-.nav-link[aria-current='page'] { background: var(--primary-soft); color: var(--primary); }
+.nav-link[aria-current='page'] { background: var(--primary-soft); color: var(--primary-text); }
 
 .sidebar-user { min-width: 0; }
 .sidebar-user-name { font-weight: 500; }
