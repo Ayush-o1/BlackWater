@@ -276,9 +276,14 @@ test.describe('team and invitations', () => {
 test.describe('lists and layout', () => {
   test('uses every page without console errors, policy violations or failed requests', async ({ page, browser }) => {
     const problems = [];
+    // Recent WebKit builds note on every page that it is not cross-origin isolated. That
+    // only matters to pages using SharedArrayBuffer or precise timers; this app uses
+    // neither, so the note is ignored rather than answered with a header it does not need.
+    const informational = /^This document is not cross-origin isolated because the Cross-Origin-Embedder-Policy header is missing/;
     const watch = (target) => {
       target.on('console', (message) => {
-        if (['error', 'warning'].includes(message.type())) problems.push(`console ${message.type()}: ${message.text()}`);
+        if (!['error', 'warning'].includes(message.type()) || informational.test(message.text())) return;
+        problems.push(`console ${message.type()}: ${message.text()}`);
       });
       target.on('pageerror', (error) => problems.push(`uncaught: ${error.message}`));
       target.on('requestfailed', (request) => problems.push(`request failed: ${request.url()}`));
