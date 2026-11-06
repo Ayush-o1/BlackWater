@@ -157,3 +157,54 @@ test.describe('keyboard', () => {
     expect(missing).toEqual([]);
   });
 });
+
+// The "Who can see this" choice on an incident is a pair of radios styled as one
+// segmented control, each with an icon. Every part of an option must select it.
+test.describe('update visibility choice', () => {
+  async function openComposer(page) {
+    const { token } = await register(page);
+    const incident = (await (await apiFor(page, token).post('/incidents', { title: 'Choice test', severity: 'LOW' })).json()).data;
+    await page.goto(`/incidents/${incident.id}`);
+    const internal = page.getByRole('radio', { name: 'Internal note' });
+    const visible = page.getByRole('radio', { name: 'Public update' });
+    await expect(internal).toBeChecked();
+    return { internal, visible, hint: page.locator('#visibility-hint') };
+  }
+
+  test('a real mouse click on the icon, or on the words, selects the option', async ({ page }) => {
+    const { internal, visible, hint } = await openComposer(page);
+    const option = (name) => page.locator('.segmented label', { hasText: name });
+
+    // The exact centre of the globe icon, with the mouse: no locator shortcuts.
+    const globe = await option('Public update').locator('svg').boundingBox();
+    await page.mouse.click(globe.x + globe.width / 2, globe.y + globe.height / 2);
+    await expect(visible).toBeChecked();
+    await expect(hint).toContainText('stays hidden until you publish');
+
+    const lock = await option('Internal note').locator('svg').boundingBox();
+    await page.mouse.click(lock.x + lock.width / 2, lock.y + lock.height / 2);
+    await expect(internal).toBeChecked();
+    await expect(hint).toHaveText('Only your team can see this.');
+
+    // The words, and the normal Playwright action on the radio itself.
+    await option('Public update').getByText('Public update').click();
+    await expect(visible).toBeChecked();
+    await internal.check();
+    await expect(internal).toBeChecked();
+  });
+
+  test('arrow keys move between the options and the focus ring is shown', async ({ page, browserName }) => {
+    const { internal, visible } = await openComposer(page);
+    // Arrive as a keyboard user does: from the message box, Tab goes to the chosen radio.
+    await page.getByLabel('Update message').click();
+    await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab'); // Safari: Option+Tab reaches radios
+    await expect(internal).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(visible).toBeChecked();
+    await expect(visible).toBeFocused();
+    const outline = await page.locator('.segmented label', { hasText: 'Public update' }).evaluate((label) => getComputedStyle(label).outlineStyle);
+    expect(outline).toBe('solid');
+    await page.keyboard.press('ArrowLeft');
+    await expect(internal).toBeChecked();
+  });
+});

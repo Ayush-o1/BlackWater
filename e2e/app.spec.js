@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { PASSWORD, apiFor, register, unique } from './helpers.js';
+import { PASSWORD, apiFor, closeOtherSessions, register, unique } from './helpers.js';
+
+test.afterEach(closeOtherSessions);
 
 test.describe('signing in', () => {
   test('registers an organization, survives a refresh, signs out and back in', async ({ page }) => {
@@ -586,6 +588,9 @@ test.describe('failure handling', () => {
     const { token } = await register(page);
     const api = apiFor(page, token);
     const incident = (await (await api.post('/incidents', { title: 'Will be closed soon', severity: 'LOW' })).json()).data;
+    // This page never gets its live connection, so it really is stale: otherwise the
+    // live update would (correctly) remove the button before the click.
+    await page.routeWebSocket(/socket\.io/, () => {});
     await page.goto(`/incidents/${incident.id}`);
     await expect(page.getByRole('button', { name: 'Acknowledge' })).toBeVisible();
 

@@ -25,3 +25,11 @@ export const apiFor = (page, token) => ({
   post: (path, data) => page.request.post(`/api${path}`, { data, headers: { Authorization: `Bearer ${token}` } }),
   patch: (path, data) => page.request.patch(`/api${path}`, { data, headers: { Authorization: `Bearer ${token}` } }),
 });
+
+// Tests that need a second person open their own browser context. Close those when
+// the test ends: left open, their pages keep refreshing and holding live connections
+// for the rest of the run, and in Firefox and WebKit (one browser process shared by
+// every context) that slows later tests until they time out.
+export async function closeOtherSessions({ browser, page }) {
+  await Promise.all(browser.contexts().filter((context) => context !== page.context()).map((context) => context.close()));
+}

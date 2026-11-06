@@ -71,7 +71,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report/
+          # CI uses the list reporter, so the evidence (traces, error context) is here.
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
 
   # The same browser suite in Firefox and WebKit (Safari's engine), one job each.
@@ -130,7 +133,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.browser }}
-          path: playwright-report/
+          # CI uses the list reporter, so the evidence (traces, error context) is here.
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
 
   # The README promises Node 20.19 as the minimum, so the backend suite runs on
