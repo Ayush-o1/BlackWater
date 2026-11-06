@@ -10,12 +10,12 @@ observed by running something; anything else says why not.
 | 1. Architecture and code quality | Done |
 | 2. Backend and business logic | Done |
 | 3. Database and data integrity | Done |
-| 4. Frontend and UX | Not started |
-| 5. Real-time / Socket.IO | Not started |
-| 6. Security | Not started |
-| 7. Testing and QA | Not started |
-| 8. Deployment | Not started |
-| 9. Documentation and cleanup | Not started |
+| 4. Frontend and UX | Done |
+| 5. Real-time / Socket.IO | Done |
+| 6. Security | Done |
+| 7. Testing and QA | Done |
+| 8. Deployment | Done (live deployment verified in Phase 10) |
+| 9. Documentation and cleanup | Done |
 | 10. Git consolidation | Not started |
 | 11. Final verification | Not started |
 
@@ -48,7 +48,7 @@ successors; hosting plan unverified).
 **Blocked:** Firefox on this Mac (OS refuses the browser's sandbox extension); Render
 dashboard (no access: plan, region and backups unverifiable).
 
-**Remaining:** everything from Phase 1 onward.
+**Remaining:** carried into the phases below.
 
 ## Phases 1–3 — Architecture, backend rules, database
 
@@ -95,3 +95,110 @@ migration recovery procedure and a corrected description of the drift check outp
 test was confirmed to fail without the fix.
 
 **Not verified:** the crash path's exit code 1 (would need fault injection; reviewed only).
+
+## Phase 4 — Frontend and UX
+
+Seeded demo data, every page screenshotted at 360, 390, 430, 768, 1024, 1280, 1440 and
+1920 px (Chromium), and inspected by eye. Measured per page: document overflow, overflow
+inside any scroll container in `main`, console errors.
+
+| Check | Result |
+|---|---|
+| Sideways scrolling, 11 pages × 8 widths | none |
+| Inner overflow (tables, cards), 4 list pages × 11 widths | none (only the deliberately visually-hidden table caption) |
+| Console errors | none, except the not-found page's own expected 404 |
+| Visual review | consistent, restrained light UI; private incident absent from the public page, internal and public health differ as designed |
+
+**Fixed:** the lifecycle stepper wrapped on phones with a connector starting the second
+line (`components.css`).
+
+Accessibility: the existing axe-core suite (WCAG 2.x A/AA tags, desktop and phone, menus
+and dialogs open) and keyboard tests pass in all three engines; Lighthouse accessibility
+100 on `/login` and `/status/:org`. **Not done:** manual screen-reader testing with
+VoiceOver or NVDA; no automated tool replaces it.
+
+## Phase 5 — Real-time
+
+| Scenario | How verified | Result |
+|---|---|---|
+| Two users, same organization; an update reaches the other session | browser suite (Chromium, Firefox, WebKit) | pass |
+| Another organization never receives it | browser suite + Socket.IO integration tests | pass |
+| Disconnect, miss an event, catch up | browser suite | pass |
+| Change made before the first connection | browser suite | pass |
+| Refused handshake retried | browser suite | pass |
+| Renames reach teammates (F14) | integration test | pass (failed before the fix) |
+| Organization deleted while a member has the app open (access lost) | new browser test | page says Offline, next load signs out (failed before the F5 fix) |
+| **Real server restart** (SIGTERM, new process) with a page open | script: `restart-test.mjs` against a real server process | page showed Reconnecting, Live again ~5 s after restart without reload, new change appeared, other organization's change did not, no page errors |
+
+## Phase 6 — Security
+
+No new vulnerabilities found. Checked in addition to the existing tests: the full header
+set (CSP without `unsafe-inline`, `frame-ancestors 'self'`, HSTS, `nosniff`,
+`no-referrer`, CORP/COOP); logs contain ids only (no bodies, passwords or tokens); the
+production image runs as uid 1000, contains no `.env`, and only production packages
+(`npm ls --omit=dev`). `npm audit`: 0 vulnerabilities after the dependency update.
+Two limitations were added to `SECURITY.md` (registration reveals taken emails; an open
+socket outlives its token without exposing data).
+
+## Phase 7 — Testing and QA
+
+**Performance** (local, PostgreSQL 18, 527 incidents / 53 services, 40 requests each):
+
+| Endpoint | p50 ms | p95 ms | SQL statements |
+|---|---|---|---|
+| `GET /api/auth/me` | 0.9 | 2.0 | 2 |
+| `GET /api/dashboard` | 10.1 | 16.4 | 7 |
+| `GET /api/incidents?open=true&sort=priority&limit=25` | 12.6 | 17.4 | 7 |
+| `GET /api/incidents?limit=100` | – | – | 7 |
+| `GET /api/incidents/:id` | 2.9 | 4.4 | 11 |
+| `GET /api/services?limit=100` | 5.9 | 7.1 | 4 |
+| `GET /api/status` (public) | 15.6 | 17.0 | 9 |
+| `GET /api/status/incidents` (public) | 5.8 | 7.0 | 6 |
+
+Statement counts come from PostgreSQL's statement log and do not grow with page size, so
+there is no N+1 query. Lighthouse 12.8.2 (simulated mobile): `/login` 100/100/100
+(performance/accessibility/best practices), LCP 1.5 s, CLS 0, 84 KiB; `/status/:org`
+98/100/100, LCP 2.3 s, CLS 0, 158 KiB.
+
+**Flaky Firefox (F2), resolved.** With the same code and retries off, Playwright 1.62
+failed 3 of 80 Firefox tests (navigation never reported); 1.65 failed 0 of 80. Playwright
+upgraded to 1.65.0 (dev dependency). The newer WebKit logs an informational
+cross-origin-isolation note on every page; the console check ignores exactly that message.
+
+**Added:** sideways-scroll check at all 8 widths (F10); Offline-after-deletion test.
+
+**Final browser runs (retries off), Playwright 1.65:**
+
+| Engine | Where | Result |
+|---|---|---|
+| Chromium | macOS | 40 passed |
+| WebKit | macOS | 40 passed |
+| WebKit | Linux container | 40 passed |
+| Firefox | Linux container | 40 passed (and 40 + 40 in two earlier runs) |
+| Firefox | macOS | blocked: the OS refuses the browser's sandbox (see Phase 0) |
+
+## Phase 8 — Deployment
+
+| Check | Result |
+|---|---|
+| `docker build` | succeeds; runs as `node` (uid 1000); production packages only |
+| Container against an empty PostgreSQL 16 | applies 8 migrations, starts in production mode, `/health` UP with the commit, Docker HEALTHCHECK `healthy` |
+| Smoke journey against the container | **failed first**: found F15 (below). After the fix: passes and deletes its own data |
+| Graceful shutdown with real signals | see Phase 3 |
+
+**F15 — High — the smoke journey was broken by the redesign.** It looked for the old
+`.timeline` element. CI only *listed* the smoke spec, so after merging, every production
+deployment would have been marked failed by `production.yml`. Fixed (accessible-name
+locator) and CI now runs the whole journey against the built image.
+
+CI actions moved to their Node 24 majors (F11). The live deployment is verified after the
+merge (Phase 10).
+
+## Phase 9 — Documentation and cleanup
+
+README gained architecture, data model, testing and deployment sections; API, architecture,
+deployment, security and contributing docs corrected where they differed from the code
+(details in commit `9fadbe3`). `docs/database.md` documents failed-migration recovery
+(tested). All relative links and anchors in the 9 Markdown files resolve. Screenshots match
+the current interface. Every file under `public/` is referenced; every dependency is used
+(three only through scripts or config). Removed the scratch file `ff-tmp.mjs`.
