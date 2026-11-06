@@ -176,6 +176,13 @@ jobs:
       - name: Unit and integration tests
         run: npm test
 
+      # The README's quick start: the seed must find DATABASE_URL in .env by itself,
+      # with nothing exported in the shell.
+      - name: Demo seed runs from a plain .env
+        run: |
+          echo 'DATABASE_URL=postgresql://blackwater:blackwater@localhost:5432/blackwater_test?schema=public' > .env
+          npm run prisma:seed
+
   # Builds the production image and starts it for real: it must apply every
   # migration to an empty database, answer its health check, and pass the same
   # browser smoke journey that production.yml runs against the live site. Running
