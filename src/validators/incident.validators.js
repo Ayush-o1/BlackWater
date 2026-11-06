@@ -39,6 +39,13 @@ export const listIncidentsSchema = z.object({
     severity: z.enum(Object.values(Severity)).optional(),
     assigneeId: z.uuid().optional(),
     serviceId: z.uuid().optional(),
+    // Title search, case-insensitive.
+    q: z.string().trim().min(1).max(200).optional(),
+    // "true" limits the list to incidents still being worked (triggered or acknowledged).
+    open: z.enum(['true', 'false']).transform((value) => value === 'true').optional(),
+    // priority: worst severity first, then newest. The order has to come from the
+    // database: sorting one page in the browser would be wrong as soon as there are two.
+    sort: z.enum(['newest', 'priority']).default('newest'),
     ...paginationQuery,
   }),
 });
