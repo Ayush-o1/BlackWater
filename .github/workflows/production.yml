@@ -69,7 +69,12 @@ jobs:
           exit 1
 
       - name: Install the browser
-        run: npx playwright install --with-deps chromium
+        # A stalled package mirror once hung this step until the job was cancelled.
+        # apt now gives up on a stalled download after 30 s and retries it.
+        timeout-minutes: 10
+        run: |
+          echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
+          npx playwright install --with-deps chromium
 
       - name: Smoke journey against the live site
         run: npm run smoke

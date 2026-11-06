@@ -13,6 +13,7 @@ jobs:
   test:
     name: Lint and tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -54,7 +55,12 @@ jobs:
         run: npm test
 
       - name: Install the browser
-        run: npx playwright install --with-deps chromium
+        # A stalled package mirror once hung this step until the job was cancelled.
+        # apt now gives up on a stalled download after 30 s and retries it.
+        timeout-minutes: 10
+        run: |
+          echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
+          npx playwright install --with-deps chromium
 
       - name: Browser tests
         run: npm run test:e2e
@@ -76,6 +82,7 @@ jobs:
   other-browsers:
     name: Browser tests (${{ matrix.browser }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -115,7 +122,12 @@ jobs:
           EOF
 
       - name: Install the browser
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        # A stalled package mirror once hung this step until the job was cancelled.
+        # apt now gives up on a stalled download after 30 s and retries it.
+        timeout-minutes: 10
+        run: |
+          echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
+          npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Browser tests
         run: npx playwright test --project=${{ matrix.browser }}
@@ -139,6 +151,7 @@ jobs:
   minimum-node:
     name: Tests on the minimum Node.js
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -191,6 +204,7 @@ jobs:
   docker:
     name: Production image
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -243,7 +257,12 @@ jobs:
       - run: npm ci
 
       - name: Install the browser
-        run: npx playwright install --with-deps chromium
+        # A stalled package mirror once hung this step until the job was cancelled.
+        # apt now gives up on a stalled download after 30 s and retries it.
+        timeout-minutes: 10
+        run: |
+          echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
+          npx playwright install --with-deps chromium
 
       - name: Smoke journey against the image
         run: npm run smoke
