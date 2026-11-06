@@ -120,6 +120,8 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 
 a { color: var(--accent-text); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 2px; }
+/* Links inside running text are underlined, so they never depend on color alone (WCAG 1.4.1). */
+:where(p, .hint) a:not(.btn) { text-decoration: underline; text-underline-offset: 2px; }
 
 img, svg { display: block; }
 button, input, select, textarea { font: inherit; color: inherit; }

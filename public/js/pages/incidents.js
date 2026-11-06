@@ -166,7 +166,7 @@ async function start() {
         'table',
         { class: 'table' },
         h('caption', { class: 'visually-hidden' }, 'Incidents'),
-        h('thead', {}, h('tr', {}, ['Incident', 'Severity', 'Status', 'Assignee', 'Started', 'Visibility'].map((heading) => h('th', { scope: 'col' }, heading)))),
+        h('thead', {}, h('tr', {}, ['Incident', 'Status and severity', 'Assignee', 'Started', 'Visibility'].map((heading) => h('th', { scope: 'col' }, heading)))),
         h('tbody', {}, incidents.map(incidentTableRow))
       ),
       pagination?.hasMore && loadMoreButton(() => load({ append: true }))
@@ -189,8 +189,7 @@ function incidentTableRow(incident) {
       h('a', { href: `/incidents/${incident.id}` }, incident.title),
       services.length > 0 && h('div', { class: 'cell-sub' }, services.map((service) => service.name).join(', '))
     ),
-    h('td', { class: 'cell-nowrap cell-badges' }, severityBadge(incident.severity)),
-    h('td', { class: 'cell-nowrap cell-badges' }, incidentStatusBadge(incident.status)),
+    h('td', { class: 'cell-badges' }, h('div', { class: 'cell-badge-stack' }, incidentStatusBadge(incident.status), severityBadge(incident.severity))),
     h('td', { 'data-label': 'Assignee' }, person(incident.assignee)),
     h('td', { class: 'cell-nowrap', 'data-label': 'Started' }, h('time', { datetime: incident.createdAt, title: formatDateTime(incident.createdAt) }, timeAgo(incident.createdAt))),
     h('td', { class: 'cell-nowrap' }, visibilityBadge(incident.isPublic))

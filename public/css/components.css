@@ -201,6 +201,11 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
 .table .row-link td { position: static; }
 .cell-sub { color: var(--text-3); margin-top: 2px; font-size: var(--text-xs); overflow-wrap: anywhere; }
 .cell-nowrap { white-space: nowrap; }
+/* Long titles may wrap anywhere, which makes their minimum width tiny; without a floor
+   the table would squeeze the title column first. (Below 761px rows stack instead.) */
+@media (min-width: 761px) { .table td.cell-title { min-width: 12rem; } }
+.cell-badge-stack { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+@media (min-width: 761px) and (max-width: 1279px) { .table th, .table td { padding-left: var(--space-3); padding-right: var(--space-3); } }
 
 @media (max-width: 760px) {
   .table thead { display: none; }
@@ -466,3 +471,9 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
 /* A row that just changed because of a live update: a brief, quiet highlight. */
 .just-updated { animation: highlight 1.6s var(--ease); }
 @keyframes highlight { from { background: var(--accent-soft); } }
+
+/* Same height as the status banner, so the page does not move when it loads. */
+.banner-placeholder { height: 76px; border-radius: var(--radius-lg); }
+@media (max-width: 640px) { .banner-placeholder { height: 96px; } }
+/* A panel waiting for its content takes no space, so it cannot be pushed down the screen. */
+.panel:empty { display: none; }

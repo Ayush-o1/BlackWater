@@ -19,10 +19,13 @@ async function start() {
   const teamHost = h('section', { class: 'panel' });
   const dangerHost = h('section', { class: 'panel panel-danger' });
 
+  // The panels go in together once their data is here, so nothing moves as they fill in.
+  const content = h('div', { class: 'stack page-narrow-content' }, h('div', { class: 'panel' }, loadingRows(3)));
+
   render(
     main,
     h('div', { class: 'page-header' }, h('div', {}, h('h1', {}, 'Settings'), h('p', {}, 'Your profile, your organization and your team.'))),
-    h('div', { class: 'stack page-narrow-content' }, profileHost, organizationHost, teamHost, admin && dangerHost)
+    content
   );
 
   // ---------- Profile ----------
@@ -243,18 +246,14 @@ async function start() {
 
   // ---------- Load ----------
 
-  render(profileHost, loadingRows(2));
-  render(organizationHost, loadingRows(2));
-  render(teamHost, loadingRows(3));
-
   try {
-    const [{ data: me }, { data: organization }] = await Promise.all([api.get('/users/me'), api.get('/organizations/me')]);
+    const [{ data: me }, { data: organization }] = await Promise.all([api.get('/users/me'), api.get('/organizations/me'), paintTeam()]);
     paintProfile(me);
     paintOrganization(organization);
     if (admin) paintDanger(organization);
-    await paintTeam();
+    render(content, profileHost, organizationHost, teamHost, admin && dangerHost);
   } catch (error) {
-    render(teamHost, errorState(error, () => location.reload()));
+    render(content, h('div', { class: 'panel' }, errorState(error, () => location.reload())));
   }
 
   // Someone joined or had their role changed.

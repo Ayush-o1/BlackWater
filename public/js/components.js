@@ -2,8 +2,7 @@ import { api, getAll } from './api.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import {
-  avatar, checkboxField, formDialog, healthLabel, incidentStatusBadge, selectField,
-  severityBadge, textField, textareaField, timeAgo, titleCase, toast, formatDateTime, visibilityBadge,
+  avatar, checkboxField, formDialog, selectField, textField, textareaField, timeAgo, titleCase, toast, formatDateTime,
 } from './ui.js';
 
 // Pieces of the interface that more than one page uses.
@@ -27,39 +26,6 @@ export function statusBanner(status, detail, headingLevel = 'h2') {
     { class: `banner banner-${String(status).toLowerCase()}` },
     icon(iconName, 'lg'),
     h('div', {}, h(headingLevel, {}, title), detail && h('p', {}, detail))
-  );
-}
-
-// ---------- Rows ----------
-
-export function incidentRow(incident) {
-  const affected = incident.affectedServices ?? [];
-
-  return h(
-    'a',
-    { class: 'row', href: `/incidents/${incident.id}` },
-    h(
-      'div',
-      {},
-      h('div', { class: 'row-title truncate' }, incident.title),
-      h(
-        'div',
-        { class: 'row-meta' },
-        h('span', {}, `Started ${timeAgo(incident.createdAt)}`),
-        incident.assignee ? h('span', { class: 'cluster' }, avatar(incident.assignee.name), incident.assignee.name) : h('span', {}, 'Unassigned'),
-        affected.length > 0 && h('span', { class: 'truncate' }, affected.map((service) => service.name).join(', '))
-      )
-    ),
-    h('div', { class: 'row-side' }, visibilityBadge(incident.isPublic), severityBadge(incident.severity), incidentStatusBadge(incident.status))
-  );
-}
-
-export function serviceRow(service) {
-  return h(
-    'a',
-    { class: 'row', href: `/services/${service.id}` },
-    h('div', {}, h('div', { class: 'row-title' }, service.name), service.description && h('div', { class: 'row-meta' }, h('span', { class: 'truncate' }, service.description))),
-    h('div', { class: 'row-side' }, healthLabel(service.status))
   );
 }
 

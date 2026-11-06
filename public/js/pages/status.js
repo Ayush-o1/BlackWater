@@ -3,7 +3,7 @@ import { statusBanner } from '../components.js';
 import { h, render } from '../dom.js';
 import { refreshPeriodically, renderPublicLayout } from '../publicLayout.js';
 import {
-  emptyState, errorState, formatDate, formatDateTime, healthLabel, incidentStatusBadge, loadMoreButton, loadingRows,
+  emptyState, errorState, formatDate, formatDateTime, healthLabel, incidentStatusBadge, loadMoreButton,
   severityBadge, timeAgo,
 } from '../ui.js';
 
@@ -21,7 +21,9 @@ const servicesHost = h('section', { class: 'panel', 'aria-labelledby': 'componen
 const historyHost = h('section', { class: 'panel', 'aria-labelledby': 'history-title' });
 
 render(main, bannerHost, activeHost, servicesHost, historyHost);
-render(servicesHost, loadingRows(3));
+// Until the first answer arrives: a placeholder the size of the banner and nothing
+// else, so nothing on screen moves when the real page is painted (no layout shift).
+render(bannerHost, h('div', { class: 'banner-placeholder skeleton', 'aria-busy': 'true', 'aria-label': 'Loading' }));
 
 function bannerDetail() {
   const count = overview.activeIncidents.length;
@@ -123,7 +125,7 @@ function paintHistory() {
   );
 }
 
-async function loadHistory({ append = false } = {}) {
+async function fetchHistory({ append = false } = {}) {
   // Like the private lists: a refresh reloads what is already on screen.
   const query = { orgId, limit: append ? 10 : Math.min(100, Math.max(10, history.length)) };
   if (append) query.cursor = historyPage.nextCursor;
@@ -131,6 +133,10 @@ async function loadHistory({ append = false } = {}) {
   const { data, pagination } = await api.get('/status/incidents', query);
   history = append ? [...history, ...data] : data;
   historyPage = pagination;
+}
+
+async function loadHistory(options) {
+  await fetchHistory(options);
   paintHistory();
 }
 
@@ -152,10 +158,13 @@ async function loadLatestUpdates() {
 
 async function load() {
   try {
-    ({ data: overview } = await api.get('/status', { orgId }));
+    // History does not depend on the overview, so both are fetched at once, and the
+    // page is painted in one pass when everything has arrived.
+    const [{ data }] = await Promise.all([api.get('/status', { orgId }), fetchHistory()]);
+    overview = data;
     await loadLatestUpdates();
     paint();
-    await loadHistory();
+    paintHistory();
   } catch (error) {
     // After the first successful load a failed refresh keeps showing the last good data.
     if (overview) return;

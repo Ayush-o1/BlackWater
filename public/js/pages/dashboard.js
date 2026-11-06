@@ -26,6 +26,7 @@ async function start() {
   const writer = canWrite(user);
 
   const bannerHost = h('div');
+  const gridHost = h('div');
   const attentionHost = h('section', { class: 'panel area-attention', 'aria-labelledby': 'attention-title' });
   const servicesHost = h('section', { class: 'panel area-services', 'aria-labelledby': 'services-title' });
   const resolvedHost = h('section', { class: 'panel area-resolved', 'aria-labelledby': 'resolved-title' });
@@ -39,10 +40,12 @@ async function start() {
       writer && h('div', { class: 'page-actions' }, button('Declare incident', { variant: 'primary', iconName: 'plus', onClick: () => declareIncidentDialog({ onCreated: (incident) => location.assign(`/incidents/${incident.id}`) }).catch(toastError) }))
     ),
     bannerHost,
-    // Grid areas, so a phone gets attention, services, resolved, public in that order.
-    h('div', { class: 'overview-grid' }, attentionHost, servicesHost, resolvedHost, publicPagePanel(user.orgId))
+    gridHost
   );
-  for (const host of [attentionHost, servicesHost, resolvedHost]) render(host, loadingRows(3));
+  // Until the data is here: a banner-sized placeholder and one loading panel. The
+  // grid then goes in whole, so nothing already on screen moves (no layout shift).
+  render(bannerHost, h('div', { class: 'banner-placeholder skeleton', 'aria-busy': 'true', 'aria-label': 'Loading' }));
+  render(gridHost, h('div', { class: 'panel' }, loadingRows(3)));
 
   async function load() {
     try {
@@ -56,8 +59,12 @@ async function start() {
       paintAttention(open, summary.activeIncidentCount);
       paintServices(services);
       paintResolved(resolved);
+      // Grid areas, so a phone gets attention, services, resolved, public in that order.
+      if (!gridHost.querySelector('.overview-grid')) render(gridHost, h('div', { class: 'overview-grid' }, attentionHost, servicesHost, resolvedHost, publicPagePanel(user.orgId)));
     } catch (error) {
-      render(bannerHost, h('div', { class: 'panel' }, errorState(error, load)));
+      if (gridHost.querySelector('.overview-grid')) return; // a failed live refresh keeps the last good view
+      render(bannerHost);
+      render(gridHost, h('div', { class: 'panel' }, errorState(error, load)));
     }
   }
 

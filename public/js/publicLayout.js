@@ -8,13 +8,16 @@ export function renderPublicLayout() {
   const name = h('span', { class: 'public-org' }, 'Status');
   const checked = h('span', { 'aria-live': 'polite' }, '');
   const main = h('main', { class: 'public-main', id: 'main' });
+  // Shown with the first content, so it appears once instead of sliding down the
+  // screen as the page fills in (which would count as layout shift).
+  const footer = h('footer', { class: 'public-footer', hidden: true }, checked, h('span', {}, 'Powered by BlackWater'));
 
   render(
     document.getElementById('app'),
     h('a', { class: 'skip-link', href: '#main' }, 'Skip to content'),
     h('header', { class: 'public-header' }, h('div', { class: 'public-header-inner' }, name, h('span', { class: 'public-tag cluster' }, icon('activity', 'sm'), 'System status'))),
     main,
-    h('footer', { class: 'public-footer' }, checked, h('span', {}, 'Powered by BlackWater'))
+    footer
   );
 
   return {
@@ -23,6 +26,7 @@ export function renderPublicLayout() {
       name.textContent = organizationName;
     },
     markChecked() {
+      footer.hidden = false;
       checked.textContent = `Last checked ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. This page refreshes automatically.`;
     },
   };

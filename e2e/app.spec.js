@@ -1,29 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const unique = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-const PASSWORD = 'CorrectHorse!9';
-
-async function register(page, { name = 'Ananya Gupta' } = {}) {
-  const id = unique();
-  const email = `e2e-${id}@blackwater.test`;
-
-  await page.goto('/register');
-  await page.getByLabel('Your name').fill(name);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-  await page.getByLabel('Organization name').fill(`E2E Org ${id}`);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
-
-  const session = await page.evaluate(() => JSON.parse(localStorage.getItem('blackwater.session')));
-  return { email, name, orgId: session.user.orgId, token: session.token };
-}
-
-// Direct API calls with the signed-in user's token, for setting things up quickly.
-const apiFor = (page, token) => ({
-  post: (path, data) => page.request.post(`/api${path}`, { data, headers: { Authorization: `Bearer ${token}` } }),
-  patch: (path, data) => page.request.patch(`/api${path}`, { data, headers: { Authorization: `Bearer ${token}` } }),
-});
+import { PASSWORD, apiFor, register, unique } from './helpers.js';
 
 test.describe('signing in', () => {
   test('registers an organization, survives a refresh, signs out and back in', async ({ page }) => {

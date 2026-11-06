@@ -96,7 +96,7 @@ export function renderShell({ active }) {
       { class: 'nav', 'aria-label': 'Main' },
       h('ul', { role: 'list' }, NAV.map((item) => h('li', {}, h('a', { class: 'nav-link', href: item.href, 'aria-current': item.key === active ? 'page' : null }, icon(item.icon), item.label))))
     ),
-    h('div', { class: 'sidebar-footer' }, userMenu, userButton)
+    h('div', { class: 'sidebar-footer' }, userButton, userMenu)
   );
 
   // ---- Phone drawer. Focus goes into it when it opens and back to the button when it closes.

@@ -74,6 +74,65 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # The same browser suite in Firefox and WebKit (Safari's engine), one job each.
+  other-browsers:
+    name: Browser tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: blackwater
+          POSTGRES_PASSWORD: blackwater
+          POSTGRES_DB: blackwater_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Write .env.test
+        run: |
+          cat <<EOF > .env.test
+          DATABASE_URL=postgresql://blackwater:blackwater@localhost:5432/blackwater_test?schema=public
+          JWT_SECRET=ci_only_secret_at_least_32_characters_long
+          JWT_EXPIRES_IN=1d
+          PORT=8001
+          NODE_ENV=test
+          EOF
+
+      - name: Install the browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Browser tests
+        run: npx playwright test --project=${{ matrix.browser }}
+        env:
+          CI: 'true'
+          ALL_BROWSERS: '1'
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report/
+          retention-days: 7
+
   # The README promises Node 20.19 as the minimum, so the backend suite runs on
   # exactly that version too. The browser tests only need the newer one.
   minimum-node:
