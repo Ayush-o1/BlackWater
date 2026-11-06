@@ -743,4 +743,39 @@ test.describe('live updates across sessions', () => {
     await expect(watcher.locator('.live-indicator')).toContainText('Live', { timeout: 30_000 });
     await expect(watcher.locator('.header-badges')).toContainText('Acknowledged');
   });
+
+  test('a change made before the page\'s first live connection is not missed', async ({ page, browser }) => {
+    // The page loads its data, and only then does its WebSocket connect. A change that
+    // lands in that gap is announced to nobody who is listening yet, so the first
+    // connection has to refresh the page too, not only reconnections.
+    const admin = await register(page, { name: 'Ananya Gupta' });
+    const request = page.request;
+    const incident = await post(request, admin.token, '/incidents', { title: `Gap test ${unique()}`, severity: 'LOW' });
+    const invitation = await post(request, admin.token, '/invitations', { role: 'VIEWER' });
+    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Vikram Shah', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
+
+    const context = await browser.newContext();
+    await context.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }, ['blackwater.session', JSON.stringify(viewer)]);
+    const watcher = await context.newPage();
+
+    // Hold the socket back so the page has loaded but is not connected yet.
+    let release;
+    const held = new Promise((resolve) => { release = resolve; });
+    await watcher.routeWebSocket(/socket\.io/, async (socket) => {
+      await held;
+      socket.connectToServer();
+    });
+
+    await watcher.goto(`/incidents/${incident.id}`);
+    await expect(watcher.locator('.header-badges')).toContainText('Triggered');
+    await expect(watcher.locator('.live-indicator')).not.toContainText('Live');
+
+    // The change happens while nobody is listening.
+    await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'ACKNOWLEDGED' });
+    await expect(watcher.locator('.header-badges')).toContainText('Triggered');
+
+    release();
+    await expect(watcher.locator('.live-indicator')).toContainText('Live');
+    await expect(watcher.locator('.header-badges')).toContainText('Acknowledged');
+  });
 });

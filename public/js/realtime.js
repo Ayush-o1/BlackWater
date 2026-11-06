@@ -25,14 +25,15 @@ function connect() {
 
   setState('connecting');
   socket = window.io({ auth: { token: getToken() }, transports: ['websocket'] });
-  let hasConnectedBefore = false;
 
   socket.on('connect', () => {
     setState('live');
-    // Changes made while the connection was down were never announced, so
-    // after a reconnect every subscriber refetches once.
-    if (hasConnectedBefore) handlers.forEach((entry) => entry.run());
-    hasConnectedBefore = true;
+    // Every connection, the first included, refreshes every subscriber once. A page
+    // loads its data first and connects after, so a change made in that gap (or while
+    // the connection was down) was announced to nobody listening. The cost is one
+    // extra fetch per page view; the alternative is a page that silently shows
+    // stale data until the next event.
+    handlers.forEach((entry) => entry.run());
   });
   socket.on('disconnect', () => setState('connecting'));
   socket.on('connect_error', (error) => {

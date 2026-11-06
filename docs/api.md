@@ -33,7 +33,7 @@ Errors always have this shape, with the matching HTTP status:
 
 **Pagination.** List endpoints return newest first and take `limit` (1 to 100, default 20) and `cursor` (the `nextCursor` of the previous page). Rows with the same creation time are ordered by id, so paging never skips or repeats a row.
 
-**Rate limits.** Per IP and 15 minutes. Registration and the two public invitation endpoints share `AUTH_RATE_LIMIT` (default 20). Login uses the same limit but counts only failed attempts, so people signing in from one shared address do not use each other's allowance. Everything else under `/api` shares `API_RATE_LIMIT` (default 1000, roughly three API calls per page view). Exceeding a limit answers 429.
+**Rate limits.** Per IP and 15 minutes. Registration and the two public invitation endpoints share `AUTH_RATE_LIMIT` (default 20). Login uses the same limit but counts only failed attempts, so people signing in from one shared address do not use each other's allowance. Everything else under `/api` shares `API_RATE_LIMIT` (default 1000, roughly four API calls per page view). Exceeding a limit answers 429.
 
 **Roles.** `VIEWER` reads. `MEMBER` also writes incidents and services. `ADMIN` also manages the organization. In the tables below the role is the minimum needed.
 
