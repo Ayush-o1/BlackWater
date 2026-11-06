@@ -233,7 +233,8 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
   });
 
   await test.step('the audit trail names who did what', async () => {
-    const timeline = admin.locator('.timeline');
+    // Found by its accessible name, not a class, so a restyle cannot silently break this.
+    const timeline = admin.getByRole('list', { name: 'Activity, newest first' });
     for (const entry of ['Incident declared', 'Status changed', 'Assigned to Meera Iyer', 'Incident edited']) {
       await expect(timeline.getByText(entry).first()).toBeVisible();
     }

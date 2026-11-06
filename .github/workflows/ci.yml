@@ -61,11 +61,6 @@ jobs:
         env:
           CI: 'true'
 
-      # The smoke spec only runs against a live deployment, so nothing else would notice
-      # if it stopped loading. Listing its tests parses and loads it without a server.
-      - name: Smoke spec still loads
-        run: SMOKE_URL=http://localhost:8000 npx playwright test -c playwright.smoke.config.js --list
-
       - name: Upload the Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
@@ -182,7 +177,10 @@ jobs:
         run: npm test
 
   # Builds the production image and starts it for real: it must apply every
-  # migration to an empty database and answer its health check.
+  # migration to an empty database, answer its health check, and pass the same
+  # browser smoke journey that production.yml runs against the live site. Running
+  # the journey here means a UI change that breaks it fails the pull request, not
+  # the next production deployment.
   docker:
     name: Production image
     runs-on: ubuntu-latest
@@ -212,6 +210,7 @@ jobs:
             -e PORT=8000 \
             -e DATABASE_URL='postgresql://blackwater:blackwater@localhost:5432/blackwater_image?schema=public' \
             -e JWT_SECRET=ci_only_secret_at_least_32_characters_long \
+            -e COMMIT_SHA=${{ github.sha }} \
             blackwater
 
       - name: Wait for the health check
@@ -228,6 +227,22 @@ jobs:
           curl -fsS -o /dev/null http://localhost:8000/login
           # An organization that does not exist must answer 404 (not 500), which also proves the schema is in place.
           test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8000/api/status?orgId=00000000-0000-4000-8000-000000000000')" = 404
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke journey against the image
+        run: npm run smoke
+        env:
+          SMOKE_URL: http://localhost:8000
+          EXPECT_COMMIT: ${{ github.sha }}
 
       - name: Container logs
         if: always()
