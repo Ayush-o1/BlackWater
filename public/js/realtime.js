@@ -36,13 +36,29 @@ function connect() {
     handlers.forEach((entry) => entry.run());
   });
   socket.on('disconnect', () => setState('connecting'));
+
+  let retryDelayMs = 1000;
   socket.on('connect_error', (error) => {
     // A rejected token will not get better by retrying; the next API call
     // handles the sign-out.
     if (String(error?.message).includes('Unauthorized')) {
       socket.disconnect();
       setState('offline');
+      return;
     }
+
+    // Anything else is the server having a moment (the handshake could not reach its
+    // database, say). Socket.IO reconnects by itself after a lost connection but NOT
+    // after the server's handshake refuses one, so retry here, backing off, or the page
+    // would stay on "Reconnecting" and show stale data until it is reloaded.
+    if (!socket.active) {
+      setState('connecting');
+      setTimeout(() => socket.connect(), retryDelayMs);
+      retryDelayMs = Math.min(retryDelayMs * 2, 15_000);
+    }
+  });
+  socket.on('connect', () => {
+    retryDelayMs = 1000;
   });
 }
 

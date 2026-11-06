@@ -1,10 +1,11 @@
 import http from 'node:http';
 import { io as connect } from 'socket.io-client';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import app from '../../src/app.js';
 import { initSocketServer } from '../../src/socket/index.js';
 import { api } from '../helpers/request.js';
 import { cleanDatabase, prisma } from '../helpers/db.js';
+import { generateToken } from '../../src/utils/jwt.js';
 import { addUserToOrg, bearer, createOrgWithUser, createIncident } from '../helpers/factories.js';
 
 let httpServer;
@@ -51,6 +52,28 @@ const nextEvent = (socket, event, ms = 1500) =>
       resolve(payload);
     });
   });
+
+describe('socket authentication when the server itself has a problem', () => {
+  it('does not call an unexpected failure "Unauthorized", so the browser knows to retry', async () => {
+    // Signed with our own secret, but with a payload our code never produces (a numeric
+    // user id), so the user lookup throws a real error that is not a bad credential,
+    // the same class of failure as a dropped database connection.
+    const token = generateToken({ userId: 12345, orgId: 'x', role: 'ADMIN' });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      const socket = connect(url, { auth: { token }, transports: ['websocket'], reconnection: false });
+      openSockets.push(socket);
+      const refusal = await new Promise((resolve) => socket.once('connect_error', resolve));
+
+      // "Unauthorized" tells the browser the token will never work and to stop for good.
+      expect(refusal.message).not.toContain('Unauthorized');
+      expect(log).toHaveBeenCalled(); // and the cause is logged, no longer swallowed
+    } finally {
+      log.mockRestore();
+    }
+  });
+});
 
 describe('socket authentication', () => {
   it('rejects a connection without a token', async () => {
@@ -121,8 +144,9 @@ describe('organization deletion', () => {
     const mySocket = connect(url, { auth: { token: mine.token }, transports: ['websocket'], reconnection: false });
     const theirSocket = connect(url, { auth: { token: theirs.token }, transports: ['websocket'], reconnection: false });
     openSockets.push(mySocket, theirSocket);
-    await connected(mySocket);
-    await connected(theirSocket);
+    // Both waiters exist before either is awaited: a socket that connects while the
+    // other is still being waited for would otherwise fire its event unheard.
+    await Promise.all([connected(mySocket), connected(theirSocket)]);
     const dropped = new Promise((resolve) => mySocket.once('disconnect', resolve));
 
     const res = await api().delete('/api/organizations/me').set('Authorization', bearer(mine.token)).send({ password: mine.password, confirmName: mine.org.name });
