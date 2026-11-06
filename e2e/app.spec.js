@@ -542,6 +542,26 @@ test.describe('deleting an organization', () => {
     await expect(visitor.getByText('Status page not found')).toBeVisible();
   });
 
+  test('a teammate who has the app open is cut off: the page says Offline, and the next load signs them out', async ({ page, browser }) => {
+    const admin = await register(page);
+    const orgName = (await (await page.request.get('/api/organizations/me', { headers: { Authorization: `Bearer ${admin.token}` } })).json()).data.name;
+    const invitation = await (await apiFor(page, admin.token).post('/invitations', { role: 'MEMBER' })).json();
+    const joined = await (await page.request.post('/api/invitations/accept', { data: { token: invitation.data.token, name: 'Meera Iyer', email: `member-${unique()}@blackwater.test`, password: PASSWORD } })).json();
+    // The session is stored once (not by an init script, which would put it back after sign-out).
+    const member = await (await browser.newContext()).newPage();
+    await member.goto('/login');
+    await member.evaluate((session) => localStorage.setItem('blackwater.session', session), JSON.stringify(joined.data));
+    await member.goto('/incidents');
+    await expect(member.locator('.live-indicator')).toHaveText('Live');
+
+    await page.request.delete('/api/organizations/me', { data: { password: PASSWORD, confirmName: orgName }, headers: { Authorization: `Bearer ${admin.token}` } });
+
+    // The server closed the connection on purpose; it will not come back, so not "Reconnecting".
+    await expect(member.locator('.live-indicator')).toHaveText('Offline');
+    await member.reload();
+    await expect(member).toHaveURL(/\/login\?expired=1/);
+  });
+
   test('a member or viewer is not offered the option', async ({ page, browser }) => {
     const admin = await register(page);
     const invitation = await (await page.request.post('/api/invitations', { data: { role: 'MEMBER' }, headers: { Authorization: `Bearer ${admin.token}` } })).json();
