@@ -21,6 +21,16 @@ const stamp = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 // Organizations this run created, for the clean-up in afterEach.
 const created = [];
 
+// Everything the watched pages reported. Printed when the journey fails, so a failure
+// explains itself (a 429, a failed request, a console error) instead of only naming
+// the assertion that happened to time out.
+const problems = [];
+
+// (Playwright requires hooks to destructure their first argument; the fixture itself is unused.)
+test.afterEach(async ({ browser: _browser }, testInfo) => {
+  if (testInfo.status !== testInfo.expectedStatus) console.log(`PROBLEMS SEEN BY THE PAGES: ${JSON.stringify(problems, null, 1)}`);
+});
+
 test.afterEach(async ({ request }) => {
   if (process.env.SMOKE_KEEP_DATA) return;
   for (const { token, name, orgId } of created.splice(0)) {
@@ -56,7 +66,7 @@ const asUser = (token) => ({ Authorization: `Bearer ${token}` });
 
 test('critical workflows on the deployed application', async ({ browser, baseURL, request }) => {
   test.setTimeout(240_000);
-  const problems = [];
+  problems.length = 0;
   const id = stamp();
 
   // ---- The server and its headers ----

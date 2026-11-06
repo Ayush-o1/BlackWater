@@ -1,7 +1,7 @@
-import http from 'node:http';
 import app from './app.js';
 import { env } from './config/env.js';
 import { prisma } from './database/prisma.js';
+import { createHttpServer } from './httpServer.js';
 import { initSocketServer } from './socket/index.js';
 
 async function startServer() {
@@ -10,7 +10,7 @@ async function startServer() {
     await prisma.$connect();
     console.log('Connected to the database');
 
-    const httpServer = http.createServer(app);
+    const httpServer = createHttpServer(app);
     const io = initSocketServer(httpServer);
 
     httpServer.listen(env.PORT, () => {

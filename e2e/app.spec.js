@@ -743,4 +743,76 @@ test.describe('live updates across sessions', () => {
     await expect(watcher.locator('.live-indicator')).toContainText('Live', { timeout: 30_000 });
     await expect(watcher.locator('.header-badges')).toContainText('Acknowledged');
   });
+
+  test('a change made before the page\'s first live connection is not missed', async ({ page, browser }) => {
+    // The page loads its data, and only then does its WebSocket connect. A change that
+    // lands in that gap is announced to nobody who is listening yet, so the first
+    // connection has to refresh the page too, not only reconnections.
+    const admin = await register(page, { name: 'Ananya Gupta' });
+    const request = page.request;
+    const incident = await post(request, admin.token, '/incidents', { title: `Gap test ${unique()}`, severity: 'LOW' });
+    const invitation = await post(request, admin.token, '/invitations', { role: 'VIEWER' });
+    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Vikram Shah', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
+
+    const context = await browser.newContext();
+    await context.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }, ['blackwater.session', JSON.stringify(viewer)]);
+    const watcher = await context.newPage();
+
+    // Hold the socket back so the page has loaded but is not connected yet.
+    let release;
+    const held = new Promise((resolve) => { release = resolve; });
+    await watcher.routeWebSocket(/socket\.io/, async (socket) => {
+      await held;
+      socket.connectToServer();
+    });
+
+    await watcher.goto(`/incidents/${incident.id}`);
+    await expect(watcher.locator('.header-badges')).toContainText('Triggered');
+    await expect(watcher.locator('.live-indicator')).not.toContainText('Live');
+
+    // The change happens while nobody is listening.
+    await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'ACKNOWLEDGED' });
+    await expect(watcher.locator('.header-badges')).toContainText('Triggered');
+
+    release();
+    await expect(watcher.locator('.live-indicator')).toContainText('Live');
+    await expect(watcher.locator('.header-badges')).toContainText('Acknowledged');
+  });
+
+  test('a refused handshake (a server hiccup) is retried until the page is live', async ({ page, browser }) => {
+    // When the server's handshake middleware refuses a connection, Socket.IO does not
+    // reconnect by itself. A page that gave up there would show stale data for good.
+    const admin = await register(page, { name: 'Ananya Gupta' });
+    const request = page.request;
+    const incident = await post(request, admin.token, '/incidents', { title: `Handshake test ${unique()}`, severity: 'LOW' });
+    const invitation = await post(request, admin.token, '/invitations', { role: 'VIEWER' });
+    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Vikram Shah', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
+
+    const context = await browser.newContext();
+    await context.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }, ['blackwater.session', JSON.stringify(viewer)]);
+    const watcher = await context.newPage();
+
+    // The first two connection attempts are answered the way the server does when its
+    // database lookup fails: an engine "open" packet, then a Socket.IO CONNECT_ERROR
+    // (type 44). Later attempts go through to the real server.
+    let refused = 0;
+    await watcher.routeWebSocket(/socket\.io/, (socket) => {
+      if (refused >= 2) {
+        socket.connectToServer();
+        return;
+      }
+      refused += 1;
+      socket.send('0{"sid":"refused","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":1000000}');
+      socket.onMessage((message) => {
+        if (String(message).startsWith('40')) socket.send('44{"message":"Temporarily unavailable, retrying"}');
+      });
+    });
+
+    await watcher.goto(`/incidents/${incident.id}`);
+    await expect(watcher.locator('.live-indicator')).toContainText('Live', { timeout: 30_000 });
+    expect(refused).toBe(2);
+
+    await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'ACKNOWLEDGED' });
+    await expect(watcher.locator('.header-badges')).toContainText('Acknowledged');
+  });
 });
