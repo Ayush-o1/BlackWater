@@ -181,6 +181,17 @@ real defect or risk with limited impact; **Low** = quality, hygiene or efficienc
 - **Fixed:** the spec finds the feed by its accessible name, and CI runs the whole journey
   against the freshly built image.
 
+### F16 — Medium — Live refreshes stole focus and could swallow clicks (found in Phase 10)
+- Every live event, and the refresh each page makes when its socket first connects,
+  rebuilt the page even when nothing it shows had changed. Someone writing an incident
+  update lost keyboard focus whenever anything changed anywhere in the organization, and
+  a click whose press and release straddled a rebuild was lost. Found because two WebKit
+  tests failed in CI on a documentation-only commit; confirmed with a script (focus
+  `false` after an unrelated update) before fixing.
+- **Fixed:** pages skip the repaint when the data is unchanged; the incident composer is
+  attached once; focus returns to the same control when the header or details change.
+  Regression test added (fails without the fix).
+
 ## 6. Things verified as correct (no change needed)
 
 - Authentication: bcrypt cost 10, constant-time-ish unknown-email path (dummy hash), HS256

@@ -202,3 +202,12 @@ deployment, security and contributing docs corrected where they differed from th
 (tested). All relative links and anchors in the 9 Markdown files resolve. Screenshots match
 the current interface. Every file under `public/` is referenced; every dependency is used
 (three only through scripts or config). Removed the scratch file `ff-tmp.mjs`.
+
+## Phase 10 — Git consolidation (in progress)
+
+**Pre-merge CI found F16.** WebKit failed in CI on a documentation-only head (radio arrow
+keys; a dialog that never opened), after passing on the previous code commit. Diagnosis:
+live refreshes rebuilt unchanged pages, taking focus away and swallowing clicks that
+straddled a rebuild (a real user-facing defect, see the audit). Fixed and covered by a
+new test. After the fix, retries off: Chromium 41/41 (macOS), WebKit 41/41 and Firefox
+41/41 (Linux); the two tests that had failed passed 15/15 each under repetition.
