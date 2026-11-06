@@ -8,9 +8,13 @@ import { apiFor, register } from './helpers.js';
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 async function audit(page, label) {
-  // Let entrance animations finish so colors are measured at rest.
+  // Colors must be measured at rest: a menu or dialog that is still fading in has
+  // lower contrast than anyone will see. Wait for every entrance animation to end
+  // (endless ones, such as a loading shimmer, never do and are skipped).
   await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(300);
+  await page.evaluate(() =>
+    Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
+  );
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   const report = violations.map((v) => `${v.id} (${v.impact}): ${v.help}\n  ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join('\n  ')}`);
   expect(report, `${label} has accessibility violations`).toEqual([]);

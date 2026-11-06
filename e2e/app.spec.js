@@ -286,7 +286,12 @@ test.describe('lists and layout', () => {
         problems.push(`console ${message.type()}: ${message.text()}`);
       });
       target.on('pageerror', (error) => problems.push(`uncaught: ${error.message}`));
-      target.on('requestfailed', (request) => problems.push(`request failed: ${request.url()}`));
+      // A request cancelled because the test moved to the next page did not fail; the
+      // page aborts its own unfinished requests when it is left (see api.js).
+      target.on('requestfailed', (request) => {
+        const reason = request.failure()?.errorText ?? '';
+        if (!/abort|cancel/i.test(reason)) problems.push(`request failed (${reason}): ${request.url()}`);
+      });
       target.on('response', (response) => {
         if (response.status() >= 400) problems.push(`HTTP ${response.status()}: ${response.url()}`);
       });
