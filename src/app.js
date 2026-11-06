@@ -47,7 +47,14 @@ app.get('/health', async (req, res) => {
 
 // The rate limit and JSON body parsing apply to the API only: one page load
 // fetches a dozen static files, and those must not eat into the request budget.
-app.use('/api', apiLimiter, express.json(), apiRoutes);
+// Responses carry private data (incidents, people), and the same URL returns
+// different data to different users, so no browser or shared cache may keep them.
+const noStore = (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+};
+
+app.use('/api', noStore, apiLimiter, express.json(), apiRoutes);
 
 // The web pages and their assets (public/css, public/js).
 app.use(express.static(publicDir, { index: false, extensions: false }));

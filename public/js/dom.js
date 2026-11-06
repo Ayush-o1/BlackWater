@@ -33,7 +33,7 @@ export function h(tag, props = {}, ...children) {
   return element;
 }
 
-export function appendChildren(parent, children) {
+function appendChildren(parent, children) {
   for (const child of children.flat(Infinity)) {
     if (child === null || child === undefined || child === false || child === true) continue;
     parent.append(child instanceof Node ? child : document.createTextNode(String(child)));
@@ -45,5 +45,3 @@ export function render(parent, ...children) {
   parent.replaceChildren();
   appendChildren(parent, children);
 }
-
-export const $ = (selector, root = document) => root.querySelector(selector);

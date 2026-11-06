@@ -17,6 +17,12 @@ function toClientError(err) {
     return new AppError('That record already exists', 409);
   }
 
+  // The row an update or delete targeted was removed by a concurrent request
+  // after we had checked that it existed. For the client it simply is not there.
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+    return new AppError('Not found', 404);
+  }
+
   return null;
 }
 

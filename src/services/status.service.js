@@ -38,12 +38,19 @@ function publicIncident(incident) {
   return toPublicIncident({ ...incident, affectedServices: incident.affectedServices.map(withHealth) });
 }
 
-export async function getOverview(orgId) {
+// An unknown organization id is a 404 on every endpoint (not an empty 200 on
+// some), so a mistyped status-page link or monitor URL is noticed straight away.
+async function findOrganization(orgId) {
   const organization = await prisma.organization.findUnique({
     where: { id: orgId },
     select: { name: true },
   });
   if (!organization) throw new AppError('Organization not found', 404);
+  return organization;
+}
+
+export async function getOverview(orgId) {
+  const organization = await findOrganization(orgId);
 
   const services = await loadPublicServices(orgId);
 
@@ -62,6 +69,7 @@ export async function getOverview(orgId) {
 }
 
 export async function getServices(orgId) {
+  await findOrganization(orgId);
   const services = await loadPublicServices(orgId);
 
   return {
@@ -71,6 +79,7 @@ export async function getServices(orgId) {
 }
 
 export async function getIncidents(orgId, { cursor, limit, status }) {
+  await findOrganization(orgId);
   const incidents = await prisma.incident.findMany({
     where: { orgId, isPublic: true, ...(status && { status }) },
     take: limit + 1,

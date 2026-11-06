@@ -22,7 +22,7 @@
 .btn:disabled,
 .btn[aria-busy='true'] { opacity: 0.55; pointer-events: none; }
 
-.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary { background: var(--primary-strong); color: #fff; }
 .btn-primary:hover { background: var(--primary-hover); }
 
 .btn-danger { background: var(--danger-soft); color: #f87171; }
@@ -272,7 +272,7 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
 }
-.banner h2 { font-size: 17px; }
+.banner h1 { font-size: 17px; }
 .banner p { color: var(--text-2); margin-top: 2px; }
 .banner-success { border-color: rgba(34, 197, 94, 0.3); background: var(--success-soft); }
 .banner-success .icon { color: var(--success); }
@@ -297,7 +297,7 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
   text-align: center;
 }
 .state .icon-lg { color: var(--text-3); }
-.state h3 { font-size: 15px; }
+.state-title { font-size: 15px; }
 .state p { max-width: 380px; color: var(--text-2); }
 .state .btn { margin-top: var(--space-2); }
 
@@ -379,7 +379,13 @@ dialog.dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 
 .header-badges { margin-top: var(--space-2); }
 .detail-service { width: 100%; color: inherit; }
-.detail-service:hover { text-decoration: none; color: var(--primary); }
+
+/* A link that stands on its own line is a touch target: WCAG 2.5.8 asks for at
+   least 24px, and these were 20px tall. Padding enlarges the hit area without
+   changing how the text looks. */
+.detail-service, .details dd > a, .link-target { display: inline-flex; align-items: center; min-height: 32px; }
+.detail-service { display: flex; }
+.detail-service:hover { text-decoration: none; color: var(--primary-text); }
 .profile-head { margin-bottom: var(--space-5); padding-bottom: var(--space-5); border-bottom: 1px solid var(--border); }
 .role-select { width: auto; min-width: 110px; }
 .invitations { border-top: 1px solid var(--border); }

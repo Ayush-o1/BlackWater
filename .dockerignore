@@ -1,0 +1,16 @@
+# Keep the build context to what the image needs, and keep secrets out of it.
+.git
+.github
+node_modules
+.env
+.env.*
+!.env.example
+coverage
+playwright-report
+test-results
+tests
+e2e
+docs
+*.md
+Dockerfile
+.dockerignore

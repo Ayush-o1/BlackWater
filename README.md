@@ -25,13 +25,15 @@ Every organization's data is isolated from every other's.
 |---|---|
 | ![Incident](docs/screenshots/incident.png) | ![Status page](docs/screenshots/status-page.png) |
 
+![Team: roles and invitations](docs/screenshots/team.png)
+
 ## Stack
 
 Node.js and Express, PostgreSQL through Prisma, Socket.IO, JWT and bcrypt, zod for validation. The interface is plain HTML, CSS and JavaScript served by the same Express app: no framework, no build step.
 
 ## Quick start
 
-You need Node.js 20.19 or newer and PostgreSQL (developed against 18, tested in CI on 16).
+You need Node.js 20.19 or newer (CI runs 20.19 and 22) and PostgreSQL (developed against 18, tested in CI on 16).
 
 ```bash
 git clone https://github.com/Ayush-o1/BlackWater.git
@@ -63,8 +65,8 @@ Set in `.env` (see `.env.example`). Invalid or missing values stop the server at
 | `JWT_EXPIRES_IN` | `1d` | Token lifetime, e.g. `12h`, `7d` |
 | `PORT` | `8000` | |
 | `NODE_ENV` | `development` | `production` for deployments |
-| `AUTH_RATE_LIMIT` | `20` | Requests per IP per 15 min for login, registration and invitation links |
-| `API_RATE_LIMIT` | `300` | Requests per IP per 15 min for the rest of the API |
+| `AUTH_RATE_LIMIT` | `20` | Registrations, invitation links and failed logins per IP per 15 min |
+| `API_RATE_LIMIT` | `1000` | Requests per IP per 15 min for the rest of the API |
 | `TRUST_PROXY` | `0` | Number of reverse proxies in front of the app |
 
 ## Scripts
@@ -75,6 +77,7 @@ Set in `.env` (see `.env.example`). Invalid or missing values stop the server at
 | `npm start` | Start |
 | `npm test` | Apply migrations to the test database and run the backend tests |
 | `npm run test:e2e` | Browser tests (Playwright) |
+| `SMOKE_URL=https://... npm run smoke` | The main workflows against a running deployment (see [Deployment](docs/deployment.md#verification)) |
 | `npm run lint` | ESLint |
 | `npm run prisma:migrate` | Create and apply a migration during development |
 | `npm run prisma:migrate:prod` | Apply pending migrations |
@@ -108,7 +111,7 @@ docs/            API, database, architecture, deployment
 - [API reference](docs/api.md)
 - [Architecture](docs/architecture.md)
 - [Database and migrations](docs/database.md)
-- [Deployment](docs/deployment.md)
+- [Deployment](docs/deployment.md): Render Blueprint and Dockerfile, backup and recovery, and why serverless hosting such as Vercel is not suitable
 - [Security](SECURITY.md)
 - [Contributing and testing](CONTRIBUTING.md)
 

@@ -28,6 +28,16 @@ describe('globalErrorHandler', () => {
     expect(run(error)).toEqual({ status: 409, body: { success: false, message: 'That record already exists' } });
   });
 
+  it('turns "record to update or delete does not exist" into 404', () => {
+    // Happens when a row is deleted between the existence check and the write.
+    const error = new Prisma.PrismaClientKnownRequestError('Record to delete does not exist', {
+      code: 'P2025',
+      clientVersion: 'test',
+    });
+
+    expect(run(error)).toEqual({ status: 404, body: { success: false, message: 'Not found' } });
+  });
+
   it('turns an oversized body into 413', () => {
     expect(run(Object.assign(new Error('too big'), { type: 'entity.too.large' })).status).toBe(413);
   });

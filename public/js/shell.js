@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { getSession, isAdmin, signOut, updateSessionUser } from './auth.js';
+import { getSession, signOut, updateSessionUser } from './auth.js';
 import { h, render } from './dom.js';
 import { icon } from './icons.js';
 import { onConnectionChange, subscribe } from './realtime.js';
@@ -91,7 +91,11 @@ async function refreshUser(knownUser) {
   try {
     const { data: fresh } = await api.get('/auth/me');
     updateSessionUser(fresh);
-    if (fresh.role !== knownUser.role || fresh.name !== knownUser.name) location.reload();
+    const changed = fresh.role !== knownUser.role || fresh.name !== knownUser.name;
+    // Reload only if the fresh profile was really saved: otherwise the reloaded
+    // page would see the same "change" again and reload forever.
+    const saved = getSession()?.user?.role === fresh.role && getSession()?.user?.name === fresh.name;
+    if (changed && saved) location.reload();
   } catch {
     /* a rejected token is handled centrally by the API client */
   }
@@ -101,5 +105,3 @@ function watchForRoleChanges(user) {
   refreshUser(user);
   subscribe(['team:changed'], () => refreshUser(getSession()?.user ?? user));
 }
-
-export { isAdmin };

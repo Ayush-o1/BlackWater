@@ -68,3 +68,97 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # The README promises Node 20.19 as the minimum, so the backend suite runs on
+  # exactly that version too. The browser tests only need the newer one.
+  minimum-node:
+    name: Tests on the minimum Node.js
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: blackwater
+          POSTGRES_PASSWORD: blackwater
+          POSTGRES_DB: blackwater_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Write .env.test
+        run: |
+          cat <<EOF > .env.test
+          DATABASE_URL=postgresql://blackwater:blackwater@localhost:5432/blackwater_test?schema=public
+          JWT_SECRET=ci_only_secret_at_least_32_characters_long
+          JWT_EXPIRES_IN=1d
+          PORT=8001
+          NODE_ENV=test
+          EOF
+
+      - name: Unit and integration tests
+        run: npm test
+
+  # Builds the production image and starts it for real: it must apply every
+  # migration to an empty database and answer its health check.
+  docker:
+    name: Production image
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: blackwater
+          POSTGRES_PASSWORD: blackwater
+          POSTGRES_DB: blackwater_image
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t blackwater .
+
+      - name: Start it against an empty database
+        run: |
+          docker run -d --name blackwater --network host \
+            -e PORT=8000 \
+            -e DATABASE_URL='postgresql://blackwater:blackwater@localhost:5432/blackwater_image?schema=public' \
+            -e JWT_SECRET=ci_only_secret_at_least_32_characters_long \
+            blackwater
+
+      - name: Wait for the health check
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then exit 0; fi
+            sleep 2
+          done
+          echo 'The container never became healthy' >&2
+          exit 1
+
+      - name: Serve a page and an API response
+        run: |
+          curl -fsS -o /dev/null http://localhost:8000/login
+          # An organization that does not exist must answer 404 (not 500), which also proves the schema is in place.
+          test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8000/api/status?orgId=00000000-0000-4000-8000-000000000000')" = 404
+
+      - name: Container logs
+        if: always()
+        run: docker logs blackwater

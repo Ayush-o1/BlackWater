@@ -11,7 +11,10 @@ export const createServiceSchema = z.object({
 
 export const updateServiceSchema = z.object({
   params: serviceIdParam,
-  body: z.object({ name: nameField.optional(), description: descriptionField.optional() }),
+  // An empty edit would change nothing yet tell every open page that something changed.
+  body: z
+    .object({ name: nameField.optional(), description: descriptionField.optional() })
+    .refine((body) => Object.keys(body).length > 0, { message: 'Provide at least one field to update' }),
 });
 
 export const getServiceSchema = z.object({ params: serviceIdParam });

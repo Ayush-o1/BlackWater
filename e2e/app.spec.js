@@ -61,13 +61,13 @@ test.describe('signing in', () => {
     await expect(page).toHaveURL(/\/register/);
   });
 
-  test('does not follow a login redirect to another site', async ({ page }) => {
+  test('does not follow a login redirect to another site', async ({ page, baseURL }) => {
     await page.goto('/login?next=https://evil.example/');
     await page.getByRole('link', { name: 'Create an organization' }).click();
     await register(page);
     await page.goto('/login?next=//evil.example');
     // Already signed in: sent to a same-site page, never off-site.
-    await expect(page).toHaveURL(/localhost:8001\/$/);
+    await expect(page).toHaveURL(`${baseURL}/`);
   });
 });
 
@@ -90,7 +90,7 @@ test.describe('incident lifecycle', () => {
     await expect(page.getByText('No incidents yet')).toBeVisible();
     await page.getByRole('button', { name: 'Declare incident' }).click();
     await page.getByLabel('Title').fill(title);
-    await page.getByLabel('Severity').selectOption('CRITICAL');
+    await page.getByLabel('Severity', { exact: true }).selectOption('CRITICAL');
     await page.getByLabel('Payments API').check();
     await page.getByRole('dialog').getByRole('button', { name: 'Declare incident' }).click();
     await expect(page.getByRole('heading', { name: title })).toBeVisible();
@@ -130,7 +130,7 @@ test.describe('incident lifecycle', () => {
 
     // Edit: a lower severity changes the health.
     await page.getByRole('button', { name: 'Edit' }).click();
-    await page.getByLabel('Severity').selectOption('HIGH');
+    await page.getByLabel('Severity', { exact: true }).selectOption('HIGH');
     await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Severity: Critical → High')).toBeVisible();
     await expect(page.getByText('Partial outage')).toBeVisible();
@@ -214,6 +214,8 @@ test.describe('team and invitations', () => {
     await expect(viewer.getByRole('heading', { name: /^Join E2E Org/ })).toBeVisible();
     await expect(viewer.getByText('invited as Viewer')).toBeVisible();
     expect(viewer.url()).not.toContain('#'); // the token is removed from the address bar
+    await viewer.reload(); // a refresh must not invalidate a link that has not been used
+    await expect(viewer.getByRole('heading', { name: /^Join E2E Org/ })).toBeVisible();
     await viewer.getByLabel('Your name').fill('Vikram Shah');
     await viewer.getByLabel('Email address').fill(`viewer-${unique()}@blackwater.test`);
     await viewer.getByLabel('Choose a password').fill(PASSWORD);
@@ -292,27 +294,76 @@ test.describe('team and invitations', () => {
 });
 
 test.describe('lists and layout', () => {
-  test('uses every page without breaking the Content-Security-Policy', async ({ page }) => {
-    const violations = [];
-    page.on('console', (message) => {
-      if (/content security policy/i.test(message.text())) violations.push(message.text());
-    });
+  test('uses every page without console errors, policy violations or failed requests', async ({ page, browser }) => {
+    const problems = [];
+    const watch = (target) => {
+      target.on('console', (message) => {
+        if (['error', 'warning'].includes(message.type())) problems.push(`console ${message.type()}: ${message.text()}`);
+      });
+      target.on('pageerror', (error) => problems.push(`uncaught: ${error.message}`));
+      target.on('requestfailed', (request) => problems.push(`request failed: ${request.url()}`));
+      target.on('response', (response) => {
+        if (response.status() >= 400) problems.push(`HTTP ${response.status()}: ${response.url()}`);
+      });
+    };
 
+    // Signed-out pages first, in a clean context.
+    const signedOut = await (await browser.newContext()).newPage();
+    watch(signedOut);
+    for (const path of ['/login', '/register', '/invite']) {
+      await signedOut.goto(path);
+      await signedOut.waitForLoadState('networkidle');
+    }
+
+    watch(page);
     const { orgId, token } = await register(page);
     const api = apiFor(page, token);
     const service = (await (await api.post('/services', { name: 'Search' })).json()).data;
     const incident = (await (await api.post('/incidents', { title: 'Search is slow today', severity: 'HIGH', serviceIds: [service.id], isPublic: true })).json()).data;
+    await api.post(`/incidents/${incident.id}/updates`, { message: 'Looking into it', isPublic: true });
 
     for (const path of ['/', '/incidents', `/incidents/${incident.id}`, '/services', `/services/${service.id}`, '/settings', `/status/${orgId}`, `/status/${orgId}/incidents/${incident.id}`]) {
       await page.goto(path);
       await page.waitForLoadState('networkidle');
     }
-    // Open every dialog, since dialogs are built on demand.
+    // Dialogs are built on demand, so open each one.
     await page.goto('/incidents');
     await page.getByRole('button', { name: 'Declare incident' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.goto('/services');
+    await page.getByRole('button', { name: 'Add service' }).first().click();
+    await expect(page.getByRole('dialog')).toBeVisible();
 
-    expect(violations).toEqual([]);
+    expect(problems).toEqual([]);
+  });
+
+  test('can be operated with the keyboard alone: dialogs keep focus off the page behind them, Escape closes them and focus returns', async ({ page }) => {
+    await register(page);
+    await page.goto('/incidents');
+
+    const trigger = page.getByRole('button', { name: 'Declare incident' }).first();
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    // Focus starts inside the dialog. Tabbing may leave the page for the browser's
+    // own controls (activeElement is then <body>) but never reaches the page behind.
+    expect(await page.evaluate(() => Boolean(document.activeElement?.closest('dialog')))).toBe(true);
+    for (let i = 0; i < 12; i += 1) {
+      await page.keyboard.press('Tab');
+      expect(await page.evaluate(() => document.activeElement === document.body || Boolean(document.activeElement?.closest('dialog')))).toBe(true);
+    }
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+
+    // The sidebar is reachable and operable by keyboard: Tab to a link, Enter follows it.
+    await page.getByRole('link', { name: 'Services' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/services$/);
   });
 
   test('pages through more than one page of services with Load more', async ({ page }) => {
@@ -330,6 +381,31 @@ test.describe('lists and layout', () => {
 
     await page.goto('/');
     await expect(page.locator('.stat', { hasText: 'Services' })).toContainText('23'); // counted by the server, not by the first page
+  });
+
+  test('the public status page pages through its incident history with Load more', async ({ page, browser }) => {
+    const { orgId, token } = await register(page);
+    const api = apiFor(page, token);
+    const titles = Array.from({ length: 12 }, (_, i) => `Published incident number ${String(i + 1).padStart(2, '0')}`);
+    for (const title of titles) {
+      const res = await api.post('/incidents', { title, severity: 'LOW', isPublic: true });
+      expect(res.status()).toBe(201);
+    }
+    await api.post('/incidents', { title: 'A private incident that must stay hidden', severity: 'LOW' });
+
+    const visitor = await (await browser.newContext()).newPage();
+    await visitor.goto(`/status/${orgId}`);
+    const history = visitor.locator('section.panel', { has: visitor.getByRole('heading', { name: 'Incident history' }) });
+    await expect(history.locator('a.row')).toHaveCount(10);
+
+    await history.getByRole('button', { name: 'Load more' }).click();
+    await expect(history.locator('a.row')).toHaveCount(12);
+    await expect(history.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+
+    // Every published incident appears exactly once, newest first, and the private one never does.
+    const shown = await history.locator('.row-title').allTextContents();
+    expect(shown).toEqual([...titles].reverse());
+    await expect(visitor.getByText('A private incident that must stay hidden')).toHaveCount(0);
   });
 
   test('filters incidents and keeps the filter in the address bar', async ({ page }) => {
@@ -499,5 +575,127 @@ test.describe('phone layout', () => {
       const { scrollWidth, innerWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
       expect(scrollWidth, `${path} is wider than the screen`).toBeLessThanOrEqual(innerWidth);
     }
+  });
+});
+
+test.describe('live updates across sessions', () => {
+  // A session is a separate browser context (its own storage and socket), signed in
+  // by planting the token the app would have stored, so the test spends its time
+  // on what it is about rather than on signing in four times.
+  async function openSession(browser, { token, user }, path) {
+    const context = await browser.newContext();
+    await context.addInitScript(([key, value]) => localStorage.setItem(key, value), ['blackwater.session', JSON.stringify({ token, user })]);
+    const page = await context.newPage();
+    await page.goto(path);
+    return page;
+  }
+
+  const post = async (request, token, path, data) => {
+    const response = await request.post(`/api${path}`, { data, headers: { Authorization: `Bearer ${token}` } });
+    return (await response.json()).data;
+  };
+  const patch = (request, token, path, data) => request.patch(`/api${path}`, { data, headers: { Authorization: `Bearer ${token}` } });
+
+  test('open pages in other sessions update by themselves, and never for another organization', async ({ page, browser }) => {
+    // The admin's own organization, plus a member and a viewer invited into it.
+    const admin = await register(page, { name: 'Ananya Gupta' });
+    const request = page.request;
+    const join = async (role, name) => {
+      const invitation = await post(request, admin.token, '/invitations', { role });
+      return post(request, '', '/invitations/accept', { token: invitation.token, name, email: `${role.toLowerCase()}-${unique()}@blackwater.test`, password: PASSWORD });
+    };
+    const member = await join('MEMBER', 'Meera Iyer');
+    const viewer = await join('VIEWER', 'Vikram Shah');
+
+    // A second, unrelated organization.
+    const outsiderContext = await browser.newContext();
+    const outsiderSession = await post(outsiderContext.request, '', '/auth/register', { name: 'Olivia Park', email: `outsider-${unique()}@blackwater.test`, password: PASSWORD, orgName: `Other Org ${unique()}` });
+
+    const service = await post(request, admin.token, '/services', { name: 'Checkout' });
+    const title = `Cart is empty after login ${unique()}`;
+    const incident = await post(request, admin.token, '/incidents', { title, severity: 'CRITICAL', serviceIds: [service.id] });
+
+    // Everyone opens a page and leaves it alone from here on: no reloads, no navigation.
+    const memberOnIncident = await openSession(browser, member, `/incidents/${incident.id}`);
+    const viewerOnService = await openSession(browser, viewer, `/services/${service.id}`);
+    const viewerOnDashboard = await openSession(browser, viewer, '/');
+    const outsiderOnIncidents = await openSession(browser, outsiderSession, '/incidents');
+
+    await expect(memberOnIncident.locator('.header-badges')).toContainText('Triggered');
+    await expect(viewerOnService.getByRole('heading', { name: 'Checkout' })).toBeVisible();
+    await expect(viewerOnService.getByText('Major outage').first()).toBeVisible();
+    await expect(viewerOnDashboard.locator('.stat', { hasText: 'System status' })).toContainText('Major outage');
+    await expect(memberOnIncident.locator('.live-indicator')).toContainText('Live');
+    await expect(outsiderOnIncidents.locator('.live-indicator')).toContainText('Live');
+
+    // The admin acknowledges and assigns: the member sees both on the open incident.
+    await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'ACKNOWLEDGED' });
+    await expect(memberOnIncident.locator('.header-badges')).toContainText('Acknowledged');
+    await patch(request, admin.token, `/incidents/${incident.id}/assign`, { assigneeId: member.user.id });
+    await expect(memberOnIncident.getByLabel('Assignee')).toHaveValue(member.user.id);
+    await expect(memberOnIncident.getByText('Assigned to Meera Iyer')).toBeVisible();
+
+    // Lowering the severity changes the health a viewer sees on the service and the dashboard.
+    await patch(request, admin.token, `/incidents/${incident.id}`, { severity: 'HIGH' });
+    await expect(viewerOnService.getByText('Partial outage').first()).toBeVisible();
+    await expect(viewerOnDashboard.locator('.stat', { hasText: 'System status' })).toContainText('Partial outage');
+
+    // Resolving clears the service and the dashboard.
+    await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'RESOLVED' });
+    await expect(viewerOnService.getByText('Operational').first()).toBeVisible();
+    await expect(viewerOnDashboard.locator('.stat', { hasText: 'System status' })).toContainText('Operational');
+
+    // A new incident from the member shows up in the viewer's open dashboard counter.
+    await post(request, member.token, '/incidents', { title: `Second incident ${unique()}`, severity: 'LOW', serviceIds: [service.id] });
+    await expect(viewerOnDashboard.locator('.stat', { hasText: 'Active incidents' })).toContainText('1');
+
+    // The outsider's socket is live (their own change arrives)...
+    const ownTitle = `Their own incident ${unique()}`;
+    await post(outsiderContext.request, outsiderSession.token, '/incidents', { title: ownTitle, severity: 'LOW' });
+    await expect(outsiderOnIncidents.getByText(ownTitle)).toBeVisible();
+    // ...and by now has heard everything the admin did, yet shows nothing of it.
+    await expect(outsiderOnIncidents.getByText(title)).toHaveCount(0);
+    await expect(outsiderOnIncidents.getByText('Second incident')).toHaveCount(0);
+  });
+
+  test('a session that loses its connection misses a change, then catches up by itself', async ({ page, browser }) => {
+    const admin = await register(page, { name: 'Ananya Gupta' });
+    const request = page.request;
+    const incident = await post(request, admin.token, '/incidents', { title: `Offline test ${unique()}`, severity: 'LOW' });
+    const invitation = await post(request, admin.token, '/invitations', { role: 'VIEWER' });
+    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Vikram Shah', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
+
+    const context = await browser.newContext();
+    await context.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }, ['blackwater.session', JSON.stringify(viewer)]);
+    const watcher = await context.newPage();
+
+    // Every WebSocket the page opens passes through here, so the test can cut the
+    // connection and refuse new ones (emulated "offline" does not touch an open socket).
+    let connectionUp = true;
+    let openSocket = null;
+    await watcher.routeWebSocket(/socket\.io/, (socket) => {
+      if (!connectionUp) {
+        socket.close();
+        return;
+      }
+      openSocket = socket;
+      socket.connectToServer();
+    });
+
+    await watcher.goto(`/incidents/${incident.id}`);
+    await expect(watcher.locator('.live-indicator')).toContainText('Live');
+    await expect(watcher.locator('.header-badges')).toContainText('Triggered');
+
+    // The connection drops; the admin keeps working.
+    connectionUp = false;
+    await openSocket.close();
+    await expect(watcher.locator('.live-indicator')).not.toContainText('Live');
+    await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'ACKNOWLEDGED' });
+    await expect(watcher.locator('.header-badges')).toContainText('Triggered'); // it cannot know yet
+
+    // The connection returns: the socket reconnects and every open page refetches once.
+    connectionUp = true;
+    await expect(watcher.locator('.live-indicator')).toContainText('Live', { timeout: 30_000 });
+    await expect(watcher.locator('.header-badges')).toContainText('Acknowledged');
   });
 });

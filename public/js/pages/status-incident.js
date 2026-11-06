@@ -41,7 +41,7 @@ function paint(incident) {
     h(
       'div',
       { class: 'stack' },
-      h('a', { class: 'small', href: `/status/${orgId}` }, '← All systems'),
+      h('a', { class: 'small link-target', href: `/status/${orgId}` }, '← All systems'),
       h(
         'div',
         {},
@@ -99,6 +99,7 @@ async function load() {
         ? emptyState({
             iconName: 'search',
             title: 'Incident not found',
+            level: 1,
             description: 'It may not be published, or the link is wrong.',
             action: h('a', { class: 'btn', href: `/status/${orgId}` }, 'View current status'),
           })

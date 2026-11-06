@@ -1,4 +1,4 @@
-import { h, render } from './dom.js';
+import { h } from './dom.js';
 import { icon } from './icons.js';
 import { ApiError } from './api.js';
 
@@ -29,7 +29,7 @@ export function timeAgo(iso) {
 
 export const titleCase = (value) => value.charAt(0) + value.slice(1).toLowerCase().replaceAll('_', ' ');
 
-export function initials(name) {
+function initials(name) {
   return (name ?? '?').trim().split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase() ?? '').join('') || '?';
 }
 
@@ -52,7 +52,7 @@ const INCIDENT_STATUS = {
   CLOSED: ['Closed', ''],
 };
 
-export const SERVICE_STATUS = {
+const SERVICE_STATUS = {
   OPERATIONAL: { label: 'Operational', tone: 'success' },
   DEGRADED: { label: 'Degraded', tone: 'warning' },
   PARTIAL_OUTAGE: { label: 'Partial outage', tone: 'orange' },
@@ -137,11 +137,13 @@ export function textareaField({ name, label, value = '', placeholder, required, 
   return fieldWrapper({ label, hint, control, id });
 }
 
-export function selectField({ name, label, options, value, hint, small = false }) {
+// A select without a visible label (a filter) must still have an accessible
+// name, so pass `ariaLabel` whenever `label` is null.
+export function selectField({ name, label, ariaLabel, options, value, hint, small = false }) {
   const id = nextId();
   const control = h(
     'select',
-    { class: small ? 'select select-sm' : 'select', id, name, value },
+    { class: small ? 'select select-sm' : 'select', id, name, value, 'aria-label': label ? null : ariaLabel },
     options.map((option) => h('option', { value: option.value }, option.label))
   );
   return fieldWrapper({ label, hint, control, id });
@@ -241,7 +243,7 @@ export function confirmDialog({ title, message, confirmLabel = 'Confirm', danger
 // Plain object of the form's values. A checkbox with a value attribute is one
 // choice in a group and the group becomes an array of the checked values (empty
 // when none, even for a group of one); a checkbox without one is a yes/no switch.
-export function readForm(form) {
+function readForm(form) {
   const values = {};
   for (const element of form.elements) {
     if (!element.name || element.disabled) continue;
@@ -263,8 +265,10 @@ export function readForm(form) {
 export const loadingRows = (count = 4) =>
   h('div', { class: 'skeleton-rows', 'aria-busy': 'true', 'aria-label': 'Loading' }, Array.from({ length: count }, () => h('div', { class: 'skeleton skeleton-block' })));
 
-export function emptyState({ iconName = 'search', title, description, action }) {
-  return h('div', { class: 'state' }, icon(iconName, 'lg'), h('h3', {}, title), description && h('p', {}, description), action);
+// `level` is the heading level of the title: 3 inside a panel under a page's own
+// h1/h2, but 1 or 2 when the state IS the page (not found, unusable link).
+export function emptyState({ iconName = 'search', title, description, action, level = 3 }) {
+  return h('div', { class: 'state' }, icon(iconName, 'lg'), h(`h${level}`, { class: 'state-title' }, title), description && h('p', {}, description), action);
 }
 
 export function errorState(error, onRetry) {
@@ -272,7 +276,7 @@ export function errorState(error, onRetry) {
     'div',
     { class: 'state', role: 'alert' },
     icon('alert', 'lg'),
-    h('h3', {}, 'Something went wrong'),
+    h('h3', { class: 'state-title' }, 'Something went wrong'),
     h('p', {}, error?.message ?? 'The request failed.'),
     onRetry && button('Try again', { variant: '', onClick: onRetry })
   );
@@ -284,5 +288,3 @@ export function loadMoreButton(onClick) {
   element.addEventListener('click', () => busy(element, onClick));
   return h('div', { class: 'load-more' }, element);
 }
-
-export { render };
