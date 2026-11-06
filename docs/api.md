@@ -159,6 +159,6 @@ Connect to the same origin with the token: `io({ auth: { token } })`. Connection
 | `incident:created` | An incident is declared |
 | `incident:updated` | Status, assignee, details, notes or visibility change |
 | `service:changed` | A service is created, edited or deleted |
-| `team:changed` | Someone joins or a role changes |
+| `team:changed` | Someone joins, a role or a person's name changes, or the organization is renamed |
 
-Events are sent after the database change has committed. Rejected changes send nothing.
+Events are sent after the database change has committed. Rejected changes send nothing. When an organization is deleted the server closes its members' connections and they are not re-admitted, because the accounts no longer exist.

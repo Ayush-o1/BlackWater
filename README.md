@@ -31,6 +31,21 @@ Every organization's data is isolated from every other's.
 
 Node.js and Express, PostgreSQL through Prisma, Socket.IO, JWT and bcrypt, zod for validation. The interface is plain HTML, CSS and JavaScript served by the same Express app: no framework, no build step.
 
+## How it works
+
+One Node.js process serves the web pages, the JSON API under `/api` and a Socket.IO endpoint, backed by PostgreSQL.
+
+- **A request** passes through rate limiting, JWT authentication (the user is reloaded from the database every time, so role changes and deleted accounts apply at once), a role check and a zod schema, then a thin controller hands it to a service. Services hold the business rules and all database access, and every query is filtered by the caller's organization.
+- **Incident changes** lock the incident row, check the lifecycle table and write the audit entry in the same transaction, so concurrent changes are applied one at a time and a change can never exist without its record.
+- **Live updates** are a doorbell: after a change commits, the server tells the organization's Socket.IO room "incident X changed", and each open page refetches through the normal API. A socket can only ever be in its own organization's room.
+- **The public status page** reads through an allow-list of fields and only published incidents.
+
+More in [docs/architecture.md](docs/architecture.md).
+
+## Data model
+
+`Organization` owns `User`s (each with a role), `Service`s, `Incident`s and `Invitation`s. An incident affects any number of services, has `IncidentUpdate`s (internal notes or public updates) and an append-only list of `TimelineEvent`s that records who changed what. Service health is not stored; it is calculated from open incidents when read. Details, constraints and migrations: [docs/database.md](docs/database.md).
+
 ## Quick start
 
 You need Node.js 20.19 or newer (CI runs 20.19 and 22) and PostgreSQL (developed against 18, tested in CI on 16).
@@ -84,7 +99,21 @@ Set in `.env` (see `.env.example`). Invalid or missing values stop the server at
 | `npm run prisma:seed` | Load demo data |
 | `npm run prisma:studio` | Browse the database |
 
-Testing needs a separate, disposable database; see [CONTRIBUTING.md](CONTRIBUTING.md).
+## Testing
+
+```bash
+createdb blackwater_test
+cp .env.test.example .env.test   # point it at the disposable test database
+npm test                         # unit and integration tests against real PostgreSQL
+npx playwright install chromium
+npm run test:e2e                 # browser tests against the real interface
+```
+
+The test database is emptied by every test, so never point `.env.test` at data you care about. CI also runs the browser tests in Firefox and WebKit, the backend tests on Node.js 20.19, and the smoke journey against the built Docker image. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Deployment
+
+The app is one long-running container plus PostgreSQL, so it needs a host that keeps a process alive and accepts WebSockets (Render, Railway, Fly.io, a VM). Serverless platforms such as Vercel do not fit. The repository includes a `Dockerfile` (applies migrations, then starts) and a Render Blueprint (`render.yaml`). Run exactly one instance. Setup, backups and troubleshooting: [docs/deployment.md](docs/deployment.md).
 
 ## Project layout
 
@@ -121,6 +150,7 @@ docs/            API, database, architecture, deployment
 - Tokens cannot be revoked before they expire (a deleted user's token stops working immediately, because the user is checked on every request).
 - Users cannot be removed or deactivated, and belong to exactly one organization.
 - Public status pages are addressed by the organization's id, not a custom name.
+- One instance only: rate-limit counters and Socket.IO rooms live in process memory.
 
 ## License
 

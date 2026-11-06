@@ -89,7 +89,7 @@ Supporting that would mean adding Redis and the Socket.IO Redis adapter, a conne
 
 ## Operations
 
-- **Health:** `GET /health` returns 200 with `{ "status": "UP", "database": "UP" }`, or 503 when the database is unreachable. Point load-balancer and uptime checks at it.
+- **Health:** `GET /health` returns 200 with `{ "status": "UP", "database": "UP", "commit": "<sha>" }`, or 503 when the database is unreachable. Point load-balancer and uptime checks at it.
 - **Logs:** written to standard output. Unexpected errors are logged with their stack and returned to clients only as "Something went wrong!".
 - **Shutdown:** on `SIGTERM` or `SIGINT` the server stops accepting connections, lets requests in flight finish and closes the database pool; it exits after 10 seconds regardless. Browsers reconnect on their own.
 - **Scaling:** the rate limiter and the Socket.IO rooms are in process memory. Run a single instance; running several would need a shared store for both (not implemented).
@@ -117,6 +117,8 @@ Open `/register` and create the organization; whoever registers is its administr
 [`production.yml`](../.github/workflows/production.yml) runs on every push to `main` and records a deployment in GitHub's **Production** environment. It marks it successful only after the live `/health` reports the pushed commit (Render sets `RENDER_GIT_COMMIT`, which `/health` returns) and the smoke journey below passes against the live URL; if Render fails to build, or the journey fails, it marks the deployment failed. Older Vercel entries in the list are history and stay as they are.
 
 The workflow assumes Render deploys every push to `main` by itself (service setting *Auto-Deploy: On Commit*) and that the production address is the one in the workflow's `PRODUCTION_URL`. It needs no secrets.
+
+The service at that address (`blackwater-app`) is not the one the Blueprint would create (`blackwater-server`); it existed before the Blueprint was written (the Blueprint's names were chosen not to clash with it), so its plan and database settings are whatever were chosen when it was created, not necessarily the paid plans described above. A first request after a quiet period taking around 20 seconds is the sign of a Free instance waking up. Check the plan in the dashboard before relying on it.
 
 ## Verification
 
