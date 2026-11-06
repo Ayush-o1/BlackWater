@@ -383,6 +383,31 @@ test.describe('lists and layout', () => {
     await expect(page.locator('.stat', { hasText: 'Services' })).toContainText('23'); // counted by the server, not by the first page
   });
 
+  test('the public status page pages through its incident history with Load more', async ({ page, browser }) => {
+    const { orgId, token } = await register(page);
+    const api = apiFor(page, token);
+    const titles = Array.from({ length: 12 }, (_, i) => `Published incident number ${String(i + 1).padStart(2, '0')}`);
+    for (const title of titles) {
+      const res = await api.post('/incidents', { title, severity: 'LOW', isPublic: true });
+      expect(res.status()).toBe(201);
+    }
+    await api.post('/incidents', { title: 'A private incident that must stay hidden', severity: 'LOW' });
+
+    const visitor = await (await browser.newContext()).newPage();
+    await visitor.goto(`/status/${orgId}`);
+    const history = visitor.locator('section.panel', { has: visitor.getByRole('heading', { name: 'Incident history' }) });
+    await expect(history.locator('a.row')).toHaveCount(10);
+
+    await history.getByRole('button', { name: 'Load more' }).click();
+    await expect(history.locator('a.row')).toHaveCount(12);
+    await expect(history.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+
+    // Every published incident appears exactly once, newest first, and the private one never does.
+    const shown = await history.locator('.row-title').allTextContents();
+    expect(shown).toEqual([...titles].reverse());
+    await expect(visitor.getByText('A private incident that must stay hidden')).toHaveCount(0);
+  });
+
   test('filters incidents and keeps the filter in the address bar', async ({ page }) => {
     const { token } = await register(page);
     const api = apiFor(page, token);

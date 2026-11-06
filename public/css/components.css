@@ -379,6 +379,12 @@ dialog.dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 
 .header-badges { margin-top: var(--space-2); }
 .detail-service { width: 100%; color: inherit; }
+
+/* A link that stands on its own line is a touch target: WCAG 2.5.8 asks for at
+   least 24px, and these were 20px tall. Padding enlarges the hit area without
+   changing how the text looks. */
+.detail-service, .details dd > a, .link-target { display: inline-flex; align-items: center; min-height: 32px; }
+.detail-service { display: flex; }
 .detail-service:hover { text-decoration: none; color: var(--primary-text); }
 .profile-head { margin-bottom: var(--space-5); padding-bottom: var(--space-5); border-bottom: 1px solid var(--border); }
 .role-select { width: auto; min-width: 110px; }
