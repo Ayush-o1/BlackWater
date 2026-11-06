@@ -346,8 +346,11 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
 .lifecycle { display: flex; align-items: center; gap: 0; flex-wrap: wrap; font-size: var(--text-xs); }
 .lifecycle li { display: flex; align-items: center; gap: 6px; color: var(--text-3); font-weight: 500; }
 .lifecycle li + li::before { content: ''; width: 24px; height: 1px; margin: 0 var(--space-2); background: var(--border-strong); }
+/* On a phone the four steps can wrap, and a connector would then start the second
+   line pointing at nothing. The dots alone still read as a sequence. */
 @media (max-width: 600px) {
-  .lifecycle li + li::before { width: 10px; margin: 0 6px; }
+  .lifecycle { gap: var(--space-1) var(--space-4); }
+  .lifecycle li + li::before { display: none; }
 }
 .lifecycle .step-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface); }
 .lifecycle .done { color: var(--text-2); }
