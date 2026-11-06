@@ -5,11 +5,12 @@ Date: 2026-11-07. Covers the audit and release work recorded in
 in [audit/INITIAL_AUDIT.md](audit/INITIAL_AUDIT.md). Every result below was observed;
 anything not verified is listed in section 10.
 
-**Summary.** The application code on `main` was verified end to end at commit `dc13db1`:
-CI (backend, three browser engines, the production image) and the live deployment, which
-reported that commit and passed the browser smoke journey. This report and a CI
-reliability change were merged afterwards in a documentation-and-CI pull request. The
-project is code-complete and production-verified, with the limitations in section 10.
+**Summary.** `main` was verified end to end at commit `dc13db1` (CI in three browser
+engines, the production image, and the live deployment, which reported that commit and
+passed the browser smoke journey). The last pull request (#7) adds this report, a CI
+reliability change, and a final frontend fix found by its own CI run (F16 on the
+settings page and error states); its CI and production results are in its description.
+The project is code-complete and production-verified, with the limitations in section 10.
 
 ## 1. Final architecture
 
@@ -57,11 +58,11 @@ Socket.IO, backed by PostgreSQL 16 through Prisma 5.
 | F6 | Exit code 0 after an uncaught exception; repeated signals ran shutdown twice | exit 1 on crash; idempotent shutdown | real-signal test (SIGTERM ×2 → one shutdown, exit 0 in 10 ms) |
 | F14 | Renames were not announced to open pages | emit `team:changed` | integration test, fails without the fix |
 | F15 | Smoke journey broken by the redesign; CI only listed it, so production deploys would have been marked failed | accessible-name locator; CI runs the journey against the built image | CI image job |
-| F16 | Live refreshes rebuilt unchanged pages: focus lost while typing an update, clicks during a rebuild lost | skip unchanged repaints; composer attached once; focus restored | browser test, fails without the fix |
+| F16 | Live refreshes rebuilt unchanged pages: focus lost while typing an update, clicks during a rebuild lost (incident, list, overview, service and settings pages), and a repeated failure re-rendered the error over its own Try again button | skip repaints when data, or the failure, is unchanged; composer attached once; focus restored | two browser tests, each fails without the fix |
 | F17 | `npm run prisma:seed` failed on a fresh clone (`.env` not loaded) | seed loads `.env` | CI step runs the seed from a plain `.env` |
 | — | Smoke journey counted deliberately aborted requests as failures over a real network (production run of `6ec5f38` marked failed) | ignore aborted/cancelled requests; report others with reason | passed against the live site, then in `production.yml` |
 | — | Lifecycle stepper wrapped badly on phones | spaced steps on narrow screens | visual check |
-| — | Two test-only races in WebKit CI (axe measured a fading menu; aborted requests counted) | wait for animations; ignore aborted requests | 20/20 and 10/10 under repetition |
+| — | Three test-only races in WebKit CI (axe measured a fading menu; aborted requests counted; a retry test raced the page's own recovery) | wait for animations; ignore aborted requests; isolate the retry test from live refresh | 20/20, 10/10 and 30/30 under repetition |
 
 ## 4. Testing results
 
@@ -71,10 +72,10 @@ All on Node.js 24 locally (macOS, PostgreSQL 18) unless stated; retries disabled
 |---|---|---|
 | Lint | `npm run lint` | 0 problems |
 | Unit + integration | `npm test` | 27 files, 253 tests, all passed |
-| Browser, Chromium | `CI=1 npx playwright test --project=chromium` | 41/41 |
-| Browser, WebKit | Linux container `playwright:v1.65.0-noble`, Postgres 16 | 41/41 |
-| Browser, Firefox | same container | 41/41 |
-| Fresh clone of `main` (`dc13db1`), README steps exactly | install, migrate, seed, dev, sign-in, lint, test, test:e2e | all passed, nothing patched |
+| Browser, Chromium | `CI=1 npx playwright test --project=chromium` | 42/42 |
+| Browser, WebKit | Linux container `playwright:v1.65.0-noble`, Postgres 16 | 42/42 |
+| Browser, Firefox | same container | 42/42 |
+| Fresh clone of `main` (`dc13db1`), README steps exactly | install, migrate, seed, dev, sign-in, lint, test, test:e2e | all passed (41 browser tests at that commit), nothing patched |
 | CI on `dc13db1` (GitHub, Node 22 and 20.19, Postgres 16) | 5 jobs | 4 passed; Firefox stalled installing system packages twice (runner apt mirror) and was cancelled; Firefox passed 41/41 with no retries on the identical code of PR #6's head (`d7eb102`) |
 | Dependency audit | `npm audit` | 0 vulnerabilities |
 
@@ -127,8 +128,8 @@ locally and in CI.
   merged trees are identical to the tested heads). No force-push; history preserved.
 - All feature branches deleted after `git` confirmed each was fully contained in `main`;
   `main` is the only branch.
-- This report and the CI install safeguard were merged last; that pull request's own
-  CI and production results are stated in its description.
+- PR #7 (this report, the CI install safeguard, and the last F16 fix) was merged last;
+  its CI and production results are stated in its description.
 
 ## 10. Remaining limitations and unverified items
 
@@ -170,7 +171,7 @@ Express, PostgreSQL/Prisma, Socket.IO, vanilla JavaScript; deployed with Docker 
   event design, so clients only ever see data the API would return to them.
 - Published a public status page that exposes only explicitly published incidents through
   field allow-lists, with service health derived from open incidents rather than stored.
-- Wrote 253 backend tests against a real PostgreSQL database and a 41-test browser suite
+- Wrote 253 backend tests against a real PostgreSQL database and a 42-test browser suite
   run in Chromium, Firefox and WebKit, including axe-core accessibility checks and
   multi-session real-time tests; CI also smoke-tests the production Docker image, and a
   deployment workflow verifies the live site runs the pushed commit.

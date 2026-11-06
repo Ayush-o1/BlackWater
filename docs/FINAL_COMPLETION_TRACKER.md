@@ -239,3 +239,14 @@ requests as failures. A fresh clone also showed that `npm run prisma:seed` could
 | Follow-up | apt download timeouts and retries plus job time limits added to the workflows, with this report |
 
 Final report: [FINAL_PROJECT_REPORT.md](FINAL_PROJECT_REPORT.md).
+
+### PR #7 follow-up
+
+PR #7's first CI run passed only with two WebKit retries. Both were F16 again in places
+not yet covered: the settings team panel (the Invite button was rebuilt on the first
+refresh, swallowing the click) and error states (a refresh that failed again re-rendered
+the error over its own Try again button). Fixed: the settings team panel skips unchanged
+repaints, and failures go through the same unchanged check. A new test proves the retry
+button survives a repeated failure (fails without the fix). A third, test-only race (the
+retry test raced the page recovering by itself) was isolated. Afterwards, retries off:
+Chromium, WebKit (Linux) and Firefox (Linux) 42/42; stress 15/15 and 30/30.
