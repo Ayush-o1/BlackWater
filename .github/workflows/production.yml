@@ -1,0 +1,99 @@
+name: Production
+
+# Reflects what is actually running at the production URL, not what was pushed.
+# Render deploys `main` by itself; this workflow records a GitHub deployment in the
+# "Production" environment and marks it successful only after
+#   1. the live /health reports THIS commit (so an older release answering a green
+#      health check cannot pass), and
+#   2. the browser smoke journey passes against the live site.
+# If Render fails to build, or the journey fails, the deployment is marked failed.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Newer pushes supersede older ones: Render deploys the latest commit, so waiting
+# for an older one to appear would only time out.
+concurrency:
+  group: production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: write
+
+env:
+  PRODUCTION_URL: https://blackwater-app.onrender.com
+  NODE_VERSION: '22'
+
+jobs:
+  verify:
+    name: Verify the live deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Record the deployment
+        id: deployment
+        run: |
+          id=$(jq -n --arg ref "$GITHUB_SHA" '{ref: $ref, environment: "Production", production_environment: true, auto_merge: false, required_contexts: [], description: "Render, verified by a live smoke test"}' \
+            | gh api -X POST "repos/$GITHUB_REPOSITORY/deployments" --input - --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          gh api -X POST "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" \
+            -f state=in_progress -f description="Waiting for Render to run this commit" \
+            -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+      - name: Wait until the live service runs this commit
+        run: |
+          deadline=$((SECONDS + 1500))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            body=$(curl -sS --max-time 90 "$PRODUCTION_URL/health" || true)
+            running=$(echo "$body" | jq -r '.commit // empty' 2>/dev/null || true)
+            state=$(echo "$body" | jq -r '.status // empty' 2>/dev/null || true)
+            echo "live commit: ${running:-unknown} (status: ${state:-no answer}); wanted: $GITHUB_SHA"
+            if [ "$running" = "$GITHUB_SHA" ] && [ "$state" = "UP" ]; then exit 0; fi
+            sleep 20
+          done
+          echo "The live service never reported commit $GITHUB_SHA. Check the Render deploy logs." >&2
+          exit 1
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke journey against the live site
+        run: npm run smoke
+        env:
+          SMOKE_URL: ${{ env.PRODUCTION_URL }}
+          EXPECT_COMMIT: ${{ github.sha }}
+
+      - name: Mark the deployment successful
+        if: success()
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/deployments/${{ steps.deployment.outputs.id }}/statuses" \
+            -f state=success -f environment_url="$PRODUCTION_URL" \
+            -f description="Live: commit ${GITHUB_SHA::7} answered /health and passed the smoke journey" \
+            -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+      - name: Mark the deployment failed
+        if: failure()
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/deployments/${{ steps.deployment.outputs.id }}/statuses" \
+            -f state=failure -f description="The live service did not run this commit or failed the smoke journey" \
+            -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+      - name: Retire a superseded deployment
+        if: cancelled()
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/deployments/${{ steps.deployment.outputs.id }}/statuses" \
+            -f state=inactive -f description="Superseded by a newer push"

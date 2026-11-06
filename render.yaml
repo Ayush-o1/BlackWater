@@ -28,6 +28,9 @@ services:
     # must run as exactly one instance.
     numInstances: 1
     healthCheckPath: /health
+    # Deploy every push to the connected branch; .github/workflows/production.yml then
+    # checks that the live service really runs that commit.
+    autoDeployTrigger: commit
     envVars:
       - key: DATABASE_URL
         fromDatabase:

@@ -8,7 +8,7 @@ The repository includes a [`render.yaml`](../render.yaml) Blueprint that creates
 
 1. In the Render dashboard choose **New > Blueprint** and select this repository.
 2. Add a payment method when asked. The Blueprint uses paid plans on purpose (see below).
-3. Apply. The first deploy builds the image, applies the migrations and starts the server.
+3. Apply. The first deploy builds the image, applies the migrations and starts the server. Every later push to the connected branch deploys automatically.
 4. Open `https://<service-name>.onrender.com/register` and create the first organization; its creator is the administrator.
 
 What Render provides that this application needs, from Render's documentation: inbound WebSocket connections on web services, HTTPS on `onrender.com` and custom domains, a configurable health check, `SIGTERM` before a service stops (the server shuts down gracefully on it), Docker builds, and managed PostgreSQL reachable over a private network.
@@ -112,6 +112,12 @@ Invitation links and the public status page link are built in the administrator'
 
 Open `/register` and create the organization; whoever registers is its administrator. Registration is open to anyone who can reach the server, so if the deployment is private, restrict access at the network or proxy level.
 
+## The Production environment on GitHub
+
+[`production.yml`](../.github/workflows/production.yml) runs on every push to `main` and records a deployment in GitHub's **Production** environment. It marks it successful only after the live `/health` reports the pushed commit (Render sets `RENDER_GIT_COMMIT`, which `/health` returns) and the smoke journey below passes against the live URL; if Render fails to build, or the journey fails, it marks the deployment failed. Older Vercel entries in the list are history and stay as they are.
+
+The workflow assumes Render deploys every push to `main` by itself (service setting *Auto-Deploy: On Commit*) and that the production address is the one in the workflow's `PRODUCTION_URL`. It needs no secrets.
+
 ## Verification
 
 `npm run smoke` drives the main workflows through the real interface of a running deployment (registration, services, invitation, role change, the full incident lifecycle, audit trail, publish and unpublish, the logged-out visitor's view, a second organization, live updates between separate browser sessions, and a phone layout):
@@ -120,4 +126,4 @@ Open `/register` and create the organization; whoever registers is its administr
 SMOKE_URL=https://your-app.example.com npm run smoke
 ```
 
-It creates two organizations named "Smoke test ..." and has no clean-up, since the application has no delete function for organizations. Run it against a deployment where that is acceptable.
+It creates two organizations named "Smoke test ..." and, when it finishes, deletes exactly those two through their own administrators, then checks that they are gone. It cannot touch any other organization. Set `SMOKE_KEEP_DATA=1` to keep them, and `EXPECT_COMMIT=<sha>` to also require that `/health` reports that commit.
