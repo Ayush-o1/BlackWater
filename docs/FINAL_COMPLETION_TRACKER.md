@@ -14,10 +14,10 @@ observed by running something; anything else says why not.
 | 5. Real-time / Socket.IO | Done |
 | 6. Security | Done |
 | 7. Testing and QA | Done |
-| 8. Deployment | Done (live deployment verified in Phase 10) |
+| 8. Deployment | Done |
 | 9. Documentation and cleanup | Done |
-| 10. Git consolidation | Not started |
-| 11. Final verification | Not started |
+| 10. Git consolidation | Done |
+| 11. Final verification | Done (see the final report for what remains unverified) |
 
 ## Phase 0 — Repository discovery
 
@@ -203,7 +203,7 @@ deployment, security and contributing docs corrected where they differed from th
 the current interface. Every file under `public/` is referenced; every dependency is used
 (three only through scripts or config). Removed the scratch file `ff-tmp.mjs`.
 
-## Phase 10 — Git consolidation (in progress)
+## Phase 10 — Git consolidation
 
 **Pre-merge CI found F16.** WebKit failed in CI on a documentation-only head (radio arrow
 keys; a dialog that never opened), after passing on the previous code commit. Diagnosis:
@@ -211,3 +211,31 @@ live refreshes rebuilt unchanged pages, taking focus away and swallowing clicks 
 straddled a rebuild (a real user-facing defect, see the audit). Fixed and covered by a
 new test. After the fix, retries off: Chromium 41/41 (macOS), WebKit 41/41 and Firefox
 41/41 (Linux); the two tests that had failed passed 15/15 each under repetition.
+
+**WebKit CI, second attempt.** The documentation-only head `fa86caa` failed WebKit again:
+two test-only races (axe measured the user menu mid-fade; the console check counted
+requests the page aborts on purpose). Both fixed deterministically; then all five jobs
+passed on `9d8be02` with no retries (one WebKit attempt had first stalled installing
+the browser and was re-run).
+
+**Merges.** PR #4 merged at `0aabca8` (→ `9a2db27`), PR #5 at `9d8be02` (→ `6ec5f38`); the
+merged tree equals the tested head. All four old branches confirmed contained in `main`
+(`git rev-list` 0, `git branch -d` accepted) and deleted on GitHub and locally.
+
+**Production run on `6ec5f38` failed** at the smoke journey's final check: every functional
+step passed on the live site, but over a real network it counted deliberately aborted
+requests as failures. A fresh clone also showed that `npm run prisma:seed` could not find
+`DATABASE_URL` (F17). Both fixed in PR #6, verified against the live site, CI green on
+`d7eb102` (no retries), merged (→ `dc13db1`, tree identical), branch deleted.
+
+## Phase 11 — Final verification
+
+| Check | Result |
+|---|---|
+| Fresh clone of `dc13db1`, README steps, nothing patched | install, migrate, seed, dev server, seeded sign-in, lint (0), `npm test` 253/253, `npm run test:e2e` 41/41, `npm audit` 0 |
+| Production workflow on `dc13db1` | success: live `/health` reported `dc13db1`, smoke journey passed on the live site, deployment 7609787240 marked successful |
+| Live headers | CSP, HSTS, nosniff, frame and referrer policies present |
+| CI on `dc13db1` | Lint and tests, minimum Node.js, WebKit, production image passed; Firefox stalled twice while apt downloaded system packages (runner issue) and was cancelled; the identical tree passed Firefox 41/41 on `d7eb102` |
+| Follow-up | apt download timeouts and retries plus job time limits added to the workflows, with this report |
+
+Final report: [FINAL_PROJECT_REPORT.md](FINAL_PROJECT_REPORT.md).
