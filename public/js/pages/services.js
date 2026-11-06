@@ -4,7 +4,7 @@ import { serviceDialog } from '../components.js';
 import { h, render } from '../dom.js';
 import { subscribe } from '../realtime.js';
 import { renderShell } from '../shell.js';
-import { button, emptyState, errorState, healthLabel, loadMoreButton, loadingRows, setTitle } from '../ui.js';
+import { button, changeDetector, emptyState, errorState, healthLabel, loadMoreButton, loadingRows, setTitle } from '../ui.js';
 
 const PAGE_SIZE = 20;
 
@@ -30,6 +30,7 @@ async function start() {
     listPanel
   );
 
+  const shown = changeDetector();
   async function load({ append = false } = {}) {
     try {
       // On a refresh, reload as many rows as are already shown (see incidents.js).
@@ -39,8 +40,10 @@ async function start() {
       const { data, pagination: page } = await api.get('/services', query);
       services = append ? [...services, ...data] : data;
       pagination = page;
+      if (!shown.changed({ services, pagination })) return;
       paint();
     } catch (error) {
+      shown.forget();
       render(listPanel, errorState(error, () => load()));
     }
   }

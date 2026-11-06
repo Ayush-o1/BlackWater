@@ -6,11 +6,23 @@ import { icon } from '../icons.js';
 import { subscribe } from '../realtime.js';
 import { renderShell, setBreadcrumb } from '../shell.js';
 import {
-  busy, button, confirmDialog, emptyState, errorState, formatDateTime, healthLabel, incidentStatusBadge,
-  loadingRows, person, setTitle, severityBadge, toast, toastError, visibilityBadge,
+  busy, button, changeDetector, confirmDialog, emptyState, errorState, formatDateTime, healthLabel,
+  incidentStatusBadge, loadingRows, person, setTitle, severityBadge, toast, toastError,
+  visibilityBadge,
 } from '../ui.js';
 
 const incidentId = location.pathname.split('/')[2];
+
+// A live refresh rebuilds the header and the details panel, and a rebuilt element
+// is a new element: a keyboard user's focus would drop to the page body every time a
+// teammate changed anything. This repaints a region and then focuses the control
+// that plays the same part (same tag and label) as the one that had focus.
+const focusKey = (element) => `${element.tagName}|${element.getAttribute('aria-label') ?? element.textContent.trim()}`;
+function repaintKeepingFocus(host, ...children) {
+  const key = host.contains(document.activeElement) ? focusKey(document.activeElement) : null;
+  render(host, ...children);
+  if (key) [...host.querySelectorAll('a, button, select')].find((element) => focusKey(element) === key)?.focus();
+}
 
 // The lifecycle in the order an incident moves through it. RESOLVED can go back to
 // TRIGGERED (reopen); CLOSED is final. The server enforces the same rules.
@@ -46,18 +58,21 @@ async function start() {
   );
 
   render(main, h('div', { class: 'panel' }, loadingRows(3)));
+  const shown = changeDetector();
 
   async function load() {
     try {
       const { data } = await api.get(`/incidents/${incidentId}`);
       incident = data;
       if (mayWrite && team.length === 0) team = await getAll('/users');
+      if (!shown.changed({ incident, team })) return;
 
       if (!main.contains(layout)) render(main, headerHost, layout);
       setTitle(incident.title);
       setBreadcrumb([{ label: 'Incidents', href: '/incidents' }, { label: incident.title }]);
       paint();
     } catch (error) {
+      shown.forget();
       if (error.status === 404 || error.status === 400) {
         setBreadcrumb([{ label: 'Incidents', href: '/incidents' }, { label: 'Not found' }]);
         render(main, h('div', { class: 'panel' }, emptyState({
@@ -126,7 +141,7 @@ async function start() {
   function paint() {
     const closed = incident.status === 'CLOSED';
 
-    render(
+    repaintKeepingFocus(
       headerHost,
       h(
         'div',
@@ -156,7 +171,7 @@ async function start() {
     );
 
     render(feedHost, incident.timelineEvents.length ? activityFeed(incident) : h('p', { class: 'muted' }, 'No history recorded for this incident.'));
-    render(detailsHost, detailsList(closed));
+    repaintKeepingFocus(detailsHost, detailsList(closed));
     paintComposer(closed);
   }
 
@@ -261,7 +276,9 @@ async function start() {
       });
     }
 
-    render(composerHost, h('div', { class: 'panel-body composer' }, composer));
+    // Attached once. Moving it on every refresh would take the focus out of a
+    // half-written message (or the visibility choice) whenever anything changed.
+    if (!composerHost.contains(composer)) render(composerHost, h('div', { class: 'panel-body composer' }, composer));
     refreshHint();
   }
 

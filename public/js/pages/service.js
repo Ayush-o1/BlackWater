@@ -5,8 +5,8 @@ import { h, render } from '../dom.js';
 import { subscribe } from '../realtime.js';
 import { renderShell, setBreadcrumb } from '../shell.js';
 import {
-  busy, button, confirmDialog, emptyState, errorState, formatDate, healthLabel, incidentStatusBadge, loadingRows,
-  person, setTitle, severityBadge, timeAgo, toast,
+  busy, button, changeDetector, confirmDialog, emptyState, errorState, formatDate, healthLabel,
+  incidentStatusBadge, loadingRows, person, setTitle, severityBadge, timeAgo, toast,
 } from '../ui.js';
 
 const serviceId = location.pathname.split('/')[2];
@@ -17,14 +17,17 @@ async function start() {
   const { user } = getSession();
 
   render(main, h('div', { class: 'panel' }, loadingRows(3)));
+  const shown = changeDetector();
 
   async function load() {
     try {
       const { data: service } = await api.get(`/services/${serviceId}`);
+      if (!shown.changed(service)) return;
       setTitle(service.name);
       setBreadcrumb([{ label: 'Services', href: '/services' }, { label: service.name }]);
       paint(service);
     } catch (error) {
+      shown.forget();
       if (error.status === 404 || error.status === 400) {
         setBreadcrumb([{ label: 'Services', href: '/services' }, { label: 'Not found' }]);
         render(main, h('div', { class: 'panel' }, emptyState({

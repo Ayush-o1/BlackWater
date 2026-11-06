@@ -6,8 +6,8 @@ import { icon } from '../icons.js';
 import { subscribe } from '../realtime.js';
 import { renderShell } from '../shell.js';
 import {
-  button, emptyState, errorState, formatDateTime, incidentStatusBadge, loadMoreButton, loadingRows, person,
-  setTitle, severityBadge, timeAgo, toastError, visibilityBadge,
+  button, changeDetector, emptyState, errorState, formatDateTime, incidentStatusBadge, loadingRows,
+  loadMoreButton, person, setTitle, severityBadge, timeAgo, toastError, visibilityBadge,
 } from '../ui.js';
 
 const PAGE_SIZE = 25;
@@ -128,6 +128,7 @@ async function start() {
     return parameters;
   }
 
+  const shown = changeDetector();
   async function load({ reset = false, append = false } = {}) {
     // Requests can finish out of order (a slow search followed by a fast one); only
     // the most recently started one may paint.
@@ -137,9 +138,12 @@ async function start() {
       if (request !== latestRequest) return;
       incidents = append ? [...incidents, ...data] : data;
       pagination = page;
+      // The filters are part of what is painted (the empty-state wording depends on them).
+      if (!shown.changed({ incidents, pagination, state })) return;
       paint();
     } catch (error) {
       if (request !== latestRequest) return;
+      shown.forget();
       render(listHost, errorState(error, () => load({ reset: true })));
     }
   }

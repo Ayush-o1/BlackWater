@@ -104,6 +104,27 @@ export const toastError = (error) => toast(error instanceof ApiError || error in
 
 // Runs an async action while showing the button as busy, so a double click
 // cannot send the request twice. Errors are shown as a toast.
+// Live refreshes refetch data that usually has not changed (every page refetches once
+// when its socket first connects, for one). Rebuilding the page anyway replaces the
+// elements under the user's pointer and focus: a click whose press and release
+// straddle the rebuild is lost, and a focused control drops its focus. Pages ask
+// `changed(data)` before painting and skip the repaint when the answer is no.
+// `forget()` after painting something else (an error), so the next good result paints.
+export function changeDetector() {
+  let last = null;
+  return {
+    changed(data) {
+      const json = JSON.stringify(data);
+      if (json === last) return false;
+      last = json;
+      return true;
+    },
+    forget() {
+      last = null;
+    },
+  };
+}
+
 export async function busy(button, action) {
   if (button.getAttribute('aria-busy') === 'true') return;
   button.setAttribute('aria-busy', 'true');

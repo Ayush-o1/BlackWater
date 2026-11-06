@@ -6,8 +6,8 @@ import { icon } from '../icons.js';
 import { subscribe } from '../realtime.js';
 import { renderShell } from '../shell.js';
 import {
-  button, emptyState, errorState, healthLabel, incidentStatusBadge, loadingRows, person, setTitle, severityBadge,
-  timeAgo, toast, toastError,
+  button, changeDetector, emptyState, errorState, healthLabel, incidentStatusBadge, loadingRows,
+  person, setTitle, severityBadge, timeAgo, toast, toastError,
 } from '../ui.js';
 
 // The overview answers, top to bottom, the questions someone has when they open
@@ -46,6 +46,7 @@ async function start() {
   // grid then goes in whole, so nothing already on screen moves (no layout shift).
   render(bannerHost, h('div', { class: 'banner-placeholder skeleton', 'aria-busy': 'true', 'aria-label': 'Loading' }));
   render(gridHost, h('div', { class: 'panel' }, loadingRows(3)));
+  const shown = changeDetector();
 
   async function load() {
     try {
@@ -55,6 +56,7 @@ async function start() {
         getAll('/services'),
         api.get('/incidents', { status: 'RESOLVED', limit: 5 }),
       ]);
+      if (!shown.changed({ summary, open, services, resolved })) return;
       render(bannerHost, statusBanner(summary.overallStatus, bannerDetail(summary), 'h2'));
       paintAttention(open, summary.activeIncidentCount);
       paintServices(services);
@@ -63,6 +65,7 @@ async function start() {
       if (!gridHost.querySelector('.overview-grid')) render(gridHost, h('div', { class: 'overview-grid' }, attentionHost, servicesHost, resolvedHost, publicPagePanel(user.orgId)));
     } catch (error) {
       if (gridHost.querySelector('.overview-grid')) return; // a failed live refresh keeps the last good view
+      shown.forget();
       render(bannerHost);
       render(gridHost, h('div', { class: 'panel' }, errorState(error, load)));
     }
