@@ -193,11 +193,16 @@ test.describe('update visibility choice', () => {
     await expect(internal).toBeChecked();
   });
 
-  test('arrow keys move between the options and the focus ring is shown', async ({ page, browserName }) => {
+  test('arrow keys move between the options and the focus ring is shown', async ({ page }) => {
     const { internal, visible } = await openComposer(page);
     // Arrive as a keyboard user does: from the message box, Tab goes to the chosen radio.
-    await page.getByLabel('Update message').click();
-    await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab'); // Safari: Option+Tab reaches radios
+    // Safari on macOS skips radios on plain Tab unless the user has turned on "Press Tab
+    // to highlight each item"; Option+Tab reaches them. Other platforms use plain Tab.
+    for (const key of ['Tab', 'Alt+Tab']) {
+      await page.getByLabel('Update message').click();
+      await page.keyboard.press(key);
+      if (await internal.evaluate((radio) => radio === document.activeElement)) break;
+    }
     await expect(internal).toBeFocused();
     await page.keyboard.press('ArrowRight');
     await expect(visible).toBeChecked();
