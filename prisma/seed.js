@@ -1,3 +1,6 @@
+// Loads .env like the server does (src/config/env.js). `npm run prisma:seed` runs this
+// file with plain node, so without it DATABASE_URL would be missing.
+import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import { Role, Severity, IncidentStatus } from '@prisma/client';
 import { prisma } from '../src/database/prisma.js';
