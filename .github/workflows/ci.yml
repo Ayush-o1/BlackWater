@@ -61,6 +61,11 @@ jobs:
         env:
           CI: 'true'
 
+      # The smoke spec only runs against a live deployment, so nothing else would notice
+      # if it stopped loading. Listing its tests parses and loads it without a server.
+      - name: Smoke spec still loads
+        run: SMOKE_URL=http://localhost:8000 npx playwright test -c playwright.smoke.config.js --list
+
       - name: Upload the Playwright report
         if: failure()
         uses: actions/upload-artifact@v4

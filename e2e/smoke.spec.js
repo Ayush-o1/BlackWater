@@ -26,7 +26,8 @@ const created = [];
 // the assertion that happened to time out.
 const problems = [];
 
-test.afterEach(async (_fixtures, testInfo) => {
+// (Playwright requires hooks to destructure their first argument; the fixture itself is unused.)
+test.afterEach(async ({ browser: _browser }, testInfo) => {
   if (testInfo.status !== testInfo.expectedStatus) console.log(`PROBLEMS SEEN BY THE PAGES: ${JSON.stringify(problems, null, 1)}`);
 });
 
