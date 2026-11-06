@@ -513,6 +513,51 @@ test.describe('service and profile management', () => {
   });
 });
 
+test.describe('deleting an organization', () => {
+  test('needs the exact name and the password; afterwards the accounts no longer exist', async ({ page, browser }) => {
+    const { email, orgId } = await register(page, { name: 'Ananya Gupta' });
+    const orgName = await page.evaluate(async () => (await (await fetch('/api/organizations/me', { headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem('blackwater.session')).token}` } })).json()).data.name);
+
+    await page.goto('/settings');
+    await page.getByRole('button', { name: 'Delete organization' }).click();
+    const dialog = page.getByRole('dialog');
+
+    // A wrong password is refused, the dialog stays open and what was typed is kept.
+    await dialog.getByLabel(/Type the organization name/).fill(orgName);
+    await dialog.getByLabel('Your password').fill('not-my-password');
+    await dialog.getByRole('button', { name: 'Delete organization permanently' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('Incorrect password');
+    await expect(dialog.getByLabel(/Type the organization name/)).toHaveValue(orgName);
+
+    // The right password and name delete it and sign the administrator out.
+    await dialog.getByLabel('Your password').fill(PASSWORD);
+    await dialog.getByRole('button', { name: 'Delete organization permanently' }).click();
+    await expect(page).toHaveURL(/\/login\?deleted=1/);
+    await expect(page.getByText('The organization was deleted')).toBeVisible();
+
+    // Nothing is left to sign in to, and the public page is gone.
+    await page.getByLabel('Email address').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByText('Invalid credentials')).toBeVisible();
+    const visitor = await (await browser.newContext()).newPage();
+    await visitor.goto(`/status/${orgId}`);
+    await expect(visitor.getByText('Status page not found')).toBeVisible();
+  });
+
+  test('a member or viewer is not offered the option', async ({ page, browser }) => {
+    const admin = await register(page);
+    const invitation = await (await page.request.post('/api/invitations', { data: { role: 'MEMBER' }, headers: { Authorization: `Bearer ${admin.token}` } })).json();
+    const joined = await (await page.request.post('/api/invitations/accept', { data: { token: invitation.data.token, name: 'Meera Iyer', email: `member-${unique()}@blackwater.test`, password: PASSWORD } })).json();
+    const context = await browser.newContext();
+    await context.addInitScript(([k, v]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, ['blackwater.session', JSON.stringify(joined.data)]);
+    const member = await context.newPage();
+    await member.goto('/settings');
+    await expect(member.getByRole('heading', { name: 'Organization', exact: true })).toBeVisible();
+    await expect(member.getByRole('button', { name: 'Delete organization' })).toHaveCount(0);
+  });
+});
+
 test.describe('failure handling', () => {
   test('an expired or invalid session sends the user to the login page with an explanation', async ({ page }) => {
     await register(page);
