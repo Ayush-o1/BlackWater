@@ -25,6 +25,8 @@ Every organization's data is isolated from every other's.
 |---|---|
 | ![Incident](docs/screenshots/incident.png) | ![Status page](docs/screenshots/status-page.png) |
 
+![Team: roles and invitations](docs/screenshots/team.png)
+
 ## Stack
 
 Node.js and Express, PostgreSQL through Prisma, Socket.IO, JWT and bcrypt, zod for validation. The interface is plain HTML, CSS and JavaScript served by the same Express app: no framework, no build step.

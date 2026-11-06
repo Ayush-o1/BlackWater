@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 // No server is started and no test database is touched.
 const baseURL = process.env.SMOKE_URL;
 if (!baseURL) {
-  throw new Error('Set SMOKE_URL to the address of the deployment to test, e.g. SMOKE_URL=https://blackwater-app.onrender.com');
+  throw new Error('Set SMOKE_URL to the address of the deployment to test, e.g. SMOKE_URL=https://your-app.example.com');
 }
 
 export default defineConfig({

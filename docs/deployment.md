@@ -104,6 +104,10 @@ The database is the only state; the application keeps nothing on disk.
 - **Test the restore** at least once into a scratch database before you depend on it. A backup that has never been restored is an assumption.
 - Never run the test suite or the seed script against a database you care about: both delete every row.
 
+## Links the application creates
+
+Invitation links and the public status page link are built in the administrator's browser from the address it is using (`/invite#<token>` and `/status/<organization id>`). The page, the API and the Socket.IO connection are always on the same origin, so nothing needs configuring and there is no canonical-URL setting. If you add a custom domain, open the application on that domain when you create invitations, otherwise the links carry the `onrender.com` address.
+
 ## First administrator
 
 Open `/register` and create the organization; whoever registers is its administrator. Registration is open to anyone who can reach the server, so if the deployment is private, restrict access at the network or proxy level.
