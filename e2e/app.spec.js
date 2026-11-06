@@ -604,6 +604,9 @@ test.describe('failure handling', () => {
     await register(page);
     let failing = true;
     await page.route('**/api/incidents?*', (route) => (failing ? route.abort('failed') : route.continue()));
+    // No live connection: its refresh on connecting could recover the page by itself
+    // before the click, and this test is about the Try again button.
+    await page.routeWebSocket(/socket\.io/, () => {});
 
     await page.goto('/incidents');
     await expect(page.getByText('Something went wrong')).toBeVisible();
@@ -612,6 +615,22 @@ test.describe('failure handling', () => {
     failing = false;
     await page.getByRole('button', { name: 'Try again' }).click();
     await expect(page.getByText('No open incidents')).toBeVisible();
+  });
+
+  test('a refresh that fails the same way leaves the error and its retry button alone', async ({ page }) => {
+    await register(page);
+    await page.route('**/api/incidents?*', (route) => route.abort('failed'));
+    await page.goto('/incidents');
+    const retry = page.getByRole('button', { name: 'Try again' });
+    await expect(retry).toBeVisible();
+    await retry.evaluate((button) => { button.dataset.original = 'yes'; });
+
+    // Connecting refreshes the page; the request fails again in the same way.
+    const refetched = page.waitForRequest((request) => request.url().includes('/api/incidents?'));
+    await expect(page.locator('.live-indicator')).toHaveText('Live');
+    await refetched;
+    await page.waitForTimeout(300);
+    await expect(retry).toHaveAttribute('data-original', 'yes'); // the same button, not a re-rendered one
   });
 
   test('shows the server\'s explanation when an action is refused', async ({ page }) => {

@@ -72,7 +72,7 @@ async function start() {
       setBreadcrumb([{ label: 'Incidents', href: '/incidents' }, { label: incident.title }]);
       paint();
     } catch (error) {
-      shown.forget();
+      if (!shown.changed({ failed: error.status, message: error.message })) return; // already showing this failure
       if (error.status === 404 || error.status === 400) {
         setBreadcrumb([{ label: 'Incidents', href: '/incidents' }, { label: 'Not found' }]);
         render(main, h('div', { class: 'panel' }, emptyState({

@@ -143,7 +143,7 @@ async function start() {
       paint();
     } catch (error) {
       if (request !== latestRequest) return;
-      shown.forget();
+      if (!shown.changed({ failed: error.status, message: error.message })) return; // already showing this failure
       render(listHost, errorState(error, () => load({ reset: true })));
     }
   }

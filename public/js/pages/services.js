@@ -43,7 +43,7 @@ async function start() {
       if (!shown.changed({ services, pagination })) return;
       paint();
     } catch (error) {
-      shown.forget();
+      if (!shown.changed({ failed: error.status, message: error.message })) return; // already showing this failure
       render(listPanel, errorState(error, () => load()));
     }
   }

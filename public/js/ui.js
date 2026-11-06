@@ -108,8 +108,9 @@ export const toastError = (error) => toast(error instanceof ApiError || error in
 // when its socket first connects, for one). Rebuilding the page anyway replaces the
 // elements under the user's pointer and focus: a click whose press and release
 // straddle the rebuild is lost, and a focused control drops its focus. Pages ask
-// `changed(data)` before painting and skip the repaint when the answer is no.
-// `forget()` after painting something else (an error), so the next good result paints.
+// `changed(data)` before painting and skip the repaint when the answer is no. A
+// failure is passed through it too (its status and message), so a refresh that fails
+// the same way again leaves the error and its retry button alone.
 export function changeDetector() {
   let last = null;
   return {
@@ -118,9 +119,6 @@ export function changeDetector() {
       if (json === last) return false;
       last = json;
       return true;
-    },
-    forget() {
-      last = null;
     },
   };
 }

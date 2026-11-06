@@ -27,7 +27,7 @@ async function start() {
       setBreadcrumb([{ label: 'Services', href: '/services' }, { label: service.name }]);
       paint(service);
     } catch (error) {
-      shown.forget();
+      if (!shown.changed({ failed: error.status, message: error.message })) return; // already showing this failure
       if (error.status === 404 || error.status === 400) {
         setBreadcrumb([{ label: 'Services', href: '/services' }, { label: 'Not found' }]);
         render(main, h('div', { class: 'panel' }, emptyState({

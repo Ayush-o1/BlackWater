@@ -4,7 +4,7 @@ import { h, render } from '../dom.js';
 import { subscribe } from '../realtime.js';
 import { renderShell, roleLabel, updateShellIdentity } from '../shell.js';
 import {
-  avatar, busy, button, confirmDialog, errorState, formatDate, formDialog, loadingRows, openDialog,
+  avatar, busy, button, changeDetector, confirmDialog, errorState, formatDate, formDialog, loadingRows, openDialog,
   selectField, setTitle, textField, toast, toastError,
 } from '../ui.js';
 
@@ -115,8 +115,10 @@ async function start() {
 
   // ---------- Team ----------
 
+  const teamShown = changeDetector();
   async function paintTeam() {
     const [members, invitations] = await Promise.all([getAll('/users'), admin ? api.get('/invitations').then((r) => r.data) : []]);
+    if (!teamShown.changed({ members, invitations })) return;
 
     const memberRow = (member) => {
       const you = member.id === user.id;
