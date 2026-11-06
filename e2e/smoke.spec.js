@@ -5,13 +5,31 @@ import { test, expect } from '@playwright/test';
 // it starts no server and uses no test database, so it can be pointed at a
 // container or at the live site.
 //
-// It creates data: two organizations named "Smoke test ...". There is no delete
-// endpoint, so run it against a deployment where leftover test organizations are
-// acceptable. It registers only three accounts, which stays under the default
+// It creates two organizations named "Smoke test ..." and deletes exactly those
+// two when it finishes, each through its own administrator (the only way the API
+// allows an organization to be deleted), then checks they are really gone. It
+// cannot touch any other organization. Set SMOKE_KEEP_DATA=1 to keep them for
+// inspection. It registers only three accounts, which stays under the default
 // login/registration rate limit (20 per 15 minutes per IP).
+//
+// Set EXPECT_COMMIT to a commit SHA to also require that /health reports it, i.e.
+// that the version just deployed (not an older one) is what answered.
 
 const PASSWORD = 'CorrectHorse!9';
 const stamp = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+// Organizations this run created, for the clean-up in afterEach.
+const created = [];
+
+test.afterEach(async ({ request }) => {
+  if (process.env.SMOKE_KEEP_DATA) return;
+  for (const { token, name, orgId } of created.splice(0)) {
+    const res = await request.delete('/api/organizations/me', { headers: { Authorization: `Bearer ${token}` }, data: { password: PASSWORD, confirmName: name } });
+    expect(res.status(), `deleting ${name}`).toBe(200);
+    // Verified, not assumed: the public page of the deleted organization is gone.
+    expect((await request.get('/api/status', { params: { orgId } })).status(), `${name} should be gone`).toBe(404);
+  }
+});
 
 // Everything the admin's and the invited member's pages do must be free of
 // console errors, uncaught exceptions, failed requests and HTTP errors. Visitors
@@ -45,7 +63,9 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
   await test.step('health check, security headers, no CORS', async () => {
     const health = await request.get('/health');
     expect(health.status()).toBe(200);
-    expect(await health.json()).toEqual({ status: 'UP', database: 'UP' });
+    const body = await health.json();
+    expect(body).toMatchObject({ status: 'UP', database: 'UP' });
+    if (process.env.EXPECT_COMMIT) expect(body.commit, 'the deployed commit').toBe(process.env.EXPECT_COMMIT);
 
     const page = await request.get('/login');
     expect(page.headers()['content-security-policy']).toContain("script-src 'self'");
@@ -74,6 +94,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     expect(adminSession.user.role).toBe('ADMIN');
   });
   const orgId = adminSession.user.orgId;
+  created.push({ token: adminSession.token, name: `Smoke test ${id}`, orgId });
 
   await test.step('create a service', async () => {
     await admin.goto('/services');
@@ -131,6 +152,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
   });
   expect(outsiderRegistration.status()).toBe(201);
   const outsiderSession = (await outsiderRegistration.json()).data;
+  created.push({ token: outsiderSession.token, name: `Smoke test other ${id}`, orgId: outsiderSession.user.orgId });
   const outsider = await (async () => {
     await outsiderContext.addInitScript(([key, value]) => localStorage.setItem(key, value), ['blackwater.session', JSON.stringify(outsiderSession)]);
     const page = await outsiderContext.newPage();

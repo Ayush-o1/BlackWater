@@ -61,7 +61,7 @@ export const api = {
   get: (path, query) => request('GET', path, { query }),
   post: (path, body) => request('POST', path, { body: body ?? {} }),
   patch: (path, body) => request('PATCH', path, { body: body ?? {} }),
-  delete: (path) => request('DELETE', path),
+  delete: (path, body) => request('DELETE', path, { body }),
 };
 
 // Reads every page of a cursor-paginated list. For places that need the whole

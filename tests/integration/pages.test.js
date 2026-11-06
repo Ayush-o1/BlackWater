@@ -76,7 +76,7 @@ describe('health check', () => {
     const res = await api().get('/health');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'UP', database: 'UP' });
+    expect(res.body).toMatchObject({ status: 'UP', database: 'UP' }); // the commit field is covered in health.test.js
   });
 
   it('answers 503 when the database cannot be reached', async () => {
@@ -85,7 +85,7 @@ describe('health check', () => {
     const res = await api().get('/health');
 
     expect(res.status).toBe(503);
-    expect(res.body).toEqual({ status: 'DOWN', database: 'DOWN' });
+    expect(res.body).toMatchObject({ status: 'DOWN', database: 'DOWN' });
     spy.mockRestore();
   });
 });

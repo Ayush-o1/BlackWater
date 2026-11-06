@@ -1,11 +1,11 @@
 import { api, getAll } from '../api.js';
-import { getSession, isAdmin, requireSession, updateSessionUser } from '../auth.js';
+import { clearSession, getSession, isAdmin, requireSession, updateSessionUser } from '../auth.js';
 import { h, render } from '../dom.js';
 import { subscribe } from '../realtime.js';
 import { renderShell, roleLabel } from '../shell.js';
 import {
-  avatar, busy, button, confirmDialog, errorState, formatDate, loadingRows, openDialog,
-  selectField, setTitle, toast, toastError,
+  avatar, busy, button, confirmDialog, errorState, formatDate, formDialog, loadingRows, openDialog,
+  selectField, setTitle, textField, toast, toastError,
 } from '../ui.js';
 
 async function start() {
@@ -17,11 +17,12 @@ async function start() {
   const profileHost = h('section', { class: 'panel' });
   const organizationHost = h('section', { class: 'panel' });
   const teamHost = h('section', { class: 'panel' });
+  const dangerHost = h('section', { class: 'panel panel-danger' });
 
   render(
     main,
     h('div', { class: 'page-header' }, h('div', {}, h('h1', {}, 'Settings'), h('p', {}, 'Your profile, your organization and your team.'))),
-    h('div', { class: 'stack page-narrow-content' }, profileHost, organizationHost, teamHost)
+    h('div', { class: 'stack page-narrow-content' }, profileHost, organizationHost, teamHost, admin && dangerHost)
   );
 
   // ---------- Profile ----------
@@ -76,6 +77,35 @@ async function start() {
       organizationHost,
       h('div', { class: 'panel-header' }, h('div', {}, h('h2', {}, 'Organization'), h('p', {}, `${organization._count.users} ${organization._count.users === 1 ? 'member' : 'members'}`))),
       h('div', { class: 'panel-body' }, form)
+    );
+  }
+
+  // ---------- Delete organization ----------
+
+  // Irreversible, so it asks for the exact name and the administrator's password
+  // (the server checks both). Afterwards nothing of the account exists to sign in to.
+  function paintDanger(organization) {
+    const open = () =>
+      formDialog({
+        title: 'Delete this organization?',
+        submitLabel: 'Delete organization permanently',
+        danger: true,
+        fields: [
+          h('p', {}, `This permanently deletes ${organization.name} with its services, incidents, history, invitations and every member's account. It cannot be undone.`),
+          textField({ name: 'confirmName', label: `Type the organization name (${organization.name}) to confirm`, required: true, autocomplete: 'off' }),
+          textField({ name: 'password', label: 'Your password', type: 'password', required: true, autocomplete: 'current-password' }),
+        ],
+        async onSubmit(values) {
+          await api.delete('/organizations/me', { confirmName: values.confirmName, password: values.password });
+          clearSession();
+          location.replace('/login?deleted=1');
+        },
+      });
+
+    render(
+      dangerHost,
+      h('div', { class: 'panel-header' }, h('div', {}, h('h2', {}, 'Delete organization'), h('p', {}, 'Permanently removes everything this organization owns.'))),
+      h('div', { class: 'panel-body' }, button('Delete organization', { variant: 'danger', iconName: 'trash', onClick: open }))
     );
   }
 
@@ -220,6 +250,7 @@ async function start() {
     const [{ data: me }, { data: organization }] = await Promise.all([api.get('/users/me'), api.get('/organizations/me')]);
     paintProfile(me);
     paintOrganization(organization);
+    if (admin) paintDanger(organization);
     await paintTeam();
   } catch (error) {
     render(teamHost, errorState(error, () => location.reload()));

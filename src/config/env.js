@@ -38,6 +38,10 @@ const envSchema = z.object({
   // Number of reverse proxies in front of the app (0 when none). Needed so rate
   // limits see each visitor's real IP instead of the proxy's.
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+  // Which commit is running, reported by /health so a deployment check can tell
+  // the new version from the old one. Render sets RENDER_GIT_COMMIT itself.
+  COMMIT_SHA: z.string().min(1).optional(),
+  RENDER_GIT_COMMIT: z.string().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -50,4 +54,8 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-export const env = parsed.data;
+export const env = {
+  ...parsed.data,
+  // Never guessed: null means the platform did not say.
+  commit: parsed.data.COMMIT_SHA ?? parsed.data.RENDER_GIT_COMMIT ?? null,
+};

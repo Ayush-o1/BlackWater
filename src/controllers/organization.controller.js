@@ -11,3 +11,8 @@ export const updateOrganization = asyncHandler(async (req, res) => {
   const organization = await organizationService.updateOrganization(req.user.orgId, req.body);
   res.status(200).json(successResponse(organization, 'Organization updated successfully'));
 });
+
+export const deleteOrganization = asyncHandler(async (req, res) => {
+  await organizationService.deleteOrganization(req.user.orgId, req.user.id, req.body);
+  res.status(200).json(successResponse(null, 'Organization deleted'));
+});

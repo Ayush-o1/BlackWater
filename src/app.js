@@ -36,12 +36,14 @@ app.use(
 // For load balancers and uptime monitors. It reports the database too: a server
 // that is running but cannot reach its database is not healthy, and should be
 // taken out of rotation rather than answering every request with an error.
+// The commit lets a deployment check confirm that the version it just pushed is
+// the one answering (a green health check alone could be the previous release).
 app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.status(200).json({ status: 'UP', database: 'UP' });
+    res.status(200).json({ status: 'UP', database: 'UP', commit: env.commit });
   } catch {
-    res.status(503).json({ status: 'DOWN', database: 'DOWN' });
+    res.status(503).json({ status: 'DOWN', database: 'DOWN', commit: env.commit });
   }
 });
 

@@ -26,6 +26,7 @@ if (getSession()) {
   });
 
   if (params.has('expired')) showError('Your session has ended. Please sign in again.');
+  if (params.has('deleted')) showError('The organization was deleted. Its accounts no longer exist.');
 
   renderAuthPage({
     title: 'Sign in to BlackWater',

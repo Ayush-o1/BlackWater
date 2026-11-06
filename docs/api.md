@@ -57,6 +57,7 @@ Emails are trimmed and lowercased, so they are case-insensitive.
 | `PATCH /users/:id/role` | ADMIN | `role`: `ADMIN`, `MEMBER` or `VIEWER` | 404 for a user of another organization. 409 if this would demote the last admin. |
 | `GET /organizations/me` | any | | Includes `_count.users`. |
 | `PATCH /organizations/me` | ADMIN | `name` | |
+| `DELETE /organizations/me` | ADMIN | `password` (the administrator's own), `confirmName` (the organization's exact name) | Permanently deletes the organization with its users, services, incidents, history and invitations, and cuts its live connections. 403 for a wrong password, 400 for a wrong name; failed attempts count against the login rate limit. Irreversible except from a backup. |
 
 ## Invitations
 
@@ -147,7 +148,7 @@ Public incidents contain only `id`, `title`, `status`, `severity`, `createdAt`, 
 
 ## Health check
 
-`GET /health` returns `{ "status": "UP", "database": "UP" }`, or 503 with `DOWN` when the database cannot be reached.
+`GET /health` returns `{ "status": "UP", "database": "UP", "commit": "<sha>" }`, or 503 with `DOWN` when the database cannot be reached. `commit` is the commit the platform says is running (`COMMIT_SHA`, else Render's `RENDER_GIT_COMMIT`), or `null` when it does not say; it is what lets a deployment check tell a new release from the previous one.
 
 ## Real-time events (Socket.IO)
 

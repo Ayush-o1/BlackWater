@@ -379,6 +379,7 @@ dialog.dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 
 .header-badges { margin-top: var(--space-2); }
 .detail-service { width: 100%; color: inherit; }
+.panel-danger { border-color: rgba(239, 68, 68, 0.35); }
 
 /* A link that stands on its own line is a touch target: WCAG 2.5.8 asks for at
    least 24px, and these were 20px tall. Padding enlarges the hit area without
