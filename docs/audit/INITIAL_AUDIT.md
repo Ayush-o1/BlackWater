@@ -136,7 +136,15 @@ real defect or risk with limited impact; **Low** = quality, hygiene or efficienc
 ### F7 — Low — Incident page refetches on every incident event in the organization
 - `public/js/pages/incident.js` subscribes to `incident:updated` without checking the id,
   so in a busy organization every open incident page refetches on every change anywhere.
-- **Fix:** ignore events for other incidents (the payload already carries the id).
+- ~~**Fix:** ignore events for other incidents (the payload already carries the id).~~
+- **Withdrawn in Phase 1:** the page shows the health of each affected service, and that
+  health depends on *other* incidents on the same services. Filtering by id would leave
+  those labels stale. The refetch is correct; no change.
+
+### F14 — Low — Renames are not announced (found in Phase 2)
+- `PATCH /users/me` and `PATCH /organizations/me` emitted no event, so teammates' team
+  lists, assignee pickers and sidebars kept the old name until reload.
+- **Fixed:** both emit `team:changed`; regression test in `tests/integration/socket.test.js`.
 
 ### F8 — Low — Connected sockets outlive token expiry
 - A socket authenticated once stays in its room after its JWT expires. Events carry ids
