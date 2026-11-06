@@ -8,7 +8,7 @@ anything not verified is listed in section 10.
 **Summary.** `main` was verified end to end at commit `dc13db1` (CI in three browser
 engines, the production image, and the live deployment, which reported that commit and
 passed the browser smoke journey). The last pull request (#7) adds this report, a CI
-reliability change, and a final frontend fix found by its own CI run (F16 on the
+reliability change (browsers run in Playwright's image instead of being installed with apt), and a final frontend fix found by its own CI run (F16 on the
 settings page and error states); its CI and production results are in its description.
 The project is code-complete and production-verified, with the limitations in section 10.
 
@@ -128,7 +128,7 @@ locally and in CI.
   merged trees are identical to the tested heads). No force-push; history preserved.
 - All feature branches deleted after `git` confirmed each was fully contained in `main`;
   `main` is the only branch.
-- PR #7 (this report, the CI install safeguard, and the last F16 fix) was merged last;
+- PR #7 (this report, the CI change to Playwright's image, and the last F16 fix) was merged last;
   its CI and production results are stated in its description.
 
 ## 10. Remaining limitations and unverified items
@@ -141,8 +141,10 @@ locally and in CI.
 - **By design / documented:** single instance only (rate limits and socket rooms in
   memory); members cannot be removed individually; no password reset or email; tokens are
   not revocable; relative times on signed-in pages update when data changes, not on a timer.
-- **Runner reliability:** GitHub's Ubuntu runners intermittently stalled while downloading
-  browser system packages; the workflows now time out stalled downloads and retry them.
+- **Runner reliability:** installing browser libraries with apt on GitHub's Ubuntu runners
+  was at times extremely slow (21.9 MB in 9 min 34 s), which timed out or hung browser jobs.
+  CI and the production check now run the browsers inside Playwright's Docker image, which
+  already contains them; the image tag must be kept equal to the `@playwright/test` version.
 - Major-version upgrades (Prisma 7, Express 5) were deliberately not done.
 
 ## 11. How to run

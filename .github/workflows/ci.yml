@@ -14,6 +14,14 @@ jobs:
     name: Lint and tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Playwright's own image: the browsers and every library they need are already in
+    # it. Installing them on the runner with apt depended on Ubuntu's package mirror,
+    # which at times delivered ~40 kB/s and stretched one job past 20 minutes. The tag
+    # must match @playwright/test in package.json. --user 1001 is the runner's user
+    # (Firefox refuses to run as root).
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
     services:
       postgres:
         image: postgres:16
@@ -41,7 +49,7 @@ jobs:
       - name: Write .env.test
         run: |
           cat <<EOF > .env.test
-          DATABASE_URL=postgresql://blackwater:blackwater@localhost:5432/blackwater_test?schema=public
+          DATABASE_URL=postgresql://blackwater:blackwater@postgres:5432/blackwater_test?schema=public
           JWT_SECRET=ci_only_secret_at_least_32_characters_long
           JWT_EXPIRES_IN=1d
           PORT=8001
@@ -53,14 +61,6 @@ jobs:
 
       - name: Unit and integration tests
         run: npm test
-
-      - name: Install the browser
-        # A stalled package mirror once hung this step until the job was cancelled.
-        # apt now gives up on a stalled download after 30 s and retries it.
-        timeout-minutes: 10
-        run: |
-          echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
-          npx playwright install --with-deps chromium
 
       - name: Browser tests
         run: npm run test:e2e
@@ -83,6 +83,10 @@ jobs:
     name: Browser tests (${{ matrix.browser }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Same Playwright image as the job above (see the note there).
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
     strategy:
       fail-fast: false
       matrix:
@@ -114,20 +118,12 @@ jobs:
       - name: Write .env.test
         run: |
           cat <<EOF > .env.test
-          DATABASE_URL=postgresql://blackwater:blackwater@localhost:5432/blackwater_test?schema=public
+          DATABASE_URL=postgresql://blackwater:blackwater@postgres:5432/blackwater_test?schema=public
           JWT_SECRET=ci_only_secret_at_least_32_characters_long
           JWT_EXPIRES_IN=1d
           PORT=8001
           NODE_ENV=test
           EOF
-
-      - name: Install the browser
-        # A stalled package mirror once hung this step until the job was cancelled.
-        # apt now gives up on a stalled download after 30 s and retries it.
-        timeout-minutes: 10
-        run: |
-          echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
-          npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Browser tests
         run: npx playwright test --project=${{ matrix.browser }}
@@ -249,26 +245,15 @@ jobs:
           # An organization that does not exist must answer 404 (not 500), which also proves the schema is in place.
           test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8000/api/status?orgId=00000000-0000-4000-8000-000000000000')" = 404
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - run: npm ci
-
-      - name: Install the browser
-        # A stalled package mirror once hung this step until the job was cancelled.
-        # apt now gives up on a stalled download after 30 s and retries it.
-        timeout-minutes: 10
-        run: |
-          echo 'Acquire::Retries "5"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
-          npx playwright install --with-deps chromium
-
+      # The journey runs in Playwright's image (browsers included, see the note on the
+      # first job), on the host network so it reaches the app container on localhost.
       - name: Smoke journey against the image
-        run: npm run smoke
-        env:
-          SMOKE_URL: http://localhost:8000
-          EXPECT_COMMIT: ${{ github.sha }}
+        run: |
+          docker run --rm --network host --ipc=host --user "$(id -u)" -e HOME=/tmp \
+            -v "$PWD":/work -w /work \
+            -e SMOKE_URL=http://localhost:8000 -e EXPECT_COMMIT=${{ github.sha }} \
+            mcr.microsoft.com/playwright:v1.65.0-noble \
+            sh -c 'npm ci --no-audit --no-fund && npm run smoke'
 
       - name: Container logs
         if: always()

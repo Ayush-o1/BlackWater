@@ -236,7 +236,7 @@ requests as failures. A fresh clone also showed that `npm run prisma:seed` could
 | Production workflow on `dc13db1` | success: live `/health` reported `dc13db1`, smoke journey passed on the live site, deployment 7609787240 marked successful |
 | Live headers | CSP, HSTS, nosniff, frame and referrer policies present |
 | CI on `dc13db1` | Lint and tests, minimum Node.js, WebKit, production image passed; Firefox stalled twice while apt downloaded system packages (runner issue) and was cancelled; the identical tree passed Firefox 41/41 on `d7eb102` |
-| Follow-up | apt download timeouts and retries plus job time limits added to the workflows, with this report |
+| Follow-up | browser jobs moved into Playwright's Docker image (no apt), job time limits added; see below |
 
 Final report: [FINAL_PROJECT_REPORT.md](FINAL_PROJECT_REPORT.md).
 
@@ -250,3 +250,11 @@ repaints, and failures go through the same unchanged check. A new test proves th
 button survives a repeated failure (fails without the fix). A third, test-only race (the
 retry test raced the page recovering by itself) was isolated. Afterwards, retries off:
 Chromium, WebKit (Linux) and Firefox (Linux) 42/42; stress 15/15 and 30/30.
+
+**CI runner fix, second iteration.** The apt timeout-and-retry setting did not help: the
+mirror was not stalling but trickling (the Chromium job logged 21.9 MB fetched in 9 min
+34 s, 38 kB/s), so Firefox's 54.4 MB could not finish within the 10-minute step limit.
+The browser jobs now run inside `mcr.microsoft.com/playwright:v1.65.0-noble` (browsers and
+libraries included, `--user 1001`, Postgres reached as `postgres`), and the image job and
+`production.yml` run the smoke journey with `docker run` of the same image. The production
+command was dry-run locally against the live site: passed.
