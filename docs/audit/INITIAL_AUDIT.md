@@ -174,6 +174,13 @@ real defect or risk with limited impact; **Low** = quality, hygiene or efficienc
 - Plan and Blueprint statements (see F3) need to reflect what is actually deployed.
 - Screenshots were refreshed in PR #5; confirm they match the final UI.
 
+### F15 — High — Smoke journey broken by the redesign (found in Phase 8)
+- `e2e/smoke.spec.js` looked for `.timeline`, which PR #5 replaced with the activity
+  feed. CI only listed the spec, so after merging every production deployment would have
+  been marked failed by `production.yml`.
+- **Fixed:** the spec finds the feed by its accessible name, and CI runs the whole journey
+  against the freshly built image.
+
 ## 6. Things verified as correct (no change needed)
 
 - Authentication: bcrypt cost 10, constant-time-ish unknown-email path (dummy hash), HS256
