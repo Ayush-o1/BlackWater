@@ -84,7 +84,7 @@ A service's `status` is calculated on every read from its open incidents (those 
 
 | Method and path | Role | Body | Notes |
 |---|---|---|---|
-| `GET /services` | any | | Paginated, with `status`. |
+| `GET /services` | any | | Paginated, with `status` and `openIncidentCount` (the open incidents that produce that status). |
 | `POST /services` | MEMBER | `name` (2 to 200), `description?` | Any `status` in the body is ignored. |
 | `GET /services/:id` | any | | Also `incidents`: the 10 most recent that affected it. |
 | `PATCH /services/:id` | MEMBER | `name?`, `description?` | At least one field. |
@@ -105,7 +105,7 @@ Statuses and the moves between them:
 
 | Method and path | Role | Body | Notes |
 |---|---|---|---|
-| `GET /incidents` | any | query: `status`, `severity`, `assigneeId`, `serviceId`, `cursor`, `limit` | Paginated, with creator, assignee and affected services (with health). |
+| `GET /incidents` | any | query: `status`, `severity`, `assigneeId`, `serviceId`, `q`, `open`, `sort`, `cursor`, `limit` | Paginated, with creator, assignee and affected services (with health). `q` searches titles (case-insensitive, matched literally). `open=true` keeps triggered and acknowledged incidents. `sort=priority` orders worst severity first, then newest; the default `newest` is newest first. |
 | `POST /incidents` | MEMBER | `title` (5 to 200), `severity`, `description?`, `serviceIds?`, `isPublic?` | Private unless `isPublic` is true. Every service must belong to the organization. |
 | `GET /incidents/:id` | any | | Adds `updates` (with author) and `timelineEvents` (with `actor`). |
 | `PATCH /incidents/:id` | MEMBER | any of `title`, `description` (or `null`), `severity`, `serviceIds` | At least one field. Fields that do not change write nothing. |
@@ -159,6 +159,6 @@ Connect to the same origin with the token: `io({ auth: { token } })`. Connection
 | `incident:created` | An incident is declared |
 | `incident:updated` | Status, assignee, details, notes or visibility change |
 | `service:changed` | A service is created, edited or deleted |
-| `team:changed` | Someone joins or a role changes |
+| `team:changed` | Someone joins, a role or a person's name changes, or the organization is renamed |
 
-Events are sent after the database change has committed. Rejected changes send nothing.
+Events are sent after the database change has committed. Rejected changes send nothing. When an organization is deleted the server closes its members' connections and they are not re-admitted, because the accounts no longer exist.

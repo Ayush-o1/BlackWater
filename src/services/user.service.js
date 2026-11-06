@@ -45,11 +45,15 @@ export async function getUserById(userId, orgId) {
 export async function updateProfile(userId, orgId, { name }) {
   await getUserById(userId, orgId);
 
-  return prisma.user.update({
+  const user = await prisma.user.update({
     where: { id: userId },
     data: { name },
     select: publicUserFields,
   });
+
+  // Teammates show this name in the team list and assignee pickers.
+  emitToOrg(orgId, SocketEvent.TEAM_CHANGED, { id: userId });
+  return user;
 }
 
 // Changes a user's role. The target is looked up by id AND orgId, so an admin

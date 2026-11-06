@@ -24,7 +24,9 @@ cp .env.test.example .env.test     # point DATABASE_URL at blackwater_test
 
 The tests cover, among other things: authentication and token handling; role permissions on every route; isolation between organizations; the incident lifecycle including concurrent changes; the audit timeline and its actors; service health; private incidents never reaching the public API; invitations (single use, expiry, races, roles); the last-administrator rule; pagination; Socket.IO authentication and tenancy; the page routes and security headers; and, in the browser, the complete incident workflow, rendering of hostile text, live updates reaching other signed-in sessions (and never another organization's), keyboard-only use of dialogs, and a crawl of every page that fails on any console error or failed request.
 
-CI runs the backend suite on the minimum supported Node.js (20.19) as well as on 22, runs the browser suite, and builds the Docker image and starts it against an empty database.
+CI runs the backend suite on the minimum supported Node.js (20.19) as well as on 22, runs the browser suite in Chromium, Firefox and WebKit (Safari's engine), and builds the Docker image, starts it against an empty database and drives the smoke journey through it.
+
+To run the browser suite in the other engines locally: `npx playwright install firefox webkit`, then `npm run test:e2e:all-browsers` (or `ALL_BROWSERS=1 npx playwright test --project=webkit` for one engine). If a browser will not start on your machine (Playwright's Firefox currently fails to launch on macOS 27), run the suite in the official Linux image instead, `mcr.microsoft.com/playwright:v<version>-noble` with the version in `package.json`, with a PostgreSQL container beside it, as CI does.
 
 Integration tests share one database and run one file at a time. Each test starts from an empty database, so tests create what they need with the helpers in `tests/helpers/factories.js`.
 

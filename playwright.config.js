@@ -22,5 +22,14 @@ export default defineConfig({
     // The suite signs in and registers far more often than the production limit allows.
     env: { AUTH_RATE_LIMIT: '100000', API_RATE_LIMIT: '100000' },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Chromium always; Firefox and WebKit (Safari's engine) too with ALL_BROWSERS=1.
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    ...(process.env.ALL_BROWSERS
+      ? [
+          { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+          { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+        ]
+      : []),
+  ],
 });

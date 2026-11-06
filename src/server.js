@@ -19,12 +19,17 @@ async function startServer() {
 
     // On shutdown, stop accepting connections, let in-flight requests finish,
     // then release the database pool. The timer is a safety net for hung connections.
-    const shutdown = () => {
+    // A crash shuts down the same way but exits with 1, so the platform records a
+    // failure rather than a clean stop. A second signal while closing is ignored.
+    let shuttingDown = false;
+    const shutdown = (exitCode = 0) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
       console.log('Shutdown signal received, shutting down gracefully...');
       io.close();
       httpServer.close(async () => {
         await prisma.$disconnect();
-        process.exit(0);
+        process.exit(exitCode);
       });
       setTimeout(() => {
         console.error('Could not close connections in time, forcing shutdown');
@@ -32,8 +37,8 @@ async function startServer() {
       }, 10_000).unref();
     };
 
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', () => shutdown(0));
+    process.on('SIGINT', () => shutdown(0));
 
     process.on('unhandledRejection', (reason) => {
       console.error('Unhandled promise rejection:', reason);
@@ -43,7 +48,7 @@ async function startServer() {
     // cleanly rather than keep serving requests.
     process.on('uncaughtException', (error) => {
       console.error('Uncaught exception:', error);
-      shutdown();
+      shutdown(1);
     });
   } catch (error) {
     console.error('Error starting the server:', error);

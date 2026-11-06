@@ -1,25 +1,33 @@
 import { h, render } from './dom.js';
 import { icon } from './icons.js';
 
-// The frame of the public status pages: no navigation and no sign-in, just the
-// organization's name and a footer. Returns the <main> to fill and a function to
-// set the name once it is known.
+// The frame of the public status pages. It is deliberately not the application
+// shell: no navigation, no sign-in, nothing internal. A customer should see whose
+// status this is, how things are, and when this page last checked.
 export function renderPublicLayout() {
-  const name = h('span', { class: 'public-title' }, 'Status');
+  const name = h('span', { class: 'public-org' }, 'Status');
+  const checked = h('span', { 'aria-live': 'polite' }, '');
   const main = h('main', { class: 'public-main', id: 'main' });
+  // Shown with the first content, so it appears once instead of sliding down the
+  // screen as the page fills in (which would count as layout shift).
+  const footer = h('footer', { class: 'public-footer', hidden: true }, checked, h('span', {}, 'Powered by BlackWater'));
 
   render(
     document.getElementById('app'),
-    h('header', { class: 'public-header' }, h('div', { class: 'public-header-inner' }, name, h('span', { class: 'subtle small cluster' }, icon('activity', 'sm'), 'System status'))),
+    h('a', { class: 'skip-link', href: '#main' }, 'Skip to content'),
+    h('header', { class: 'public-header' }, h('div', { class: 'public-header-inner' }, name, h('span', { class: 'public-tag cluster' }, icon('activity', 'sm'), 'System status'))),
     main,
-    h('footer', { class: 'public-footer' }, 'Powered by BlackWater')
+    footer
   );
 
   return {
     main,
     setOrganizationName(organizationName) {
       name.textContent = organizationName;
-      document.title = `${organizationName} Status`;
+    },
+    markChecked() {
+      footer.hidden = false;
+      checked.textContent = `Last checked ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. This page refreshes automatically.`;
     },
   };
 }

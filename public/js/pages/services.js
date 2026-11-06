@@ -1,10 +1,10 @@
 import { api } from '../api.js';
 import { canWrite, getSession, requireSession } from '../auth.js';
-import { serviceDialog, serviceRow } from '../components.js';
+import { serviceDialog } from '../components.js';
 import { h, render } from '../dom.js';
 import { subscribe } from '../realtime.js';
 import { renderShell } from '../shell.js';
-import { button, emptyState, errorState, loadMoreButton, loadingRows, setTitle } from '../ui.js';
+import { button, changeDetector, emptyState, errorState, healthLabel, loadMoreButton, loadingRows, setTitle } from '../ui.js';
 
 const PAGE_SIZE = 20;
 
@@ -15,7 +15,7 @@ async function start() {
 
   let services = [];
   let pagination = null;
-  const listPanel = h('section', { class: 'panel' });
+  const listPanel = h('section', { class: 'panel', 'aria-label': 'Service list' });
 
   const addService = () => serviceDialog({ onSaved: () => load() });
 
@@ -30,6 +30,7 @@ async function start() {
     listPanel
   );
 
+  const shown = changeDetector();
   async function load({ append = false } = {}) {
     try {
       // On a refresh, reload as many rows as are already shown (see incidents.js).
@@ -39,8 +40,10 @@ async function start() {
       const { data, pagination: page } = await api.get('/services', query);
       services = append ? [...services, ...data] : data;
       pagination = page;
+      if (!shown.changed({ services, pagination })) return;
       paint();
     } catch (error) {
+      shown.forget();
       render(listPanel, errorState(error, () => load()));
     }
   }
@@ -58,12 +61,32 @@ async function start() {
       );
       return;
     }
-    render(listPanel, h('div', { class: 'rows' }, services.map(serviceRow)), pagination?.hasMore && loadMoreButton(() => load({ append: true })));
+    render(
+      listPanel,
+      h(
+        'table',
+        { class: 'table' },
+        h('caption', { class: 'visually-hidden' }, 'Services'),
+        h('thead', {}, h('tr', {}, ['Service', 'Health', 'Open incidents'].map((heading) => h('th', { scope: 'col' }, heading)))),
+        h('tbody', {}, services.map(serviceTableRow))
+      ),
+      pagination?.hasMore && loadMoreButton(() => load({ append: true }))
+    );
   }
 
   render(listPanel, loadingRows());
   load();
   subscribe(['incident:created', 'incident:updated', 'service:changed'], () => load());
+}
+
+function serviceTableRow(service) {
+  return h(
+    'tr',
+    { class: 'row-link' },
+    h('td', { class: 'cell-title' }, h('a', { href: `/services/${service.id}` }, service.name), service.description && h('div', { class: 'cell-sub' }, service.description)),
+    h('td', { class: 'cell-nowrap cell-badges' }, healthLabel(service.status)),
+    h('td', { class: 'cell-nowrap num', 'data-label': 'Open incidents' }, service.openIncidentCount === 0 ? h('span', { class: 'subtle' }, 'None') : String(service.openIncidentCount))
+  );
 }
 
 if (requireSession()) start();

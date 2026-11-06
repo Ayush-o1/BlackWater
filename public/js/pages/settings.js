@@ -2,7 +2,7 @@ import { api, getAll } from '../api.js';
 import { clearSession, getSession, isAdmin, requireSession, updateSessionUser } from '../auth.js';
 import { h, render } from '../dom.js';
 import { subscribe } from '../realtime.js';
-import { renderShell, roleLabel } from '../shell.js';
+import { renderShell, roleLabel, updateShellIdentity } from '../shell.js';
 import {
   avatar, busy, button, confirmDialog, errorState, formatDate, formDialog, loadingRows, openDialog,
   selectField, setTitle, textField, toast, toastError,
@@ -19,10 +19,13 @@ async function start() {
   const teamHost = h('section', { class: 'panel' });
   const dangerHost = h('section', { class: 'panel panel-danger' });
 
+  // The panels go in together once their data is here, so nothing moves as they fill in.
+  const content = h('div', { class: 'stack page-narrow-content' }, h('div', { class: 'panel' }, loadingRows(3)));
+
   render(
     main,
     h('div', { class: 'page-header' }, h('div', {}, h('h1', {}, 'Settings'), h('p', {}, 'Your profile, your organization and your team.'))),
-    h('div', { class: 'stack page-narrow-content' }, profileHost, organizationHost, teamHost, admin && dangerHost)
+    content
   );
 
   // ---------- Profile ----------
@@ -42,7 +45,7 @@ async function start() {
       await busy(save, async () => {
         const { data } = await api.patch('/users/me', { name: name.value });
         updateSessionUser(data);
-        document.querySelector('.sidebar-user-name').textContent = data.name; // the sidebar shows it too
+        updateShellIdentity({ userName: data.name }); // the sidebar shows it too
         toast('Profile saved');
       });
     });
@@ -68,7 +71,8 @@ async function start() {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       await busy(save, async () => {
-        await api.patch('/organizations/me', { name: name.value });
+        const { data } = await api.patch('/organizations/me', { name: name.value });
+        updateShellIdentity({ orgName: data.name });
         toast('Organization saved');
       });
     });
@@ -122,7 +126,7 @@ async function start() {
             { class: 'select select-sm role-select', 'aria-label': `Role of ${member.name}` },
             ['ADMIN', 'MEMBER', 'VIEWER'].map((role) => h('option', { value: role }, roleLabel(role)))
           )
-        : h('span', { class: member.role === 'ADMIN' ? 'badge badge-info' : 'badge' }, roleLabel(member.role));
+        : h('span', { class: member.role === 'ADMIN' ? 'badge visibility-public' : 'badge' }, roleLabel(member.role));
 
       if (admin) {
         roleControl.value = member.role;
@@ -242,18 +246,14 @@ async function start() {
 
   // ---------- Load ----------
 
-  render(profileHost, loadingRows(2));
-  render(organizationHost, loadingRows(2));
-  render(teamHost, loadingRows(3));
-
   try {
-    const [{ data: me }, { data: organization }] = await Promise.all([api.get('/users/me'), api.get('/organizations/me')]);
+    const [{ data: me }, { data: organization }] = await Promise.all([api.get('/users/me'), api.get('/organizations/me'), paintTeam()]);
     paintProfile(me);
     paintOrganization(organization);
     if (admin) paintDanger(organization);
-    await paintTeam();
+    render(content, profileHost, organizationHost, teamHost, admin && dangerHost);
   } catch (error) {
-    render(teamHost, errorState(error, () => location.reload()));
+    render(content, h('div', { class: 'panel' }, errorState(error, () => location.reload())));
   }
 
   // Someone joined or had their role changed.

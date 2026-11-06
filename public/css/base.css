@@ -1,151 +1,188 @@
-/* Design tokens and element defaults. Every colour, size and spacing value used
-   elsewhere comes from here, so the look can be changed in one place. */
+/*
+  BlackWater design tokens and base styles.
+
+  Direction. BlackWater is opened when something is broken, by engineers who need to
+  read and act quickly, often for hours. So the interface is light-first (dense text,
+  long timelines and status colour all read best on a near-white canvas, and that is
+  where most teams spend the working day), calm (neutral surfaces, one accent, colour
+  reserved for meaning) and precise (a tight type scale, tabular numbers, aligned
+  columns). Colour never carries meaning alone: every status also has a word and a
+  shape.
+
+  Colour. Neutrals are a cool slate. The one accent, "deep water" blue, is used for
+  interaction only (links, primary buttons, focus). Status colours are fixed and
+  semantic; each has a text colour that passes WCAG AA (4.5:1) on its own tint and on
+  white.
+*/
 
 :root {
-  color-scheme: dark;
+  /* Canvas and surfaces */
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-sunken: #f0f2f5;   /* table headers, inputs at rest, code */
+  --surface-hover: #f6f8fa;
+  --overlay: rgba(15, 23, 32, 0.38);
 
-  /* Surfaces, darkest to lightest */
-  --bg: #09090b;
-  --surface: #131316;
-  --surface-raised: #1b1b1f; /* dialogs, menus: anything floating above the page */
-  --surface-hover: #1c1c20;
-  --muted: #27272a; /* chips, avatars, secondary buttons */
+  /* Lines */
+  --border: #e2e5ea;
+  --border-strong: #cdd2da;
+  --border-input: #848e9d;   /* 3:1 against white, as WCAG 1.4.11 asks of a control's boundary */
 
-  --border: #27272a;
-  --border-strong: #3f3f46;
+  /* Text: all three pass 4.5:1 on --surface and --bg */
+  --text: #111a24;
+  --text-2: #3b4655;
+  --text-3: #5b6676;
 
-  /* Text */
-  --text: #fafafa;
-  --text-2: #a1a1aa;
-  --text-3: #8b8b95; /* least prominent text; 4.5:1 or better on every surface */
+  /* Accent: interaction only */
+  --accent: #0b5f99;
+  --accent-hover: #084c7b;
+  --accent-soft: #e8f1f8;
+  --accent-text: #0a5a91;
+  --focus: #1a73c6;
 
-  /* Brand and meaning. Colour is never the only signal: statuses also carry text. */
-  --primary: #3b82f6; /* accents: focus rings, icons, borders */
-  --primary-text: #60a5fa; /* blue used as text: 4.5:1 on the dark and tinted surfaces */
-  --primary-strong: #2563eb; /* fill behind white text on primary buttons */
-  --primary-hover: #1d4ed8;
-  --primary-soft: rgba(59, 130, 246, 0.12);
-  --success: #22c55e;
-  --success-soft: rgba(34, 197, 94, 0.12);
-  --warning: #eab308;
-  --warning-soft: rgba(234, 179, 8, 0.12);
-  --orange: #f97316;
-  --orange-soft: rgba(249, 115, 22, 0.12);
-  --danger: #ef4444;
-  --danger-soft: rgba(239, 68, 68, 0.12);
+  /* Brand mark */
+  --brand: #0c2b45;
 
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Semantic status: [text, tint, solid] */
+  --ok-text: #11663a;      --ok-bg: #e6f4ec;      --ok: #1a8f52;
+  --degraded-text: #7a5000; --degraded-bg: #fdf2d8; --degraded: #c98a00;
+  --partial-text: #a03d0b;  --partial-bg: #fdebe0;  --partial: #e06a1b;
+  --major-text: #a8201a;    --major-bg: #fce9e7;    --major: #d92d20;
+  --neutral-text: #3b4655;  --neutral-bg: #eef1f4;  --neutral: #8a94a3;
+
+  --danger: #c0261c;
+  --danger-hover: #a01f17;
+
+  /* Type */
+  --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;   /* body */
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
 
-  --radius: 8px;
-  --radius-lg: 12px;
-
+  /* Space: 4px grid */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
 
-  --sidebar-width: 232px;
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.14), 0 2px 6px rgba(16, 24, 40, 0.06);
+
+  /* Motion: short and only where it explains a change */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --fast: 120ms;
+  --medium: 180ms;
+
+  --sidebar-width: 240px;
   --topbar-height: 56px;
+  --content-width: 1160px;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
-html {
-  -webkit-text-size-adjust: 100%;
-}
+html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: var(--text-md);
   line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4, p, ul, ol, dl, dd, figure {
-  margin: 0;
-}
+h1, h2, h3, h4, p { margin: 0; }
+h1 { font-size: var(--text-xl); font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; }
+h2 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
+h3 { font-size: var(--text-md); font-weight: 600; }
 
-h1 { font-size: 24px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; }
-h2 { font-size: 16px; line-height: 1.3; font-weight: 600; }
-h3 { font-size: 14px; font-weight: 600; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 
-ul, ol { padding: 0; list-style: none; }
+/* An icon inside a plain link sits on the text line, not above it. :where() keeps
+   this at zero specificity so any component (nav links, buttons) overrides it. */
+:where(a:has(> .icon)) { display: inline-flex; align-items: center; gap: 6px; }
 
-a {
-  color: var(--primary-text);
-  text-decoration: none;
-}
-a:hover { text-decoration: underline; }
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+/* Links inside running text are underlined, so they never depend on color alone (WCAG 1.4.1). */
+:where(p, .hint) a:not(.btn) { text-decoration: underline; text-underline-offset: 2px; }
 
-button, input, select, textarea {
-  font: inherit;
-  color: inherit;
-}
-
+img, svg { display: block; }
+button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
+:disabled { cursor: not-allowed; }
 
-:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
+/* One focus style everywhere, only for keyboard users. Never removed without a replacement. */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 
-::selection { background: rgba(59, 130, 246, 0.35); }
-
-hr {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin: 0;
-}
-
-/* Scrollbars that match the theme */
-* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+/* Numbers and timestamps line up in columns. */
+time, .num { font-variant-numeric: tabular-nums; }
 
 /* Text helpers */
 .muted { color: var(--text-2); }
 .subtle { color: var(--text-3); }
-.small { font-size: 13px; }
-.mono { font-family: var(--mono); font-size: 12.5px; }
-.nowrap { white-space: nowrap; }
-.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.small { font-size: var(--text-sm); }
+.xsmall { font-size: var(--text-xs); }
+.truncate { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
 .pre-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+.centered { text-align: center; }
+.mono { font-family: var(--mono); font-size: 0.92em; }
+
+/* Layout helpers */
+.stack { display: flex; flex-direction: column; gap: var(--space-6); }
+.stack-sm { display: flex; flex-direction: column; gap: var(--space-2); }
+.cluster { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; min-width: 0; }
+.cluster-between { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; }
 
 .visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+  position: absolute !important;
+  width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-[hidden] { display: none !important; }
+/* Skip link: the first thing a keyboard user reaches on every page. */
+.skip-link {
+  position: absolute;
+  left: var(--space-3);
+  top: -100px;
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+}
+.skip-link:focus-visible { top: var(--space-3); color: #fff; text-decoration: none; }
 
+.noscript { padding: var(--space-8); text-align: center; }
+
+.icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-sm { width: 15px; height: 15px; }
+.icon-lg { width: 28px; height: 28px; stroke-width: 1.6; }
+
+/* Respect a request for less motion everywhere at once. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
-
-.noscript { padding: 24px; }
-
-/* Long unbroken text (a pasted URL, a hash) must wrap instead of stretching the
-   page sideways. `anywhere` also lowers the minimum width of flex and grid
-   children, which `break-word` does not. Rows that should stay on one line use
-   .truncate, which wins because it sets white-space: nowrap. */
-.page, .public-main, .dialog { overflow-wrap: anywhere; }
-.split > *, .stack > *, .stack-sm > * { min-width: 0; }

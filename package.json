@@ -22,6 +22,7 @@
     "test:watch": "dotenv -e .env.test -- vitest",
     "test:coverage": "dotenv -e .env.test -- vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:all-browsers": "ALL_BROWSERS=1 playwright test",
     "smoke": "playwright test -c playwright.smoke.config.js",
     "lint": "eslint ."
   },
@@ -38,8 +39,9 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^9.39.5",
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.65.0",
     "@vitest/coverage-v8": "^4.1.12",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.5",

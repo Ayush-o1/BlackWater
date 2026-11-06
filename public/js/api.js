@@ -19,21 +19,35 @@ function buildUrl(path, query) {
   return url;
 }
 
+// Requests still running when the user leaves the page are cancelled by the page
+// itself. Otherwise the browser cancels them during the navigation, which WebKit
+// reports as a page error ("... due to access control checks") although nothing failed.
+const inFlight = new Set();
+// (A page kept in the back/forward cache is not being torn down, so it keeps them.)
+addEventListener('pagehide', (event) => {
+  if (!event.persisted) inFlight.forEach((controller) => controller.abort());
+});
+
 async function request(method, path, { body, query } = {}) {
   const token = getToken();
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 
+  const controller = new AbortController();
+  inFlight.add(controller);
   let response;
   try {
     response = await fetch(buildUrl(path, query), {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch {
     throw new ApiError('Cannot reach the server. Check your connection and try again.', 0);
+  } finally {
+    inFlight.delete(controller);
   }
 
   let payload = null;

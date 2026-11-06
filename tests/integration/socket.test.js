@@ -235,6 +235,26 @@ describe('real-time events', () => {
     expect(await heard).toMatchObject({ id: expect.any(String) });
   });
 
+  it('announces a renamed teammate and a renamed organization, to that organization only', async () => {
+    const { token } = await createOrgWithUser('ADMIN');
+    const { token: otherToken } = await createOrgWithUser('ADMIN');
+    const listener = connectAs(token);
+    const outsider = connectAs(otherToken);
+    await Promise.all([connected(listener), connected(outsider)]);
+
+    let heard = nextEvent(listener, 'team:changed');
+    let overheard = nextEvent(outsider, 'team:changed', 700);
+    await api().patch('/api/users/me').set('Authorization', bearer(token)).send({ name: 'Renamed Person' });
+    expect(await heard).toMatchObject({ id: expect.any(String) });
+    expect(await overheard).toBeNull();
+
+    heard = nextEvent(listener, 'team:changed');
+    overheard = nextEvent(outsider, 'team:changed', 700);
+    await api().patch('/api/organizations/me').set('Authorization', bearer(token)).send({ name: 'Renamed Org' });
+    expect(await heard).toMatchObject({ id: expect.any(String) });
+    expect(await overheard).toBeNull();
+  });
+
   it('exposes no way for a client to join another organization\'s room', async () => {
     const { token } = await createOrgWithUser('ADMIN');
     const { org: otherOrg, user: otherUser, token: otherToken } = await createOrgWithUser('ADMIN');

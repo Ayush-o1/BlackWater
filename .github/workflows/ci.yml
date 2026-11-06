@@ -28,9 +28,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -61,17 +61,77 @@ jobs:
         env:
           CI: 'true'
 
-      # The smoke spec only runs against a live deployment, so nothing else would notice
-      # if it stopped loading. Listing its tests parses and loads it without a server.
-      - name: Smoke spec still loads
-        run: SMOKE_URL=http://localhost:8000 npx playwright test -c playwright.smoke.config.js --list
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          # CI uses the list reporter, so the evidence (traces, error context) is here.
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # The same browser suite in Firefox and WebKit (Safari's engine), one job each.
+  other-browsers:
+    name: Browser tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: blackwater
+          POSTGRES_PASSWORD: blackwater
+          POSTGRES_DB: blackwater_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Write .env.test
+        run: |
+          cat <<EOF > .env.test
+          DATABASE_URL=postgresql://blackwater:blackwater@localhost:5432/blackwater_test?schema=public
+          JWT_SECRET=ci_only_secret_at_least_32_characters_long
+          JWT_EXPIRES_IN=1d
+          PORT=8001
+          NODE_ENV=test
+          EOF
+
+      - name: Install the browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Browser tests
+        run: npx playwright test --project=${{ matrix.browser }}
+        env:
+          CI: 'true'
+          ALL_BROWSERS: '1'
 
       - name: Upload the Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-report-${{ matrix.browser }}
+          # CI uses the list reporter, so the evidence (traces, error context) is here.
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
 
   # The README promises Node 20.19 as the minimum, so the backend suite runs on
@@ -94,9 +154,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20.19.0'
           cache: npm
@@ -117,7 +177,10 @@ jobs:
         run: npm test
 
   # Builds the production image and starts it for real: it must apply every
-  # migration to an empty database and answer its health check.
+  # migration to an empty database, answer its health check, and pass the same
+  # browser smoke journey that production.yml runs against the live site. Running
+  # the journey here means a UI change that breaks it fails the pull request, not
+  # the next production deployment.
   docker:
     name: Production image
     runs-on: ubuntu-latest
@@ -136,7 +199,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build the image
         run: docker build -t blackwater .
@@ -147,6 +210,7 @@ jobs:
             -e PORT=8000 \
             -e DATABASE_URL='postgresql://blackwater:blackwater@localhost:5432/blackwater_image?schema=public' \
             -e JWT_SECRET=ci_only_secret_at_least_32_characters_long \
+            -e COMMIT_SHA=${{ github.sha }} \
             blackwater
 
       - name: Wait for the health check
@@ -163,6 +227,22 @@ jobs:
           curl -fsS -o /dev/null http://localhost:8000/login
           # An organization that does not exist must answer 404 (not 500), which also proves the schema is in place.
           test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8000/api/status?orgId=00000000-0000-4000-8000-000000000000')" = 404
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke journey against the image
+        run: npm run smoke
+        env:
+          SMOKE_URL: http://localhost:8000
+          EXPECT_COMMIT: ${{ github.sha }}
 
       - name: Container logs
         if: always()

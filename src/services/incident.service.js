@@ -121,9 +121,19 @@ export async function createIncident(orgId, actorId, { title, description, sever
   return incident;
 }
 
-export async function listIncidents(orgId, { status, severity, assigneeId, serviceId, cursor, limit }) {
+// Severity is declared CRITICAL, HIGH, MEDIUM, LOW, so ascending enum order is
+// worst first. The id tiebreaker inside NEWEST_FIRST keeps cursor paging stable.
+const PRIORITY_FIRST = [{ severity: 'asc' }, ...NEWEST_FIRST];
+const CLOSED_STATUSES = [IncidentStatus.RESOLVED, IncidentStatus.CLOSED];
+
+export async function listIncidents(orgId, { status, severity, assigneeId, serviceId, q, open, sort, cursor, limit }) {
   const where = { orgId };
   if (status) where.status = status;
+  else if (open) where.status = { notIn: CLOSED_STATUSES };
+  // Prisma passes `contains` to LIKE without escaping, so "%" would match every title
+  // and "_" any character. Escape them (and the escape character itself) so the text
+  // the user typed is matched literally.
+  if (q) where.title = { contains: q.replace(/[\\%_]/g, (character) => `\\${character}`), mode: 'insensitive' };
   if (severity) where.severity = severity;
   if (assigneeId) where.assigneeId = assigneeId;
   if (serviceId) where.affectedServices = { some: { id: serviceId } };
@@ -132,7 +142,7 @@ export async function listIncidents(orgId, { status, severity, assigneeId, servi
     where,
     take: limit + 1,
     ...cursorOptions(cursor),
-    orderBy: NEWEST_FIRST,
+    orderBy: sort === 'priority' ? PRIORITY_FIRST : NEWEST_FIRST,
     include: {
       creator: { select: personFields },
       assignee: { select: personFields },

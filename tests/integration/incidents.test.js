@@ -35,7 +35,7 @@ describe('POST /incidents', () => {
 
     const details = await api().get(`/api/incidents/${res.body.data.id}`).set('Authorization', bearer(token));
     expect(details.body.data.affectedServices).toEqual([
-      { id: service.id, name: service.name, status: 'PARTIAL_OUTAGE' },
+      { id: service.id, name: service.name, status: 'PARTIAL_OUTAGE', openIncidentCount: 1 },
     ]);
   });
 

@@ -5,5 +5,5 @@ export const SocketEvent = Object.freeze({
   INCIDENT_CREATED: 'incident:created',
   INCIDENT_UPDATED: 'incident:updated', // status, assignee, edit, note or visibility changed
   SERVICE_CHANGED: 'service:changed', // created, renamed or deleted
-  TEAM_CHANGED: 'team:changed', // someone joined or a role changed
+  TEAM_CHANGED: 'team:changed', // someone joined, a role or a name changed, or the organization was renamed
 });

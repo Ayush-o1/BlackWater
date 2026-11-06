@@ -28,10 +28,17 @@ export function healthSelect(orgId, { publicOnly = false } = {}) {
   };
 }
 
-// Replaces the loaded `incidents` severities with the derived `status`.
+// Replaces the loaded `incidents` severities with the derived `status`, and says how
+// many open incidents produced it (the same incidents, so the two always agree).
+// On the public page this counts published incidents only, and the public field
+// allow-list does not pass it through anyway.
 export function withHealth(service) {
   const { incidents, ...rest } = service;
-  return { ...rest, status: statusFromSeverities(incidents.map((incident) => incident.severity)) };
+  return {
+    ...rest,
+    status: statusFromSeverities(incidents.map((incident) => incident.severity)),
+    openIncidentCount: incidents.length,
+  };
 }
 
 // An organization is as healthy as its least healthy service.

@@ -35,7 +35,10 @@ function connect() {
     // stale data until the next event.
     handlers.forEach((entry) => entry.run());
   });
-  socket.on('disconnect', () => setState('connecting'));
+  // Socket.IO reconnects by itself after a lost connection, but not when the server
+  // closed it on purpose (it does that when the organization is deleted). Saying
+  // "Reconnecting" then would be untrue: nothing is going to reconnect.
+  socket.on('disconnect', (reason) => setState(reason === 'io server disconnect' ? 'offline' : 'connecting'));
 
   let retryDelayMs = 1000;
   socket.on('connect_error', (error) => {

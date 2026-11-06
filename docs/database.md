@@ -86,7 +86,21 @@ npx prisma migrate diff --from-migrations prisma/migrations \
   --shadow-database-url postgresql://localhost:5432/blackwater_shadow --exit-code
 ```
 
-No output and exit code 0 means they agree.
+"No difference detected." and exit code 0 means they agree.
+
+### When a migration fails
+
+`migrate deploy` stops at the first migration that fails (error `P3018`). PostgreSQL rolls
+that migration back, so the database is as it was before it, but Prisma records it as
+failed and refuses to apply anything until told what happened. For example, the email
+migration stops if two users' emails differ only by case:
+
+1. Fix the cause (here: change or remove one of the two accounts).
+2. Mark the attempt as rolled back: `npx prisma migrate resolve --rolled-back 20261105100400_normalize_emails_and_tidy_indexes`.
+3. Run `npm run prisma:migrate:prod` again.
+
+Tested on a database migrated to the fourth migration with two such accounts: the failed
+run changed no rows, and after steps 1–3 every migration applied.
 
 ## Demo data
 

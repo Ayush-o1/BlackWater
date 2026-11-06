@@ -1,16 +1,33 @@
 import { api, getAll } from '../api.js';
 import { canWrite, getSession, requireSession } from '../auth.js';
-import { editIncidentDialog, timeline } from '../components.js';
+import { activityFeed, editIncidentDialog } from '../components.js';
 import { h, render } from '../dom.js';
+import { icon } from '../icons.js';
 import { subscribe } from '../realtime.js';
-import { renderShell } from '../shell.js';
+import { renderShell, setBreadcrumb } from '../shell.js';
 import {
-  avatar, busy, button, confirmDialog, emptyState, errorState, formatDateTime, healthLabel,
-  incidentStatusBadge, loadingRows, severityBadge, setTitle, timeAgo, toast, toastError,
+  busy, button, changeDetector, confirmDialog, emptyState, errorState, formatDateTime, healthLabel,
+  incidentStatusBadge, loadingRows, person, setTitle, severityBadge, toast, toastError,
   visibilityBadge,
 } from '../ui.js';
 
 const incidentId = location.pathname.split('/')[2];
+
+// A live refresh rebuilds the header and the details panel, and a rebuilt element
+// is a new element: a keyboard user's focus would drop to the page body every time a
+// teammate changed anything. This repaints a region and then focuses the control
+// that plays the same part (same tag and label) as the one that had focus.
+const focusKey = (element) => `${element.tagName}|${element.getAttribute('aria-label') ?? element.textContent.trim()}`;
+function repaintKeepingFocus(host, ...children) {
+  const key = host.contains(document.activeElement) ? focusKey(document.activeElement) : null;
+  render(host, ...children);
+  if (key) [...host.querySelectorAll('a, button, select')].find((element) => focusKey(element) === key)?.focus();
+}
+
+// The lifecycle in the order an incident moves through it. RESOLVED can go back to
+// TRIGGERED (reopen); CLOSED is final. The server enforces the same rules.
+const LIFECYCLE = ['TRIGGERED', 'ACKNOWLEDGED', 'RESOLVED', 'CLOSED'];
+const LIFECYCLE_LABEL = { TRIGGERED: 'Triggered', ACKNOWLEDGED: 'Acknowledged', RESOLVED: 'Resolved', CLOSED: 'Closed' };
 
 async function start() {
   const main = renderShell({ active: 'incidents' });
@@ -20,49 +37,50 @@ async function start() {
   let incident = null;
   let team = [];
 
-  // Four regions are repainted when data changes. The "add update" form is built
-  // once and never repainted, so a half-written note survives a live refresh.
-  const headerEl = h('div', { class: 'page-header' });
-  const detailsBody = h('div', { class: 'panel-body' });
-  const timelineBody = h('div', { class: 'panel-body' });
-  const updatesBody = h('div', { class: 'panel-body' });
-  const updateFormHost = h('div');
+  // These regions are repainted when data changes. The update form is built once
+  // and never repainted, so a half-written note survives a live refresh.
+  const headerHost = h('div', { class: 'stack-sm' });
+  const descriptionHost = h('div');
+  const composerHost = h('div');
+  const feedHost = h('div', { class: 'panel-body' });
+  const detailsHost = h('div', { class: 'panel-body' });
 
   const layout = h(
     'div',
-    { class: 'split' },
+    { class: 'split split-facts-first' },
     h(
       'div',
       { class: 'stack' },
-      h('section', { class: 'panel' }, h('div', { class: 'panel-header' }, h('h2', {}, 'Timeline')), timelineBody),
-      updateFormHost
+      descriptionHost,
+      h('section', { class: 'panel', 'aria-labelledby': 'activity-title' }, h('div', { class: 'panel-header' }, h('div', {}, h('h2', { id: 'activity-title' }, 'Activity'), h('p', {}, 'Every change and update, newest first'))), composerHost, feedHost)
     ),
-    h(
-      'div',
-      { class: 'stack' },
-      h('section', { class: 'panel' }, h('div', { class: 'panel-header' }, h('h2', {}, 'Details')), detailsBody),
-      h('section', { class: 'panel' }, h('div', { class: 'panel-header' }, h('h2', {}, 'Notes and updates')), updatesBody)
-    )
+    h('aside', { class: 'split-aside', 'aria-label': 'Incident details' }, h('section', { class: 'panel' }, h('div', { class: 'panel-header' }, h('h2', {}, 'Details')), detailsHost))
   );
 
   render(main, h('div', { class: 'panel' }, loadingRows(3)));
+  const shown = changeDetector();
 
   async function load() {
     try {
       const { data } = await api.get(`/incidents/${incidentId}`);
       incident = data;
       if (mayWrite && team.length === 0) team = await getAll('/users');
+      if (!shown.changed({ incident, team })) return;
 
-      if (!main.contains(layout)) render(main, headerEl, layout);
+      if (!main.contains(layout)) render(main, headerHost, layout);
       setTitle(incident.title);
+      setBreadcrumb([{ label: 'Incidents', href: '/incidents' }, { label: incident.title }]);
       paint();
     } catch (error) {
+      shown.forget();
       if (error.status === 404 || error.status === 400) {
+        setBreadcrumb([{ label: 'Incidents', href: '/incidents' }, { label: 'Not found' }]);
         render(main, h('div', { class: 'panel' }, emptyState({
           iconName: 'alert',
           title: 'Incident not found',
           description: 'It may belong to another organization, or the link is wrong.',
           action: h('a', { class: 'btn', href: '/incidents' }, 'Back to incidents'),
+          level: 1,
         })));
       } else {
         render(main, h('div', { class: 'panel' }, errorState(error, load)));
@@ -72,16 +90,15 @@ async function start() {
 
   // ---------- Actions ----------
 
-  async function act(triggerButton, request, successMessage) {
-    await busy(triggerButton, async () => {
+  async function act(trigger, request, successMessage) {
+    await busy(trigger, async () => {
       await request();
       if (successMessage) toast(successMessage);
       await load();
     });
   }
 
-  const setStatus = (status) => (trigger) =>
-    act(trigger, () => api.patch(`/incidents/${incident.id}/status`, { status }), 'Status updated');
+  const setStatus = (status, message) => (trigger) => act(trigger, () => api.patch(`/incidents/${incident.id}/status`, { status }), message);
 
   async function togglePublic(trigger) {
     if (!incident.isPublic) {
@@ -102,17 +119,18 @@ async function start() {
       confirmLabel: 'Close incident',
       danger: true,
     });
-    if (confirmed) await setStatus('CLOSED')(trigger);
+    if (confirmed) await setStatus('CLOSED', 'Incident closed')(trigger);
   }
 
-  function statusActions() {
+  // One primary action: the next step in the lifecycle. Everything else is secondary.
+  function lifecycleActions() {
     switch (incident.status) {
       case 'TRIGGERED':
-        return [button('Acknowledge', { onClick: setStatus('ACKNOWLEDGED') }), button('Resolve', { variant: 'primary', onClick: setStatus('RESOLVED') })];
+        return [button('Acknowledge', { variant: 'primary', onClick: setStatus('ACKNOWLEDGED', 'Acknowledged: the team knows you are on it') }), button('Resolve', { onClick: setStatus('RESOLVED', 'Incident resolved') })];
       case 'ACKNOWLEDGED':
-        return [button('Resolve incident', { variant: 'primary', onClick: setStatus('RESOLVED') })];
+        return [button('Resolve incident', { variant: 'primary', onClick: setStatus('RESOLVED', 'Incident resolved') })];
       case 'RESOLVED':
-        return [button('Reopen', { onClick: setStatus('TRIGGERED') }), button('Close', { variant: 'danger', onClick: closeIncident })];
+        return [button('Close', { variant: 'primary', onClick: closeIncident }), button('Reopen', { onClick: setStatus('TRIGGERED', 'Incident reopened') })];
       default:
         return [];
     }
@@ -123,56 +141,54 @@ async function start() {
   function paint() {
     const closed = incident.status === 'CLOSED';
 
-    render(
-      headerEl,
+    repaintKeepingFocus(
+      headerHost,
       h(
         'div',
-        {},
-        h('h1', {}, incident.title),
-        h('div', { class: 'cluster header-badges' }, incidentStatusBadge(incident.status), severityBadge(incident.severity), visibilityBadge(incident.isPublic)),
-        h('p', {}, `Declared ${formatDateTime(incident.createdAt)}${incident.creator ? ` by ${incident.creator.name}` : ''}`)
-      ),
-      mayWrite &&
+        { class: 'page-header' },
         h(
           'div',
-          { class: 'page-actions' },
-          statusActions(),
-          !closed && button('Edit', { iconName: 'pencil', onClick: () => editIncidentDialog({ incident, onSaved: load }).catch(toastError) }),
-          button(incident.isPublic ? 'Unpublish' : 'Publish', { iconName: 'globe', onClick: togglePublic })
-        )
-    );
-
-    render(detailsBody, detailsList(closed));
-
-    render(
-      timelineBody,
-      incident.timelineEvents.length ? timeline(incident.timelineEvents) : h('p', { class: 'muted' }, 'No history recorded for this incident.')
-    );
-
-    const updates = [...incident.updates].reverse();
-    render(
-      updatesBody,
-      updates.length === 0
-        ? h('p', { class: 'muted' }, 'No notes or updates yet.')
-        : updates.map((update) =>
-            h(
-              'div',
-              { class: 'note' },
-              h('div', { class: 'note-head' }, h('span', { class: 'note-author' }, avatar(update.user?.name ?? '?'), update.user?.name ?? 'Unknown'), h('span', { class: update.isPublic ? 'badge badge-info' : 'badge' }, update.isPublic ? 'Public' : 'Internal')),
-              h('p', { class: 'pre-wrap small' }, update.message),
-              h('div', { class: 'subtle small' }, timeAgo(update.createdAt))
-            )
+          { class: 'stack-sm' },
+          h('h1', { class: 'pre-wrap' }, incident.title),
+          h('div', { class: 'cluster header-badges' }, incidentStatusBadge(incident.status), severityBadge(incident.severity), visibilityBadge(incident.isPublic)),
+          h('p', { class: 'small' }, `Declared ${formatDateTime(incident.createdAt)}${incident.creator ? ` by ${incident.creator.name}` : ''}`)
+        ),
+        mayWrite &&
+          h(
+            'div',
+            { class: 'page-actions' },
+            lifecycleActions(),
+            !closed && button('Edit', { iconName: 'pencil', onClick: () => editIncidentDialog({ incident, onSaved: load }).catch(toastError) }),
+            button(incident.isPublic ? 'Unpublish' : 'Publish', { iconName: 'globe', onClick: togglePublic })
           )
+      ),
+      lifecycleStepper(incident.status)
     );
 
-    paintUpdateForm(closed);
+    render(
+      descriptionHost,
+      incident.description && h('section', { class: 'panel', 'aria-labelledby': 'description-title' }, h('div', { class: 'panel-header' }, h('h2', { id: 'description-title' }, 'Description')), h('div', { class: 'panel-body' }, h('p', { class: 'pre-wrap' }, incident.description)))
+    );
+
+    render(feedHost, incident.timelineEvents.length ? activityFeed(incident) : h('p', { class: 'muted' }, 'No history recorded for this incident.'));
+    repaintKeepingFocus(detailsHost, detailsList(closed));
+    paintComposer(closed);
+  }
+
+  function lifecycleStepper(status) {
+    const current = LIFECYCLE.indexOf(status);
+    return h(
+      'ol',
+      { class: 'lifecycle', 'aria-label': 'Lifecycle' },
+      LIFECYCLE.map((step, index) =>
+        h('li', { class: index < current ? 'done' : null, 'aria-current': index === current ? 'step' : null }, h('span', { class: 'step-dot', 'aria-hidden': 'true' }), LIFECYCLE_LABEL[step])
+      )
+    );
   }
 
   function detailsList(closed) {
     const assigneeControl = () => {
-      if (!mayWrite || closed) {
-        return incident.assignee ? h('span', { class: 'cluster' }, avatar(incident.assignee.name), incident.assignee.name) : h('span', { class: 'muted' }, 'Unassigned');
-      }
+      if (!mayWrite || closed) return person(incident.assignee);
 
       const select = h(
         'select',
@@ -188,88 +204,87 @@ async function start() {
           await load();
         } catch (error) {
           toastError(error);
-          select.value = incident.assigneeId ?? '';
+          select.value = incident.assigneeId ?? ''; // the server refused; show the truth
         }
       });
       return select;
     };
 
+    const row = (label, value) => value && h('div', {}, h('dt', {}, label), h('dd', {}, value));
+
     return h(
       'dl',
       { class: 'details' },
-      h('div', {}, h('dt', {}, 'Assignee'), h('dd', {}, assigneeControl())),
-      h(
-        'div',
-        {},
-        h('dt', {}, 'Affected services'),
-        h(
-          'dd',
-          { class: 'stack-sm' },
-          incident.affectedServices.length === 0
-            ? h('span', { class: 'muted' }, 'None linked')
-            : incident.affectedServices.map((service) =>
-                h('a', { class: 'cluster-between detail-service', href: `/services/${service.id}` }, h('span', {}, service.name), healthLabel(service.status))
-              )
-        )
+      row('Assignee', assigneeControl()),
+      row(
+        'Affected services',
+        incident.affectedServices.length === 0
+          ? h('span', { class: 'muted' }, 'None linked')
+          : h('div', {}, incident.affectedServices.map((service) => h('a', { class: 'detail-service', href: `/services/${service.id}` }, h('span', { class: 'truncate' }, service.name), healthLabel(service.status))))
       ),
-      incident.description && h('div', {}, h('dt', {}, 'Description'), h('dd', {}, h('p', { class: 'pre-wrap' }, incident.description))),
-      incident.acknowledgedAt && h('div', {}, h('dt', {}, 'Acknowledged'), h('dd', {}, formatDateTime(incident.acknowledgedAt))),
-      incident.resolvedAt && h('div', {}, h('dt', {}, 'Resolved'), h('dd', {}, formatDateTime(incident.resolvedAt))),
-      incident.isPublic &&
-        h('div', {}, h('dt', {}, 'Status page'), h('dd', {}, h('a', { href: `/status/${user.orgId}/incidents/${incident.id}`, target: '_blank', rel: 'noopener' }, 'View public page')))
+      row(
+        'Visibility',
+        incident.isPublic
+          ? h('div', { class: 'stack-sm' }, h('span', {}, 'Published to the status page'), h('a', { href: `/status/${user.orgId}/incidents/${incident.id}`, target: '_blank', rel: 'noopener' }, icon('external', 'sm'), 'View public page'))
+          : h('span', {}, 'Private: your team only')
+      ),
+      row('Declared', h('span', {}, formatDateTime(incident.createdAt), incident.creator && h('span', { class: 'subtle' }, ` by ${incident.creator.name}`))),
+      incident.acknowledgedAt && row('Acknowledged', formatDateTime(incident.acknowledgedAt)),
+      incident.resolvedAt && row('Resolved', formatDateTime(incident.resolvedAt))
     );
   }
 
-  // The form is created on first paint and then only toggled/hinted.
-  let updateForm = null;
+  // The composer is created on first paint and then only shown, hidden or re-hinted.
+  let composer = null;
   let publicHint = null;
 
-  function paintUpdateForm(closed) {
+  function paintComposer(closed) {
     if (!mayWrite) {
-      render(updateFormHost);
+      render(composerHost);
       return;
     }
-
     if (closed) {
-      updateForm = null;
-      render(updateFormHost, h('section', { class: 'panel' }, h('div', { class: 'panel-body muted' }, 'This incident is closed and can no longer be updated.')));
+      composer = null;
+      render(composerHost, h('div', { class: 'panel-body muted' }, 'This incident is closed and can no longer be updated.'));
       return;
     }
 
-    if (!updateForm) {
-      const message = h('textarea', { class: 'textarea', name: 'message', required: true, maxlength: 5000, placeholder: 'What is happening? What are you doing about it?', 'aria-label': 'Update message' });
-      const visibility = h('select', { class: 'select', name: 'isPublic', 'aria-label': 'Who can see this' }, h('option', { value: 'false' }, 'Internal note: team only'), h('option', { value: 'true' }, 'Public update: shown on the status page'));
-      publicHint = h('p', { class: 'hint' });
+    if (!composer) {
+      const message = h('textarea', { class: 'textarea', name: 'message', required: true, maxlength: 5000, rows: 3, placeholder: 'What is happening? What are you doing about it?', 'aria-label': 'Update message' });
+      publicHint = h('p', { class: 'hint', id: 'visibility-hint' });
+      const choice = (value, label, iconName, checked) =>
+        h('label', {}, h('input', { type: 'radio', name: 'visibility', value, checked, 'aria-describedby': 'visibility-hint' }), icon(iconName, 'sm'), label);
+      const visibility = h(
+        'fieldset',
+        { class: 'field' },
+        h('legend', { class: 'visually-hidden' }, 'Who can see this'),
+        h('div', { class: 'segmented' }, choice('internal', 'Internal note', 'lock', true), choice('public', 'Public update', 'globe', false))
+      );
       const post = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Post');
 
       visibility.addEventListener('change', refreshHint);
-
-      updateForm = h(
-        'form',
-        { class: 'form' },
-        message,
-        visibility,
-        publicHint,
-        h('div', { class: 'form-actions' }, post)
-      );
-      updateForm.addEventListener('submit', async (event) => {
+      composer = h('form', { class: 'form', 'aria-label': 'Add a note or update' }, message, h('div', { class: 'composer-actions' }, h('div', { class: 'stack-sm' }, visibility, publicHint), post));
+      composer.addEventListener('submit', async (event) => {
         event.preventDefault();
         await busy(post, async () => {
-          await api.post(`/incidents/${incident.id}/updates`, { message: message.value, isPublic: visibility.value === 'true' });
+          const isPublic = composer.elements.visibility.value === 'public';
+          await api.post(`/incidents/${incident.id}/updates`, { message: message.value, isPublic });
           message.value = '';
-          toast('Posted');
+          toast(isPublic ? 'Public update posted' : 'Internal note added');
           await load();
         });
       });
     }
 
-    render(updateFormHost, h('section', { class: 'panel' }, h('div', { class: 'panel-header' }, h('h2', {}, 'Add a note or update')), h('div', { class: 'panel-body' }, updateForm)));
+    // Attached once. Moving it on every refresh would take the focus out of a
+    // half-written message (or the visibility choice) whenever anything changed.
+    if (!composerHost.contains(composer)) render(composerHost, h('div', { class: 'panel-body composer' }, composer));
     refreshHint();
   }
 
   function refreshHint() {
     if (!publicHint) return;
-    const wantsPublic = updateForm.elements.isPublic.value === 'true';
+    const wantsPublic = composer.elements.visibility.value === 'public';
     publicHint.textContent =
       wantsPublic && !incident.isPublic
         ? 'This incident is private, so a public update stays hidden until you publish the incident.'

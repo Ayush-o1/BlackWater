@@ -134,6 +134,14 @@ describe('POST /auth/login', () => {
 });
 
 describe('GET /auth/me', () => {
+  it('includes the name of the user\'s organization, for the interface\'s header', async () => {
+    const { org, token } = await createOrgWithUser('VIEWER');
+    const res = await api().get('/api/auth/me').set('Authorization', bearer(token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.organization).toEqual({ id: org.id, name: org.name });
+    expect(res.body.data.passwordHash).toBeUndefined();
+  });
+
   it('returns 401 without a token', async () => {
     const res = await api().get('/api/auth/me');
     expect(res.status).toBe(401);

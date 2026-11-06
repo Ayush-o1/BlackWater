@@ -32,7 +32,8 @@ Please do not open a public issue for a security problem. Use GitHub's private v
 
 - **Tokens are not revocable.** A stolen token works until it expires (`JWT_EXPIRES_IN`, default one day). There is no refresh-token flow and no "sign out everywhere". Keep the lifetime short if this matters to you.
 - **The token is kept in the browser's storage** (`localStorage`, or `sessionStorage` when "keep me signed in" is off), so cross-site scripting would expose it. The Content-Security-Policy and the text-only rendering are the defences against that. An HttpOnly cookie would remove the exposure at the price of CSRF handling.
-- **Registration is open.** Anyone who can reach the server can create an organization.
+- **Registration is open.** Anyone who can reach the server can create an organization. It also answers 409 for an email that is already registered, so it reveals whether an address has an account (login does not).
+- **An open socket outlives its token.** The handshake is checked once, so a connected socket keeps receiving its organization's events after the token expires. Events carry only an id, and the refetch they trigger goes through the API, which refuses the expired token, so no data is exposed.
 - **No multi-factor authentication, password reset or account lockout.** The per-IP limit on failed logins is the only brake on password guessing; it does not stop a slow attack spread over many addresses.
 - **Rate limits and sockets are per process.** Do not run several instances without moving both to a shared store.
 - **Public status pages are addressed by the organization id.** The id is a random UUID and is not a secret; the protection is that only published data is served.

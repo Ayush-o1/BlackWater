@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt';
 import { prisma } from '../database/prisma.js';
 import { AppError } from '../utils/AppError.js';
-import { disconnectOrg } from '../socket/emitter.js';
+import { disconnectOrg, emitToOrg } from '../socket/emitter.js';
+import { SocketEvent } from '../socket/events.js';
 
 export async function getOrganization(orgId) {
   const organization = await prisma.organization.findUnique({
@@ -19,7 +20,12 @@ export async function getOrganization(orgId) {
 export async function updateOrganization(orgId, { name }) {
   await getOrganization(orgId);
 
-  return prisma.organization.update({ where: { id: orgId }, data: { name } });
+  const organization = await prisma.organization.update({ where: { id: orgId }, data: { name } });
+
+  // Every open page shows the organization's name in its sidebar; the team event
+  // makes them refetch it (see refreshUser in public/js/shell.js).
+  emitToOrg(orgId, SocketEvent.TEAM_CHANGED, { id: orgId });
+  return organization;
 }
 
 // Permanently deletes the organization and everything it owns. Irreversible, so it

@@ -35,7 +35,7 @@ Browser ── HTTP /api, WebSocket ──> Express ──> Prisma ──> Postg
 
 **Invitations.** The token is 32 random bytes; the database keeps only its SHA-256 hash. The link carries the token in the URL fragment, which browsers do not send to servers, so it stays out of access logs. Accepting claims the row with one conditional `UPDATE` inside the transaction that creates the user.
 
-**Real-time.** A socket joins one room, `organization:<orgId>`, chosen by the server from the authenticated user. Services emit after commit, with only an id in the payload. A browser that hears an event refetches through the normal API, so live data is always exactly what the API would return to that user. After a reconnect, pages refetch once because events may have been missed. Public status pages have no socket and poll every 30 seconds.
+**Real-time.** A socket joins one room, `organization:<orgId>`, chosen by the server from the authenticated user. Services emit after commit, with only an id in the payload. A browser that hears an event refetches through the normal API, so live data is always exactly what the API would return to that user. Every time the socket connects (the first time included) pages refetch once, because anything that changed between loading the page and connecting, or while disconnected, was announced to nobody. Public status pages have no socket and poll every 30 seconds.
 
 ## Web interface
 

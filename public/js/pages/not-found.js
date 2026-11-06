@@ -8,13 +8,13 @@ render(
   document.getElementById('app'),
   h(
     'main',
-    { class: 'auth-page' },
+    { class: 'message-page', id: 'main' },
     emptyState({
       iconName: 'search',
       title: 'Page not found',
       level: 1,
       description: 'The page you are looking for does not exist or has moved.',
-      action: h('a', { class: 'btn', href: getSession() ? '/' : '/login' }, getSession() ? 'Go to dashboard' : 'Go to sign in'),
+      action: h('a', { class: 'btn', href: getSession() ? '/' : '/login' }, getSession() ? 'Go to overview' : 'Go to sign in'),
     })
   )
 );
