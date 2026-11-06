@@ -28,6 +28,8 @@ CI runs the backend suite on the minimum supported Node.js (20.19) as well as on
 
 To run the browser suite in the other engines locally: `npx playwright install firefox webkit`, then `npm run test:e2e:all-browsers` (or `ALL_BROWSERS=1 npx playwright test --project=webkit` for one engine). If a browser will not start on your machine (Playwright's Firefox currently fails to launch on macOS 27), run the suite in the official Linux image instead, `mcr.microsoft.com/playwright:v<version>-noble` with the version in `package.json`, with a PostgreSQL container beside it, as CI does.
 
+CI runs the browser tests inside Playwright's Docker image (`mcr.microsoft.com/playwright`), which already contains the browsers. When you upgrade `@playwright/test`, change that image tag in `.github/workflows/ci.yml` and `production.yml` to the same version, or the browsers will not be found.
+
 Integration tests share one database and run one file at a time. Each test starts from an empty database, so tests create what they need with the helpers in `tests/helpers/factories.js`.
 
 ## Conventions

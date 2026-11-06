@@ -65,7 +65,7 @@ async function start() {
       if (!gridHost.querySelector('.overview-grid')) render(gridHost, h('div', { class: 'overview-grid' }, attentionHost, servicesHost, resolvedHost, publicPagePanel(user.orgId)));
     } catch (error) {
       if (gridHost.querySelector('.overview-grid')) return; // a failed live refresh keeps the last good view
-      shown.forget();
+      if (!shown.changed({ failed: error.status, message: error.message })) return; // already showing this failure
       render(bannerHost);
       render(gridHost, h('div', { class: 'panel' }, errorState(error, load)));
     }

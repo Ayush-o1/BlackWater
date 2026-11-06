@@ -68,14 +68,16 @@ jobs:
           echo "The live service never reported commit $GITHUB_SHA. Check the Render deploy logs." >&2
           exit 1
 
-      - name: Install the browser
-        run: npx playwright install --with-deps chromium
-
+      # Runs in Playwright's image, which already contains the browser and its
+      # libraries (installing them with apt depended on a sometimes very slow package
+      # mirror). The tag must match @playwright/test in package.json.
       - name: Smoke journey against the live site
-        run: npm run smoke
-        env:
-          SMOKE_URL: ${{ env.PRODUCTION_URL }}
-          EXPECT_COMMIT: ${{ github.sha }}
+        run: |
+          docker run --rm --ipc=host --user "$(id -u)" -e HOME=/tmp \
+            -v "$PWD":/work -w /work \
+            -e SMOKE_URL="$PRODUCTION_URL" -e EXPECT_COMMIT="$GITHUB_SHA" \
+            mcr.microsoft.com/playwright:v1.65.0-noble \
+            npm run smoke
 
       - name: Mark the deployment successful
         if: success()
