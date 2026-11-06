@@ -55,7 +55,13 @@ function watch(page, label, problems) {
     if (['error', 'warning'].includes(message.type())) problems.push(`${label} console ${message.type()}: ${message.text()}`);
   });
   page.on('pageerror', (error) => problems.push(`${label} uncaught: ${error.message}`));
-  page.on('requestfailed', (request) => problems.push(`${label} request failed: ${request.url()}`));
+  // A request the page cancelled because the journey moved on did not fail: the page
+  // aborts its own unfinished requests when it is left (api.js). Over a real network
+  // many are still in flight at that moment. Any other failure is reported with its reason.
+  page.on('requestfailed', (request) => {
+    const reason = request.failure()?.errorText ?? '';
+    if (!/abort|cancel/i.test(reason)) problems.push(`${label} request failed (${reason}): ${request.url()}`);
+  });
   page.on('response', (response) => {
     if (response.status() >= 400) problems.push(`${label} HTTP ${response.status()}: ${response.url()}`);
   });
