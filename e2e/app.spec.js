@@ -623,22 +623,27 @@ test.describe('failure handling', () => {
   });
 });
 
-test.describe('phone layout', () => {
-  test('no page scrolls sideways, even with very long unbroken text', async ({ page }) => {
+test.describe('responsive layout', () => {
+  test('no page scrolls sideways at any common width, even with very long unbroken text', async ({ page }) => {
+    test.setTimeout(150_000); // 8 widths x 8 pages, each loaded until the network is idle
     const { orgId, token } = await register(page);
     const api = apiFor(page, token);
     const long = 'A'.repeat(180);
     const service = (await (await api.post('/services', { name: `S${long}`, description: long })).json()).data;
     const incident = (await (await api.post('/incidents', { title: `T${long}`, description: long, severity: 'HIGH', serviceIds: [service.id], isPublic: true })).json()).data;
     await api.post(`/incidents/${incident.id}/updates`, { message: long, isPublic: true });
-    await page.setViewportSize({ width: 360, height: 740 });
 
+    // Phones (360-430), tablet portrait and landscape, laptop and desktop sizes.
+    const widths = [360, 390, 430, 768, 1024, 1280, 1440, 1920];
     const paths = ['/', '/incidents', `/incidents/${incident.id}`, '/services', `/services/${service.id}`, '/settings', `/status/${orgId}`, `/status/${orgId}/incidents/${incident.id}`];
-    for (const path of paths) {
-      await page.goto(path);
-      await page.waitForLoadState('networkidle');
-      const { scrollWidth, innerWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
-      expect(scrollWidth, `${path} is wider than the screen`).toBeLessThanOrEqual(innerWidth);
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const path of paths) {
+        await page.goto(path);
+        await page.waitForLoadState('networkidle');
+        const { scrollWidth, innerWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
+        expect(scrollWidth, `${path} is wider than the screen at ${width} px`).toBeLessThanOrEqual(innerWidth);
+      }
     }
   });
 });
