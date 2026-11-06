@@ -845,4 +845,33 @@ test.describe('live updates across sessions', () => {
     await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'ACKNOWLEDGED' });
     await expect(watcher.locator('.header-badges')).toContainText('Acknowledged');
   });
+
+  test('a teammate\'s change elsewhere does not take the keyboard focus away from someone writing an update', async ({ page }) => {
+    const admin = await register(page);
+    const mine = await post(page.request, admin.token, '/incidents', { title: 'Incident being written about', severity: 'HIGH' });
+    const elsewhere = await post(page.request, admin.token, '/incidents', { title: 'Some other incident', severity: 'LOW' });
+    await page.goto(`/incidents/${mine.id}`);
+    await expect(page.locator('.live-indicator')).toHaveText('Live');
+
+    // Each step makes an unrelated change and waits for this page to refetch because of it.
+    const changeElsewhere = async (message) => {
+      const refetched = page.waitForResponse((response) => response.url().endsWith(`/api/incidents/${mine.id}`));
+      await post(page.request, admin.token, `/incidents/${elsewhere.id}/updates`, { message });
+      await refetched;
+    };
+
+    const message = page.getByLabel('Update message');
+    await message.click();
+    await page.keyboard.type('Half written');
+    await changeElsewhere('first unrelated change');
+    await expect(message).toBeFocused();
+    await page.keyboard.type(' and finished');
+    await expect(message).toHaveValue('Half written and finished');
+
+    // The details panel is rebuilt on every refresh; the assignee picker keeps the focus.
+    const assignee = page.getByLabel('Assignee');
+    await assignee.focus();
+    await changeElsewhere('second unrelated change');
+    await expect(page.getByLabel('Assignee')).toBeFocused();
+  });
 });
