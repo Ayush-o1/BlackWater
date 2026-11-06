@@ -1,11 +1,34 @@
 import { api, getAll } from './api.js';
 import { h } from './dom.js';
+import { icon } from './icons.js';
 import {
   avatar, checkboxField, formDialog, healthLabel, incidentStatusBadge, selectField,
   severityBadge, textField, textareaField, timeAgo, titleCase, toast, formatDateTime, visibilityBadge,
 } from './ui.js';
 
 // Pieces of the interface that more than one page uses.
+
+// ---------- Status banner ----------
+
+// One sentence for the overall state, used by the overview and the public status
+// page so both always describe the same state in the same words. Each state has its
+// own icon as well as its colour.
+const BANNER = {
+  OPERATIONAL: ['checkCircle', 'All systems operational'],
+  DEGRADED: ['info', 'Degraded performance'],
+  PARTIAL_OUTAGE: ['alert', 'Partial outage'],
+  MAJOR_OUTAGE: ['xCircle', 'Major outage'],
+};
+
+export function statusBanner(status, detail, headingLevel = 'h2') {
+  const [iconName, title] = BANNER[status] ?? BANNER.OPERATIONAL;
+  return h(
+    'div',
+    { class: `banner banner-${String(status).toLowerCase()}` },
+    icon(iconName, 'lg'),
+    h('div', {}, h(headingLevel, {}, title), detail && h('p', {}, detail))
+  );
+}
 
 // ---------- Rows ----------
 
@@ -42,7 +65,7 @@ export function serviceRow(service) {
 
 // ---------- Audit timeline ----------
 
-const person = (reference) => (reference?.name ? reference.name : 'someone');
+const personName = (reference) => (reference?.name ? reference.name : 'someone');
 
 // Turns one timeline event into words. The wording lives here (not on the
 // server) so the API stays a plain record of what happened.
@@ -58,8 +81,8 @@ function describeEvent(event) {
 
     case 'ASSIGNEE_CHANGED': {
       if ('to' in m || 'from' in m) {
-        if (!m.to) return { title: 'Unassigned', detail: m.from ? `Was ${person(m.from)}` : null };
-        return { title: `Assigned to ${person(m.to)}`, detail: m.from ? `Previously ${person(m.from)}` : null };
+        if (!m.to) return { title: 'Unassigned', detail: m.from ? `Was ${personName(m.from)}` : null };
+        return { title: `Assigned to ${personName(m.to)}`, detail: m.from ? `Previously ${personName(m.from)}` : null };
       }
       return { title: 'Assignee changed', detail: null }; // events recorded before names were stored
     }
@@ -86,23 +109,64 @@ function describeEvent(event) {
   }
 }
 
-// The internal timeline. Each entry says what changed and who did it; an event
-// without an actor is a system event (or one recorded before actors were tracked).
-export function timeline(events) {
+// What kind of mark each event gets in the feed: its icon says what happened.
+const EVENT_ICON = {
+  INCIDENT_CREATED: 'flag',
+  STATUS_CHANGED: 'chevronRight',
+  ASSIGNEE_CHANGED: 'users',
+  INCIDENT_EDITED: 'pencil',
+  UPDATE_ADDED: 'message',
+  VISIBILITY_CHANGED: 'globe',
+};
+
+// The incident's activity in one chronological column, newest first: changes are
+// compact one-line events, while notes and updates are messages and get a card.
+// An "update posted" event and the update it refers to are shown as one entry, so
+// the message appears exactly where it happened. An event with no actor is a system
+// event (or one recorded before actors were tracked).
+export function activityFeed(incident) {
+  const updatesById = new Map(incident.updates.map((update) => [update.id, update]));
+  const events = [...incident.timelineEvents].reverse();
+
   return h(
     'ol',
-    { class: 'timeline' },
+    { class: 'feed', 'aria-label': 'Activity, newest first' },
     events.map((event) => {
       const { title, detail } = describeEvent(event);
       const lines = Array.isArray(detail) ? detail : detail ? [detail] : [];
+      const update = event.eventType === 'UPDATE_ADDED' ? updatesById.get(event.metadata?.updateId) : null;
+      const isPublicUpdate = update?.isPublic;
 
       return h(
         'li',
-        { class: 'timeline-item' },
-        h('span', { class: 'dot' }),
-        h('div', { class: 'timeline-head' }, h('span', { class: 'timeline-title' }, title), h('time', { class: 'timeline-time', datetime: event.createdAt, title: formatDateTime(event.createdAt) }, timeAgo(event.createdAt))),
-        lines.map((line) => h('div', { class: 'timeline-detail' }, line)),
-        h('div', { class: 'timeline-detail subtle' }, event.actor ? `by ${event.actor.name}` : 'by System')
+        { class: isPublicUpdate ? 'feed-item feed-item-public' : 'feed-item' },
+        h('span', { class: 'feed-mark', 'aria-hidden': 'true' }, icon(EVENT_ICON[event.eventType] ?? 'info')),
+        h(
+          'div',
+          { class: 'stack-sm' },
+          h(
+            'div',
+            { class: 'feed-event' },
+            h('strong', {}, title),
+            h('span', {}, event.actor ? `by ${event.actor.name}` : 'by System'),
+            h('time', { class: 'feed-time', datetime: event.createdAt, title: formatDateTime(event.createdAt) }, timeAgo(event.createdAt)),
+            lines.map((line) => h('span', { class: 'feed-detail' }, line))
+          ),
+          update &&
+            h(
+              'div',
+              { class: isPublicUpdate ? 'note note-public' : 'note' },
+              h(
+                'div',
+                { class: 'note-head' },
+                h('span', { class: 'note-author' }, avatar(update.user?.name ?? '?'), update.user?.name ?? 'Unknown'),
+                isPublicUpdate
+                  ? h('span', { class: 'badge visibility-public' }, icon('globe', 'sm'), 'Public update')
+                  : h('span', { class: 'badge' }, icon('lock', 'sm'), 'Internal note')
+              ),
+              h('p', { class: 'note-body' }, update.message)
+            )
+        )
       );
     })
   );

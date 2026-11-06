@@ -1,80 +1,124 @@
 import { api } from '../api.js';
+import { statusBanner } from '../components.js';
 import { h, render } from '../dom.js';
-import { icon } from '../icons.js';
 import { refreshPeriodically, renderPublicLayout } from '../publicLayout.js';
 import {
-  emptyState, errorState, healthLabel, incidentStatusBadge, loadMoreButton, loadingRows,
+  emptyState, errorState, formatDate, formatDateTime, healthLabel, incidentStatusBadge, loadMoreButton, loadingRows,
   severityBadge, timeAgo,
 } from '../ui.js';
 
 const orgId = location.pathname.split('/')[2];
+const { main, setOrganizationName, markChecked } = renderPublicLayout();
 
-const BANNERS = {
-  OPERATIONAL: ['success', 'checkCircle', 'All systems operational', 'Everything is working as expected.'],
-  DEGRADED: ['warning', 'alert', 'Some services are degraded', 'We are aware and working on it.'],
-  PARTIAL_OUTAGE: ['orange', 'alert', 'Partial outage', 'Some services are not working. We are working on it.'],
-  MAJOR_OUTAGE: ['danger', 'xCircle', 'Major outage', 'Services are down. We are working to restore them.'],
-};
-
-const { main, setOrganizationName } = renderPublicLayout();
-
+let overview = null;
 let history = [];
 let historyPage = null;
-let overview = null;
+let latestUpdates = new Map();
 
 const bannerHost = h('div');
 const activeHost = h('div');
-const servicesHost = h('section', { class: 'panel' });
-const historyHost = h('section', { class: 'panel' });
-const checkedHost = h('p', { class: 'subtle small centered' });
+const servicesHost = h('section', { class: 'panel', 'aria-labelledby': 'components-title' });
+const historyHost = h('section', { class: 'panel', 'aria-labelledby': 'history-title' });
 
-render(main, h('div', { class: 'stack' }, bannerHost, activeHost, servicesHost, historyHost, checkedHost));
+render(main, bannerHost, activeHost, servicesHost, historyHost);
 render(servicesHost, loadingRows(3));
 
-const incidentLink = (incident) =>
-  h(
-    'a',
-    { class: 'row', href: `/status/${orgId}/incidents/${incident.id}` },
-    h('div', {}, h('div', { class: 'row-title' }, incident.title), h('div', { class: 'row-meta' }, h('span', {}, `Started ${timeAgo(incident.createdAt)}`), incident.resolvedAt && h('span', {}, `Resolved ${timeAgo(incident.resolvedAt)}`))),
-    h('div', { class: 'row-side' }, severityBadge(incident.severity), incidentStatusBadge(incident.status))
-  );
+function bannerDetail() {
+  const count = overview.activeIncidents.length;
+  if (count === 0) return 'Everything is running normally.';
+  return `We are working on ${count === 1 ? 'one incident' : `${count} incidents`}. Details below.`;
+}
 
 function paint() {
-  const [tone, iconName, title, text] = BANNERS[overview.overallStatus];
   setOrganizationName(overview.organization.name);
-
-  render(bannerHost, h('div', { class: `banner banner-${tone}` }, icon(iconName, 'lg'), h('div', {}, h('h1', {}, title), h('p', {}, text))));
+  document.title = `${overview.organization.name} status`;
+  render(bannerHost, statusBanner(overview.overallStatus, bannerDetail(), 'h1'));
 
   render(
     activeHost,
     overview.activeIncidents.length > 0 &&
-      h('section', { class: 'panel' }, h('div', { class: 'panel-header' }, h('h2', {}, 'Current incidents')), h('div', { class: 'rows' }, overview.activeIncidents.map(incidentLink)))
+      h(
+        'section',
+        { class: 'panel', 'aria-labelledby': 'active-title' },
+        h('div', { class: 'panel-header' }, h('h2', { id: 'active-title' }, 'Current incidents')),
+        h('ul', { class: 'rows' }, overview.activeIncidents.map((incident) => h('li', {}, activeIncident(incident))))
+      )
   );
 
   render(
     servicesHost,
-    h('div', { class: 'panel-header' }, h('h2', {}, 'Services')),
+    h('div', { class: 'panel-header' }, h('h2', { id: 'components-title' }, 'Services')),
     overview.services.length === 0
-      ? emptyState({ iconName: 'server', title: 'No services listed', description: 'This organization has not added any services yet.' })
+      ? emptyState({ iconName: 'server', title: 'No services listed', description: 'This organization has not listed any services yet.' })
       : h(
-          'div',
+          'ul',
           { class: 'rows' },
           overview.services.map((service) =>
-            h('div', { class: 'row' }, h('div', {}, h('div', { class: 'row-title' }, service.name), service.description && h('div', { class: 'row-meta' }, service.description)), h('div', { class: 'row-side' }, healthLabel(service.status)))
+            h('li', { class: 'row' }, h('div', {}, h('div', { class: 'row-title' }, service.name), service.description && h('div', { class: 'row-meta' }, service.description)), h('div', { class: 'row-side' }, healthLabel(service.status)))
           )
         )
   );
-
-  checkedHost.textContent = `Last checked ${new Date().toLocaleTimeString()}. This page refreshes automatically.`;
+  markChecked();
 }
 
+// An active incident with the last thing the team told customers about it.
+function activeIncident(incident) {
+  const latest = latestUpdates.get(incident.id);
+  return h(
+    'a',
+    { class: 'row', href: `/status/${orgId}/incidents/${incident.id}` },
+    h(
+      'div',
+      { class: 'stack-sm' },
+      h('div', { class: 'row-title' }, incident.title),
+      latest && h('p', { class: 'small muted pre-wrap' }, latest.message),
+      h('div', { class: 'row-meta' }, h('span', {}, latest ? `Updated ${timeAgo(latest.createdAt)}` : `Started ${timeAgo(incident.createdAt)}`), incident.affectedServices.length > 0 && h('span', {}, incident.affectedServices.map((service) => service.name).join(', ')))
+    ),
+    h('div', { class: 'row-side' }, severityBadge(incident.severity), incidentStatusBadge(incident.status))
+  );
+}
+
+// History, grouped by the day each incident started, newest first.
 function paintHistory() {
+  const groups = [];
+  for (const incident of history) {
+    const day = formatDate(incident.createdAt);
+    if (groups.at(-1)?.day !== day) groups.push({ day, incidents: [] });
+    groups.at(-1).incidents.push(incident);
+  }
+
   render(
     historyHost,
-    h('div', { class: 'panel-header' }, h('h2', {}, 'Incident history')),
+    h('div', { class: 'panel-header' }, h('h2', { id: 'history-title' }, 'Incident history')),
     history.length === 0
       ? emptyState({ iconName: 'checkCircle', title: 'No incidents to show', description: 'Published incidents will be listed here.' })
-      : h('div', { class: 'rows' }, history.map(incidentLink)),
+      : h(
+          'div',
+          {},
+          groups.map((group) =>
+            h(
+              'div',
+              {},
+              h('h3', { class: 'section-label history-day' }, group.day),
+              h(
+                'ul',
+                { class: 'rows' },
+                group.incidents.map((incident) =>
+                  h(
+                    'li',
+                    {},
+                    h(
+                      'a',
+                      { class: 'row', href: `/status/${orgId}/incidents/${incident.id}` },
+                      h('div', {}, h('div', { class: 'row-title' }, incident.title), h('div', { class: 'row-meta' }, h('time', { datetime: incident.createdAt }, formatDateTime(incident.createdAt)), incident.resolvedAt && h('span', {}, `Resolved ${timeAgo(incident.resolvedAt)}`))),
+                      h('div', { class: 'row-side' }, severityBadge(incident.severity), incidentStatusBadge(incident.status))
+                    )
+                  )
+                )
+              )
+            )
+          )
+        ),
     historyPage?.hasMore && loadMoreButton(() => loadHistory({ append: true }))
   );
 }
@@ -90,9 +134,26 @@ async function loadHistory({ append = false } = {}) {
   paintHistory();
 }
 
+// The latest public update of each active incident (there are rarely more than a few).
+async function loadLatestUpdates() {
+  const entries = await Promise.all(
+    overview.activeIncidents.slice(0, 5).map(async (incident) => {
+      // One incident failing (unpublished a moment ago, say) must not blank the page.
+      try {
+        const { data } = await api.get(`/status/incidents/${incident.id}`, { orgId });
+        return [incident.id, data.updates.at(-1)];
+      } catch {
+        return [incident.id, null];
+      }
+    })
+  );
+  latestUpdates = new Map(entries.filter(([, update]) => update));
+}
+
 async function load() {
   try {
     ({ data: overview } = await api.get('/status', { orgId }));
+    await loadLatestUpdates();
     paint();
     await loadHistory();
   } catch (error) {

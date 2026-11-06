@@ -99,7 +99,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     await admin.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await admin.getByLabel('Organization name').fill(`Smoke test ${id}`);
     await admin.getByRole('button', { name: 'Create account' }).click();
-    await expect(admin.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(admin.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
     adminSession = await sessionOf(admin);
     expect(adminSession.user.role).toBe('ADMIN');
   });
@@ -112,7 +112,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     await admin.getByLabel('Name').fill('Payments API');
     await admin.getByLabel('Description').fill('Takes card payments');
     await admin.getByRole('dialog').getByRole('button', { name: 'Add service' }).click();
-    await expect(admin.getByRole('link', { name: /Payments API/ })).toContainText('Operational');
+    await expect(admin.getByRole('row', { name: /Payments API/ })).toContainText('Operational');
   });
 
   // ---- Invitation: link, acceptance, single use, role ----
@@ -136,7 +136,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     await member.getByLabel('Email address').fill(`smoke-member-${id}@blackwater.test`);
     await member.getByLabel('Choose a password').fill(PASSWORD);
     await member.getByRole('button', { name: 'Join' }).click();
-    await expect(member.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(member.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
     memberSession = await sessionOf(member);
     expect(memberSession.user.role).toBe('VIEWER');
     expect(memberSession.user.orgId).toBe(orgId);
@@ -188,12 +188,12 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
   await test.step('declare a private critical incident; health follows', async () => {
     await admin.goto('/incidents');
     await admin.getByRole('button', { name: 'Declare incident' }).click();
-    await admin.getByLabel('Title').fill(title);
+    await admin.getByLabel('Title', { exact: true }).fill(title);
     await admin.getByLabel('Severity', { exact: true }).selectOption('CRITICAL');
     await admin.getByLabel('Payments API').check();
     await admin.getByRole('dialog').getByRole('button', { name: 'Declare incident' }).click();
     await expect(admin.getByRole('heading', { name: title })).toBeVisible();
-    await expect(admin.getByText('Private')).toBeVisible();
+    await expect(admin.getByText('Private', { exact: true })).toBeVisible();
     await expect(admin.getByText('Major outage')).toBeVisible();
     incidentUrl = admin.url();
     incidentId = incidentUrl.split('/').pop();
@@ -221,15 +221,15 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     await expect(admin.getByText('Severity: Critical → High')).toBeVisible();
 
     await admin.getByLabel('Update message').fill('Root cause: expired certificate. Internal only.');
-    await admin.getByLabel('Who can see this').selectOption('false');
+    await admin.getByLabel('Internal note').check();
     await admin.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(admin.getByText('Internal note added')).toBeVisible();
+    await expect(admin.getByRole('status').getByText('Internal note added')).toBeVisible();
 
     await admin.getByLabel('Update message').fill('We are investigating failing payments.');
-    await admin.getByLabel('Who can see this').selectOption('true');
+    await admin.getByLabel('Public update').check();
     await admin.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(admin.getByText('Public update posted')).toBeVisible();
-    await expect(member.getByText('Public update posted')).toBeVisible();
+    await expect(admin.getByRole('status').getByText('Public update posted')).toBeVisible();
+    await expect(member.getByLabel('Activity, newest first').getByText('Public update posted')).toBeVisible();
   });
 
   await test.step('the audit trail names who did what', async () => {
@@ -251,7 +251,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
 
     await admin.getByRole('button', { name: 'Publish' }).click();
     await admin.getByRole('dialog').getByRole('button', { name: 'Publish' }).click();
-    await expect(admin.locator('#main').getByText('Published to the status page')).toBeVisible();
+    await expect(admin.getByLabel('Incident details').getByText('Published to the status page')).toBeVisible();
 
     await visitor.goto(`/status/${orgId}`);
     await expect(visitor.getByText('Partial outage').first()).toBeVisible();
@@ -263,7 +263,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     await expect(visitor.getByText('Ananya')).toHaveCount(0);
 
     await admin.getByRole('button', { name: 'Unpublish' }).click();
-    await expect(admin.locator('#main').getByText('Removed from the status page')).toBeVisible();
+    await expect(admin.getByLabel('Incident details').getByText('Private: your team only')).toBeVisible();
     await visitor.reload();
     await expect(visitor.getByText('Incident not found')).toBeVisible();
   });
@@ -277,7 +277,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     await admin.getByRole('button', { name: 'Resolve', exact: true }).click();
     await expect(admin.locator('.header-badges')).toContainText('Resolved');
     await admin.goto('/services');
-    await expect(admin.getByRole('link', { name: /Payments API/ })).toContainText('Operational');
+    await expect(admin.getByRole('row', { name: /Payments API/ })).toContainText('Operational');
   });
 
   // ---- Isolation between organizations ----

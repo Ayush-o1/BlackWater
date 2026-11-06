@@ -11,7 +11,7 @@ const params = new URLSearchParams(location.search);
 if (getSession()) {
   location.replace(safeNextPath(params.get('next')));
 } else {
-  const { form, showError } = authForm({
+  const { form, showNotice } = authForm({
     submitLabel: 'Sign in',
     fields: [
       textField({ name: 'email', label: 'Email address', type: 'email', required: true, autocomplete: 'username', placeholder: 'you@company.com' }),
@@ -25,12 +25,13 @@ if (getSession()) {
     },
   });
 
-  if (params.has('expired')) showError('Your session has ended. Please sign in again.');
-  if (params.has('deleted')) showError('The organization was deleted. Its accounts no longer exist.');
+  // Information, not errors: nothing the person did was wrong.
+  if (params.has('expired')) showNotice('Your session has ended. Please sign in again.');
+  if (params.has('deleted')) showNotice('The organization was deleted. Its accounts no longer exist.');
 
   renderAuthPage({
-    title: 'Sign in to BlackWater',
-    lead: 'Incident response for your team.',
+    title: 'Sign in',
+    lead: 'Welcome back. Pick up where your team is.',
     content: form,
     footer: h('span', {}, 'New here? ', h('a', { href: '/register' }, 'Create an organization')),
   });

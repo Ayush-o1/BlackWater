@@ -1,12 +1,16 @@
 import { api } from '../api.js';
 import { canWrite, getSession, isAdmin, requireSession } from '../auth.js';
-import { incidentRow, serviceDialog } from '../components.js';
+import { serviceDialog } from '../components.js';
 import { h, render } from '../dom.js';
 import { subscribe } from '../realtime.js';
-import { renderShell } from '../shell.js';
-import { busy, button, confirmDialog, emptyState, errorState, formatDate, healthLabel, loadingRows, setTitle, toast } from '../ui.js';
+import { renderShell, setBreadcrumb } from '../shell.js';
+import {
+  busy, button, confirmDialog, emptyState, errorState, formatDate, healthLabel, incidentStatusBadge, loadingRows,
+  person, setTitle, severityBadge, timeAgo, toast,
+} from '../ui.js';
 
 const serviceId = location.pathname.split('/')[2];
+const OPEN = ['TRIGGERED', 'ACKNOWLEDGED'];
 
 async function start() {
   const main = renderShell({ active: 'services' });
@@ -18,14 +22,17 @@ async function start() {
     try {
       const { data: service } = await api.get(`/services/${serviceId}`);
       setTitle(service.name);
+      setBreadcrumb([{ label: 'Services', href: '/services' }, { label: service.name }]);
       paint(service);
     } catch (error) {
       if (error.status === 404 || error.status === 400) {
+        setBreadcrumb([{ label: 'Services', href: '/services' }, { label: 'Not found' }]);
         render(main, h('div', { class: 'panel' }, emptyState({
           iconName: 'server',
           title: 'Service not found',
           description: 'It may have been deleted, or the link is wrong.',
           action: h('a', { class: 'btn', href: '/services' }, 'Back to services'),
+          level: 1,
         })));
       } else {
         render(main, h('div', { class: 'panel' }, errorState(error, load)));
@@ -50,14 +57,15 @@ async function start() {
   }
 
   function paint(service) {
-    const incidents = service.incidents;
+    const open = service.incidents.filter((incident) => OPEN.includes(incident.status));
+    const past = service.incidents.filter((incident) => !OPEN.includes(incident.status));
 
     render(
       main,
       h(
         'div',
         { class: 'page-header' },
-        h('div', {}, h('h1', {}, service.name), h('div', { class: 'header-badges' }, healthLabel(service.status)), service.description && h('p', {}, service.description)),
+        h('div', { class: 'stack-sm' }, h('h1', {}, service.name), h('div', { class: 'header-badges' }, healthLabel(service.status)), service.description && h('p', {}, service.description)),
         h(
           'div',
           { class: 'page-actions' },
@@ -66,14 +74,62 @@ async function start() {
         )
       ),
       h(
-        'section',
-        { class: 'panel' },
-        h('div', { class: 'panel-header' }, h('div', {}, h('h2', {}, 'Recent incidents'), h('p', {}, `Added ${formatDate(service.createdAt)}`))),
-        incidents.length === 0
-          ? emptyState({ iconName: 'checkCircle', title: 'No incidents', description: 'Nothing has been reported against this service.' })
-          : h('div', { class: 'rows' }, incidents.map(incidentRow)),
-        h('div', { class: 'panel-body muted small' }, 'Health is calculated from open incidents: Critical is a major outage, High a partial outage, Medium and Low degrade it.')
+        'div',
+        { class: 'split split-facts-first' },
+        h(
+          'div',
+          { class: 'stack' },
+          incidentPanel('Open incidents', 'Affecting this service now', open, { iconName: 'checkCircle', title: 'Nothing open', description: 'No open incident affects this service, so it is operational.' }),
+          incidentPanel('Earlier incidents', 'Resolved and closed, most recent first', past, { iconName: 'history', title: 'No earlier incidents', description: 'Nothing has been reported against this service before.' })
+        ),
+        h(
+          'aside',
+          { class: 'split-aside', 'aria-label': 'About this service' },
+          h(
+            'section',
+            { class: 'panel' },
+            h('div', { class: 'panel-header' }, h('h2', {}, 'How health is set')),
+            h(
+              'div',
+              { class: 'panel-body stack-sm small' },
+              h('p', { class: 'muted' }, 'Health follows the worst open incident on this service. Nobody sets it by hand.'),
+              h('dl', { class: 'details' }, [
+                ['Critical', 'Major outage'],
+                ['High', 'Partial outage'],
+                ['Medium or Low', 'Degraded'],
+                ['Nothing open', 'Operational'],
+              ].map(([cause, effect]) => h('div', { class: 'cluster-between' }, h('dt', {}, cause), h('dd', {}, effect)))),
+              h('p', { class: 'subtle' }, `Added ${formatDate(service.createdAt)}`)
+            )
+          )
+        )
       )
+    );
+  }
+
+  function incidentPanel(title, subtitle, incidents, empty) {
+    return h(
+      'section',
+      { class: 'panel' },
+      h('div', { class: 'panel-header' }, h('div', {}, h('h2', {}, title), h('p', {}, subtitle))),
+      incidents.length === 0
+        ? emptyState(empty)
+        : h(
+            'ul',
+            { class: 'rows' },
+            incidents.map((incident) =>
+              h(
+                'li',
+                {},
+                h(
+                  'a',
+                  { class: 'row', href: `/incidents/${incident.id}` },
+                  h('div', {}, h('div', { class: 'row-title' }, incident.title), h('div', { class: 'row-meta' }, h('span', {}, `Started ${timeAgo(incident.createdAt)}`), person(incident.assignee))),
+                  h('div', { class: 'row-side' }, severityBadge(incident.severity), incidentStatusBadge(incident.status))
+                )
+              )
+            )
+          )
     );
   }
 

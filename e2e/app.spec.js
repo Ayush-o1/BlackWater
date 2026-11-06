@@ -13,7 +13,7 @@ async function register(page, { name = 'Ananya Gupta' } = {}) {
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
   await page.getByLabel('Organization name').fill(`E2E Org ${id}`);
   await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
 
   const session = await page.evaluate(() => JSON.parse(localStorage.getItem('blackwater.session')));
   return { email, name, orgId: session.user.orgId, token: session.token };
@@ -30,23 +30,25 @@ test.describe('signing in', () => {
     const { email } = await register(page);
 
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
 
+    await page.locator('.user-button').click(); // sign out lives in the user menu
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/login/);
 
     await page.getByLabel('Email address').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
+    await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
   });
 
   test('shows an error for a wrong password and keeps the user on the login page', async ({ page }) => {
     const { email } = await register(page);
+    await page.locator('.user-button').click(); // sign out lives in the user menu
     await page.getByRole('button', { name: 'Sign out' }).click();
 
     await page.getByLabel('Email address').fill(email);
-    await page.getByLabel('Password').fill('not-the-password');
+    await page.getByLabel('Password', { exact: true }).fill('not-the-password');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page.getByRole('alert')).toContainText('Invalid credentials');
@@ -83,25 +85,25 @@ test.describe('incident lifecycle', () => {
     await page.getByLabel('Name').fill('Payments API');
     await page.getByLabel('Description').fill('Takes card payments');
     await page.getByRole('dialog').getByRole('button', { name: 'Add service' }).click();
-    await expect(page.getByRole('link', { name: /Payments API/ })).toContainText('Operational');
+    await expect(page.getByRole('row', { name: /Payments API/ })).toContainText('Operational');
 
     // Declare a critical, private incident on it.
     await page.goto('/incidents');
-    await expect(page.getByText('No incidents yet')).toBeVisible();
+    await expect(page.getByText('No open incidents')).toBeVisible();
     await page.getByRole('button', { name: 'Declare incident' }).click();
-    await page.getByLabel('Title').fill(title);
+    await page.getByLabel('Title', { exact: true }).fill(title);
     await page.getByLabel('Severity', { exact: true }).selectOption('CRITICAL');
     await page.getByLabel('Payments API').check();
     await page.getByRole('dialog').getByRole('button', { name: 'Declare incident' }).click();
     await expect(page.getByRole('heading', { name: title })).toBeVisible();
-    await expect(page.getByText('Private')).toBeVisible();
+    await expect(page.getByText('Private', { exact: true })).toBeVisible();
     const incidentUrl = page.url();
     const incidentId = incidentUrl.split('/').pop();
 
     // The team sees the real health; the dashboard agrees.
     await expect(page.getByText('Major outage')).toBeVisible();
     await page.goto('/');
-    await expect(page.locator('.stat', { hasText: 'System status' })).toContainText('Major outage');
+    await expect(page.locator('.banner')).toContainText('Major outage');
     await page.goto(incidentUrl);
 
     // Visitors see nothing: the incident is private.
@@ -119,14 +121,14 @@ test.describe('incident lifecycle', () => {
     await expect(page.getByText('Assigned to Ananya Gupta')).toBeVisible();
 
     await page.getByLabel('Update message').fill('Root cause: expired certificate. Internal only.');
-    await page.getByLabel('Who can see this').selectOption('false');
+    await page.getByLabel('Internal note').check();
     await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page.getByText('Internal note added')).toBeVisible();
+    await expect(page.getByRole('status').getByText('Internal note added')).toBeVisible();
 
     await page.getByLabel('Update message').fill('We are investigating failing payments.');
-    await page.getByLabel('Who can see this').selectOption('true');
+    await page.getByLabel('Public update').check();
     await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page.getByText('Public update posted')).toBeVisible();
+    await expect(page.getByRole('status').getByText('Public update posted')).toBeVisible();
 
     // Edit: a lower severity changes the health.
     await page.getByRole('button', { name: 'Edit' }).click();
@@ -138,7 +140,7 @@ test.describe('incident lifecycle', () => {
     // Publish (with confirmation): now visitors see it, but never the internal note.
     await page.getByRole('button', { name: 'Publish' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Publish' }).click();
-    await expect(page.locator('#main').getByText('Published to the status page')).toBeVisible();
+    await expect(page.getByLabel('Incident details').getByText('Published to the status page')).toBeVisible();
 
     await visitor.goto(`/status/${orgId}`);
     await expect(visitor.getByText('Partial outage').first()).toBeVisible();
@@ -150,7 +152,7 @@ test.describe('incident lifecycle', () => {
 
     // Unpublish: gone again.
     await page.getByRole('button', { name: 'Unpublish' }).click();
-    await expect(page.locator('#main').getByText('Removed from the status page')).toBeVisible();
+    await expect(page.getByLabel('Incident details').getByText('Private: your team only')).toBeVisible();
     await visitor.reload();
     await expect(visitor.getByText('Incident not found')).toBeVisible();
 
@@ -162,7 +164,7 @@ test.describe('incident lifecycle', () => {
     await page.getByRole('button', { name: 'Resolve', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
     await page.goto('/services');
-    await expect(page.getByRole('link', { name: /Payments API/ })).toContainText('Operational');
+    await expect(page.getByRole('row', { name: /Payments API/ })).toContainText('Operational');
     await page.goto(incidentUrl);
 
     // Close (with confirmation): nothing can be changed any more.
@@ -179,7 +181,7 @@ test.describe('incident lifecycle', () => {
 
     await page.goto('/incidents');
     await page.getByRole('button', { name: 'Declare incident' }).click();
-    await page.getByLabel('Title').fill(hostile);
+    await page.getByLabel('Title', { exact: true }).fill(hostile);
     await page.getByLabel('Description').fill('<script>window.__pwned = true</script>');
     await page.getByRole('dialog').getByRole('button', { name: 'Declare incident' }).click();
 
@@ -220,7 +222,7 @@ test.describe('team and invitations', () => {
     await viewer.getByLabel('Email address').fill(`viewer-${unique()}@blackwater.test`);
     await viewer.getByLabel('Choose a password').fill(PASSWORD);
     await viewer.getByRole('button', { name: 'Join' }).click();
-    await expect(viewer.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(viewer.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
 
     // The link cannot be used again.
     const second = await (await browser.newContext()).newPage();
@@ -236,7 +238,7 @@ test.describe('team and invitations', () => {
     const title = `Live incident ${unique()}`;
     await page.goto('/incidents');
     await page.getByRole('button', { name: 'Declare incident' }).click();
-    await page.getByLabel('Title').fill(title);
+    await page.getByLabel('Title', { exact: true }).fill(title);
     await page.getByRole('dialog').getByRole('button', { name: 'Declare incident' }).click();
     await expect(page.getByRole('heading', { name: title })).toBeVisible();
     await expect(viewer.getByText(title)).toBeVisible();
@@ -283,7 +285,7 @@ test.describe('team and invitations', () => {
     await member.getByLabel('Email address').fill(`member-${unique()}@blackwater.test`);
     await member.getByLabel('Choose a password').fill(PASSWORD);
     await member.getByRole('button', { name: 'Join' }).click();
-    await expect(member.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(member.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
 
     await member.goto('/settings');
     await expect(member.getByRole('heading', { name: 'Team' })).toBeVisible();
@@ -374,13 +376,13 @@ test.describe('lists and layout', () => {
     }
 
     await page.goto('/services');
-    await expect(page.locator('a.row')).toHaveCount(20);
+    await expect(page.locator('tbody tr')).toHaveCount(20);
     await page.getByRole('button', { name: 'Load more' }).click();
-    await expect(page.locator('a.row')).toHaveCount(23);
+    await expect(page.locator('tbody tr')).toHaveCount(23);
     await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(0);
 
     await page.goto('/');
-    await expect(page.locator('.stat', { hasText: 'Services' })).toContainText('23'); // counted by the server, not by the first page
+    await expect(page.locator('.banner')).toContainText('across 23 services'); // counted by the server, not by the first page
   });
 
   test('the public status page pages through its incident history with Load more', async ({ page, browser }) => {
@@ -408,21 +410,37 @@ test.describe('lists and layout', () => {
     await expect(visitor.getByText('A private incident that must stay hidden')).toHaveCount(0);
   });
 
-  test('filters incidents and keeps the filter in the address bar', async ({ page }) => {
+  test('filters, searches and orders incidents, and keeps the view in the address bar', async ({ page }) => {
     const { token } = await register(page);
     const api = apiFor(page, token);
     await api.post('/incidents', { title: 'A low priority thing', severity: 'LOW' });
     await api.post('/incidents', { title: 'A critical outage here', severity: 'CRITICAL' });
+    const done = (await (await api.post('/incidents', { title: 'An old resolved problem', severity: 'HIGH' })).json()).data;
+    await api.patch(`/incidents/${done.id}/status`, { status: 'RESOLVED' });
 
+    // The default view is what still needs work, most severe first.
     await page.goto('/incidents');
-    await expect(page.locator('a.row')).toHaveCount(2);
-    await page.locator('select[name=severity]').selectOption('CRITICAL');
-    await expect(page.locator('a.row')).toHaveCount(1);
-    await expect(page).toHaveURL(/severity=CRITICAL/);
+    const titles = page.locator('tbody .cell-title a');
+    await expect(titles).toHaveText(['A critical outage here', 'A low priority thing']);
 
+    await page.locator('select[name=severity]').selectOption('CRITICAL');
+    await expect(titles).toHaveText(['A critical outage here']);
+    await expect(page).toHaveURL(/severity=CRITICAL/);
     await page.reload();
     await expect(page.locator('select[name=severity]')).toHaveValue('CRITICAL');
-    await expect(page.locator('a.row')).toHaveCount(1);
+    await expect(titles).toHaveText(['A critical outage here']);
+    await page.locator('select[name=severity]').selectOption('');
+
+    // Tabs and search.
+    await page.getByRole('button', { name: 'Resolved', exact: true }).click();
+    await expect(titles).toHaveText(['An old resolved problem']);
+    await expect(page).toHaveURL(/view=resolved/);
+    await page.getByRole('button', { name: 'All', exact: true }).click();
+    await page.getByLabel('Search incidents by title').fill('outage');
+    await expect(titles).toHaveText(['A critical outage here']);
+    await expect(page).toHaveURL(/q=outage/);
+    await page.getByLabel('Search incidents by title').fill('nothing like this');
+    await expect(page.getByText('No incidents match')).toBeVisible();
   });
 
   test('works on a phone: navigation opens as a drawer', async ({ page }) => {
@@ -478,7 +496,7 @@ test.describe('service and profile management', () => {
     await viewer.getByLabel('Email address').fill(`vera-${unique()}@blackwater.test`);
     await viewer.getByLabel('Choose a password').fill(PASSWORD);
     await viewer.getByRole('button', { name: 'Join' }).click();
-    await expect(viewer.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(viewer.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
     await viewer.goto(`/services/${created.data.id}`);
     await expect(viewer.getByRole('heading', { name: 'Billing API' })).toBeVisible();
     await expect(viewer.getByRole('button', { name: 'Edit' })).toHaveCount(0);
@@ -501,11 +519,12 @@ test.describe('service and profile management', () => {
     await page.getByLabel('Your name').fill('Ananya G. Rao');
     await page.locator('form', { has: page.getByLabel('Your name') }).getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Profile saved')).toBeVisible();
-    await expect(page.locator('.sidebar-user-name')).toHaveText('Ananya G. Rao');
+    await expect(page.locator('.user-name')).toHaveText('Ananya G. Rao');
 
     await page.getByLabel('Organization name').fill('Renamed Org');
     await page.locator('form', { has: page.getByLabel('Organization name') }).getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Organization saved')).toBeVisible();
+    await expect(page.locator('.org-context-name')).toHaveText('Renamed Org');
 
     await page.reload();
     await expect(page.getByLabel('Your name')).toHaveValue('Ananya G. Rao');
@@ -584,7 +603,7 @@ test.describe('failure handling', () => {
 
     failing = false;
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(page.getByText('No incidents yet')).toBeVisible();
+    await expect(page.getByText('No open incidents')).toBeVisible();
   });
 
   test('shows the server\'s explanation when an action is refused', async ({ page }) => {
@@ -669,7 +688,7 @@ test.describe('live updates across sessions', () => {
     await expect(memberOnIncident.locator('.header-badges')).toContainText('Triggered');
     await expect(viewerOnService.getByRole('heading', { name: 'Checkout' })).toBeVisible();
     await expect(viewerOnService.getByText('Major outage').first()).toBeVisible();
-    await expect(viewerOnDashboard.locator('.stat', { hasText: 'System status' })).toContainText('Major outage');
+    await expect(viewerOnDashboard.locator('.banner')).toContainText('Major outage');
     await expect(memberOnIncident.locator('.live-indicator')).toContainText('Live');
     await expect(outsiderOnIncidents.locator('.live-indicator')).toContainText('Live');
 
@@ -683,16 +702,16 @@ test.describe('live updates across sessions', () => {
     // Lowering the severity changes the health a viewer sees on the service and the dashboard.
     await patch(request, admin.token, `/incidents/${incident.id}`, { severity: 'HIGH' });
     await expect(viewerOnService.getByText('Partial outage').first()).toBeVisible();
-    await expect(viewerOnDashboard.locator('.stat', { hasText: 'System status' })).toContainText('Partial outage');
+    await expect(viewerOnDashboard.locator('.banner')).toContainText('Partial outage');
 
     // Resolving clears the service and the dashboard.
     await patch(request, admin.token, `/incidents/${incident.id}/status`, { status: 'RESOLVED' });
     await expect(viewerOnService.getByText('Operational').first()).toBeVisible();
-    await expect(viewerOnDashboard.locator('.stat', { hasText: 'System status' })).toContainText('Operational');
+    await expect(viewerOnDashboard.locator('.banner')).toContainText('All systems operational');
 
     // A new incident from the member shows up in the viewer's open dashboard counter.
     await post(request, member.token, '/incidents', { title: `Second incident ${unique()}`, severity: 'LOW', serviceIds: [service.id] });
-    await expect(viewerOnDashboard.locator('.stat', { hasText: 'Active incidents' })).toContainText('1');
+    await expect(viewerOnDashboard.locator('.banner')).toContainText('1 open incident');
 
     // The outsider's socket is live (their own change arrives)...
     const ownTitle = `Their own incident ${unique()}`;

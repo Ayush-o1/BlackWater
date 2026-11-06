@@ -2,6 +2,18 @@
 // stroke and no fill so they take the colour of the surrounding text.
 
 const SHAPES = {
+  chevronDown: [['path', { d: 'm6 9 6 6 6-6' }]],
+  chevronRight: [['path', { d: 'm9 6 6 6-6 6' }]],
+  arrowLeft: [['path', { d: 'M19 12H5M12 19l-7-7 7-7' }]],
+  clock: [['circle', { cx: 12, cy: 12, r: 9 }], ['path', { d: 'M12 7v5l3 2' }]],
+  users: [['path', { d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2' }], ['circle', { cx: 9, cy: 7, r: 4 }], ['path', { d: 'M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' }]],
+  message: [['path', { d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' }]],
+  info: [['circle', { cx: 12, cy: 12, r: 9 }], ['path', { d: 'M12 16v-4M12 8h.01' }]],
+  history: [['path', { d: 'M3 12a9 9 0 1 0 3-6.7L3 8' }], ['path', { d: 'M3 3v5h5M12 7v5l4 2' }]],
+  minus: [['path', { d: 'M5 12h14' }]],
+  alertMark: [['path', { d: 'M12 6v7M12 17h.01' }]],
+  flag: [['path', { d: 'M4 22V4M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1' }]],
+  shield: [['path', { d: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' }]],
   activity: [['path', { d: 'M22 12h-4l-3 9L9 3l-3 9H2' }]],
   dashboard: [
     ['rect', { x: 3, y: 3, width: 7, height: 9, rx: 1 }],

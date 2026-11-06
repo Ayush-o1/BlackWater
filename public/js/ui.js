@@ -37,41 +37,48 @@ export const avatar = (name, large = false) =>
   h('span', { class: large ? 'avatar avatar-lg' : 'avatar', 'aria-hidden': 'true' }, initials(name));
 
 // ---------- Badges and status ----------
+// Every status is shown as a word with a shape as well as a colour, so it reads in
+// greyscale, to colour-blind users and to screen readers alike.
 
-const SEVERITY = {
-  CRITICAL: ['Critical', 'danger'],
-  HIGH: ['High', 'orange'],
-  MEDIUM: ['Medium', 'warning'],
-  LOW: ['Low', 'info'],
-};
+const SEVERITY_LABEL = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
+const INCIDENT_STATUS_LABEL = { TRIGGERED: 'Triggered', ACKNOWLEDGED: 'Acknowledged', RESOLVED: 'Resolved', CLOSED: 'Closed' };
+export const SERVICE_STATUS_LABEL = { OPERATIONAL: 'Operational', DEGRADED: 'Degraded', PARTIAL_OUTAGE: 'Partial outage', MAJOR_OUTAGE: 'Major outage' };
+const HEALTH_ICON = { OPERATIONAL: 'check', DEGRADED: 'minus', PARTIAL_OUTAGE: 'alertMark', MAJOR_OUTAGE: 'close' };
 
-const INCIDENT_STATUS = {
-  TRIGGERED: ['Triggered', 'danger'],
-  ACKNOWLEDGED: ['Acknowledged', 'warning'],
-  RESOLVED: ['Resolved', 'success'],
-  CLOSED: ['Closed', ''],
-};
-
-const SERVICE_STATUS = {
-  OPERATIONAL: { label: 'Operational', tone: 'success' },
-  DEGRADED: { label: 'Degraded', tone: 'warning' },
-  PARTIAL_OUTAGE: { label: 'Partial outage', tone: 'orange' },
-  MAJOR_OUTAGE: { label: 'Major outage', tone: 'danger' },
-};
-
-const badge = (label, tone) => h('span', { class: tone ? `badge badge-${tone}` : 'badge' }, label);
-
-export const severityBadge = (severity) => badge(...(SEVERITY[severity] ?? [severity, '']));
-export const incidentStatusBadge = (status) => badge(...(INCIDENT_STATUS[status] ?? [status, '']));
-
-export function visibilityBadge(isPublic) {
-  return h('span', { class: isPublic ? 'badge badge-info' : 'badge' }, icon(isPublic ? 'globe' : 'lock', 'sm'), isPublic ? 'Public' : 'Private');
+// Severity as signal bars (1 to 4) plus the word: the order reads without colour.
+export function severityBadge(severity) {
+  const label = SEVERITY_LABEL[severity] ?? severity;
+  return h(
+    'span',
+    { class: `severity severity-${String(severity).toLowerCase()}`, title: `${label} severity` },
+    h('span', { class: 'severity-bars', 'aria-hidden': 'true' }, h('span'), h('span'), h('span'), h('span')),
+    label
+  );
 }
 
-// A coloured dot plus the status in words, so colour is never the only signal.
+export const incidentStatusBadge = (status) =>
+  h('span', { class: `badge status status-${String(status).toLowerCase()}` }, INCIDENT_STATUS_LABEL[status] ?? status);
+
+export function visibilityBadge(isPublic) {
+  return h(
+    'span',
+    { class: isPublic ? 'badge visibility-public' : 'badge', title: isPublic ? 'Shown on the public status page' : 'Visible to your team only' },
+    icon(isPublic ? 'globe' : 'lock', 'sm'),
+    isPublic ? 'Public' : 'Private'
+  );
+}
+
 export function healthLabel(status) {
-  const { label, tone } = SERVICE_STATUS[status] ?? { label: status, tone: '' };
-  return h('span', { class: 'inline-status' }, h('span', { class: tone ? `dot dot-${tone}` : 'dot' }), label);
+  return h(
+    'span',
+    { class: `health health-${String(status).toLowerCase()}` },
+    h('span', { class: 'health-mark', 'aria-hidden': 'true' }, icon(HEALTH_ICON[status] ?? 'minus')),
+    SERVICE_STATUS_LABEL[status] ?? status
+  );
+}
+
+export function person(user) {
+  return user ? h('span', { class: 'person' }, avatar(user.name), h('span', { class: 'truncate' }, user.name)) : h('span', { class: 'unassigned' }, 'Unassigned');
 }
 
 // ---------- Toasts ----------
@@ -86,7 +93,7 @@ function toastContainer() {
 }
 
 export function toast(message, type = 'success') {
-  const element = h('div', { class: `toast toast-${type}` }, h('span', {}, message));
+  const element = h('div', { class: `toast toast-${type}` }, icon(type === 'error' ? 'alert' : 'checkCircle', 'sm'), h('span', {}, message));
   toastContainer().append(element);
   setTimeout(() => element.remove(), type === 'error' ? 6000 : 3500);
 }
@@ -128,7 +135,19 @@ function fieldWrapper({ label, hint, control, id }) {
 export function textField({ name, label, type = 'text', value = '', placeholder, required, maxlength, minlength, hint, autocomplete, readonly }) {
   const id = nextId();
   const control = h('input', { class: 'input', id, name, type, value, placeholder, required, maxlength, minlength, autocomplete, readonly });
-  return fieldWrapper({ label, hint, control, id });
+  if (type !== 'password') return fieldWrapper({ label, hint, control, id });
+
+  // Show/hide: people mistype passwords, and on a phone they cannot see what they typed.
+  const toggle = h('button', { class: 'password-toggle', type: 'button', 'aria-controls': id, 'aria-pressed': 'false' }, 'Show');
+  toggle.addEventListener('click', () => {
+    const showing = control.type === 'text';
+    control.type = showing ? 'password' : 'text';
+    toggle.textContent = showing ? 'Show' : 'Hide';
+    toggle.setAttribute('aria-pressed', String(!showing));
+    toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+  });
+  toggle.setAttribute('aria-label', 'Show password');
+  return fieldWrapper({ label, hint, control: h('div', { class: 'password-field' }, control, toggle), id });
 }
 
 export function textareaField({ name, label, value = '', placeholder, required, maxlength, hint, rows }) {
