@@ -11,3 +11,10 @@ export function registerSocketServer(socketServer) {
 export function emitToOrg(orgId, event, payload = {}) {
   io?.to(`organization:${orgId}`).emit(event, payload);
 }
+
+// Used when an organization is deleted: its members must stop receiving anything.
+// Closing the connection also makes any reconnect attempt fail authentication,
+// because their accounts no longer exist.
+export function disconnectOrg(orgId) {
+  io?.in(`organization:${orgId}`).disconnectSockets(true);
+}

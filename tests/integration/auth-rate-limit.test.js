@@ -67,4 +67,15 @@ describe('strict limit on credential endpoints', () => {
 
     expect(statuses).toEqual([201, 201, 201, 429]);
   });
+
+  it('limits password guessing through organization deletion as well', async () => {
+    const { org, token } = await createOrgWithUser('ADMIN');
+    const guess = () => request(app).delete('/api/organizations/me').set('Authorization', bearer(token)).send({ password: 'wrong-password', confirmName: org.name });
+
+    const statuses = [];
+    for (let i = 0; i < LIMIT + 1; i += 1) statuses.push((await guess()).status);
+
+    expect(statuses).toEqual([403, 403, 403, 429]);
+  });
 });
+

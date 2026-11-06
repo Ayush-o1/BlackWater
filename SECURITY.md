@@ -14,6 +14,7 @@ Please do not open a public issue for a security problem. Use GitHub's private v
 | Tenant isolation | Every query filters by the signed-in user's organization; other organizations' records answer 404. Covered by tests for each resource. | `services/`, `tests/integration/` |
 | Input validation | Every request body, query and parameter is validated with zod; unknown fields are dropped, so fields such as `status`, `orgId` or `role` cannot be smuggled into an edit. | `validators/` |
 | Invitations | 256-bit random tokens; only the SHA-256 hash is stored. One use, 7-day expiry, claimed atomically so parallel attempts cannot both succeed. Invitations cannot create administrators, enforced in the validator, in the service and by a database `CHECK`. Unknown, expired and used links are indistinguishable. The token travels in the URL fragment and in POST bodies, never in a query string. | `services/invitation.service.js` |
+| Organization deletion | Administrators only, and it needs the administrator's own password and the organization's exact name, so a stolen token alone cannot erase an organization. Wrong attempts share the login rate limit. The deletion runs in one transaction and cuts the organization's live connections; operators get a log line with ids only. | `services/organization.service.js` |
 | Last admin | A lock on the organization's admin rows prevents demoting the last administrator, even under concurrent requests. | `services/user.service.js` |
 | Public data | The public API reads only published incidents and builds its output field by field from an allow-list. Health shown publicly is calculated from published incidents only. Actors and user ids never appear. | `services/status.service.js`, `utils/publicDto.js` |
 | Cross-site scripting | No `innerHTML` anywhere: user text is inserted only as text nodes. A strict Content-Security-Policy allows scripts and styles from the same origin only, and no inline scripts, handlers or styles. Tested in a real browser with hostile input. | `public/js/dom.js`, `app.js` |
@@ -35,7 +36,7 @@ Please do not open a public issue for a security problem. Use GitHub's private v
 - **No multi-factor authentication, password reset or account lockout.** The per-IP limit on failed logins is the only brake on password guessing; it does not stop a slow attack spread over many addresses.
 - **Rate limits and sockets are per process.** Do not run several instances without moving both to a shared store.
 - **Public status pages are addressed by the organization id.** The id is a random UUID and is not a secret; the protection is that only published data is served.
-- **Users cannot be removed.** An administrator can reduce a person to Viewer but not delete them.
+- **Individual users cannot be removed.** An administrator can reduce a person to Viewer but not delete them; only a whole organization can be deleted, which is permanent.
 
 ## Operating it safely
 

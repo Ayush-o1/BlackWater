@@ -114,6 +114,26 @@ describe('connection loss', () => {
   });
 });
 
+describe('organization deletion', () => {
+  it('cuts the deleted organization\'s connections and leaves other organizations\' alone', async () => {
+    const mine = await createOrgWithUser('ADMIN');
+    const theirs = await createOrgWithUser('ADMIN');
+    const mySocket = connect(url, { auth: { token: mine.token }, transports: ['websocket'], reconnection: false });
+    const theirSocket = connect(url, { auth: { token: theirs.token }, transports: ['websocket'], reconnection: false });
+    openSockets.push(mySocket, theirSocket);
+    await connected(mySocket);
+    await connected(theirSocket);
+    const dropped = new Promise((resolve) => mySocket.once('disconnect', resolve));
+
+    const res = await api().delete('/api/organizations/me').set('Authorization', bearer(mine.token)).send({ password: mine.password, confirmName: mine.org.name });
+    expect(res.status).toBe(200);
+
+    expect(await dropped).toBeTruthy();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(theirSocket.connected).toBe(true);
+  });
+});
+
 describe('real-time events', () => {
   it('tells everyone in the organization when an incident is created', async () => {
     const { org, token } = await createOrgWithUser('ADMIN');
