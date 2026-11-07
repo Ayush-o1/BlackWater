@@ -95,8 +95,8 @@ test.describe('incident lifecycle', () => {
     // Work the incident.
     await page.getByRole('button', { name: 'Acknowledge' }).click();
     await expect(page.getByText('Acknowledged').first()).toBeVisible();
-    await page.getByLabel('Assignee').selectOption({ label: 'Ananya Gupta (you)' });
-    await expect(page.getByText('Assigned to Ananya Gupta')).toBeVisible();
+    await page.getByLabel('Assignee').selectOption({ label: 'Aarav Sharma (you)' });
+    await expect(page.getByText('Assigned to Aarav Sharma')).toBeVisible();
 
     await page.getByLabel('Update message').fill('Root cause: expired certificate. Internal only.');
     await page.getByLabel('Internal note').check();
@@ -126,7 +126,7 @@ test.describe('incident lifecycle', () => {
     await expect(visitor.getByRole('heading', { name: title })).toBeVisible();
     await expect(visitor.getByText('We are investigating failing payments.')).toBeVisible();
     await expect(visitor.getByText('Root cause')).toHaveCount(0);
-    await expect(visitor.getByText('Ananya')).toHaveCount(0);
+    await expect(visitor.getByText('Aarav')).toHaveCount(0);
 
     // Unpublish: gone again.
     await page.getByRole('button', { name: 'Unpublish' }).click();
@@ -176,7 +176,7 @@ test.describe('incident lifecycle', () => {
 
 test.describe('team and invitations', () => {
   test('invites a viewer, who joins once, sees live updates, and gains write access when promoted', async ({ page, browser }) => {
-    await register(page, { name: 'Ananya Gupta' });
+    await register(page, { name: 'Aarav Sharma' });
 
     await page.goto('/settings');
     await page.getByRole('button', { name: 'Invite someone' }).click();
@@ -196,7 +196,7 @@ test.describe('team and invitations', () => {
     expect(viewer.url()).not.toContain('#'); // the token is removed from the address bar
     await viewer.reload(); // a refresh must not invalidate a link that has not been used
     await expect(viewer.getByRole('heading', { name: /^Join E2E Org/ })).toBeVisible();
-    await viewer.getByLabel('Your name').fill('Vikram Shah');
+    await viewer.getByLabel('Your name').fill('Kabir Mehta');
     await viewer.getByLabel('Email address').fill(`viewer-${unique()}@blackwater.test`);
     await viewer.getByLabel('Choose a password').fill(PASSWORD);
     await viewer.getByRole('button', { name: 'Join' }).click();
@@ -223,14 +223,14 @@ test.describe('team and invitations', () => {
 
     // The admin promotes the viewer; the open page updates by itself.
     await page.goto('/settings');
-    await page.getByLabel('Role of Vikram Shah').selectOption('MEMBER');
-    await expect(page.getByText('Vikram Shah is now Member')).toBeVisible();
+    await page.getByLabel('Role of Kabir Mehta').selectOption('MEMBER');
+    await expect(page.getByText('Kabir Mehta is now Member')).toBeVisible();
     await expect(viewer.getByRole('button', { name: 'Declare incident' })).toBeVisible();
 
     // The admin cannot demote themselves while they are the only admin.
-    await page.getByLabel('Role of Ananya Gupta').selectOption('MEMBER');
+    await page.getByLabel('Role of Aarav Sharma').selectOption('MEMBER');
     await expect(page.getByText(/at least one ADMIN/)).toBeVisible();
-    await expect(page.getByLabel('Role of Ananya Gupta')).toHaveValue('ADMIN');
+    await expect(page.getByLabel('Role of Aarav Sharma')).toHaveValue('ADMIN');
   });
 
   test('a revoked invitation stops working', async ({ page, browser }) => {
@@ -259,7 +259,7 @@ test.describe('team and invitations', () => {
 
     const member = await (await browser.newContext()).newPage();
     await member.goto(link);
-    await member.getByLabel('Your name').fill('Meera Iyer');
+    await member.getByLabel('Your name').fill('Priya Nair');
     await member.getByLabel('Email address').fill(`member-${unique()}@blackwater.test`);
     await member.getByLabel('Choose a password').fill(PASSWORD);
     await member.getByRole('button', { name: 'Join' }).click();
@@ -480,8 +480,8 @@ test.describe('service and profile management', () => {
     const link = await page.getByLabel('Invitation link').inputValue();
     const viewer = await (await browser.newContext()).newPage();
     await viewer.goto(link);
-    await viewer.getByLabel('Your name').fill('Vera Viewer');
-    await viewer.getByLabel('Email address').fill(`vera-${unique()}@blackwater.test`);
+    await viewer.getByLabel('Your name').fill('Kabir Mehta');
+    await viewer.getByLabel('Email address').fill(`kabir-${unique()}@blackwater.test`);
     await viewer.getByLabel('Choose a password').fill(PASSWORD);
     await viewer.getByRole('button', { name: 'Join' }).click();
     await expect(viewer.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
@@ -501,13 +501,13 @@ test.describe('service and profile management', () => {
   });
 
   test('profile and organization changes are saved', async ({ page }) => {
-    await register(page, { name: 'Ananya Gupta' });
+    await register(page, { name: 'Aarav Sharma' });
     await page.goto('/settings');
 
-    await page.getByLabel('Your name').fill('Ananya G. Rao');
+    await page.getByLabel('Your name').fill('Aarav K. Sharma');
     await page.locator('form', { has: page.getByLabel('Your name') }).getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Profile saved')).toBeVisible();
-    await expect(page.locator('.user-name')).toHaveText('Ananya G. Rao');
+    await expect(page.locator('.user-name')).toHaveText('Aarav K. Sharma');
 
     await page.getByLabel('Organization name').fill('Renamed Org');
     await page.locator('form', { has: page.getByLabel('Organization name') }).getByRole('button', { name: 'Save' }).click();
@@ -515,14 +515,14 @@ test.describe('service and profile management', () => {
     await expect(page.locator('.org-context-name')).toHaveText('Renamed Org');
 
     await page.reload();
-    await expect(page.getByLabel('Your name')).toHaveValue('Ananya G. Rao');
+    await expect(page.getByLabel('Your name')).toHaveValue('Aarav K. Sharma');
     await expect(page.getByLabel('Organization name')).toHaveValue('Renamed Org');
   });
 });
 
 test.describe('deleting an organization', () => {
   test('needs the exact name and the password; afterwards the accounts no longer exist', async ({ page, browser }) => {
-    const { email, orgId } = await register(page, { name: 'Ananya Gupta' });
+    const { email, orgId } = await register(page, { name: 'Aarav Sharma' });
     const orgName = await page.evaluate(async () => (await (await fetch('/api/organizations/me', { headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem('blackwater.session')).token}` } })).json()).data.name);
 
     await page.goto('/settings');
@@ -556,7 +556,7 @@ test.describe('deleting an organization', () => {
     const admin = await register(page);
     const orgName = (await (await page.request.get('/api/organizations/me', { headers: { Authorization: `Bearer ${admin.token}` } })).json()).data.name;
     const invitation = await (await apiFor(page, admin.token).post('/invitations', { role: 'MEMBER' })).json();
-    const joined = await (await page.request.post('/api/invitations/accept', { data: { token: invitation.data.token, name: 'Meera Iyer', email: `member-${unique()}@blackwater.test`, password: PASSWORD } })).json();
+    const joined = await (await page.request.post('/api/invitations/accept', { data: { token: invitation.data.token, name: 'Priya Nair', email: `member-${unique()}@blackwater.test`, password: PASSWORD } })).json();
     // The session is stored once (not by an init script, which would put it back after sign-out).
     const member = await (await browser.newContext()).newPage();
     await member.goto('/login');
@@ -575,7 +575,7 @@ test.describe('deleting an organization', () => {
   test('a member or viewer is not offered the option', async ({ page, browser }) => {
     const admin = await register(page);
     const invitation = await (await page.request.post('/api/invitations', { data: { role: 'MEMBER' }, headers: { Authorization: `Bearer ${admin.token}` } })).json();
-    const joined = await (await page.request.post('/api/invitations/accept', { data: { token: invitation.data.token, name: 'Meera Iyer', email: `member-${unique()}@blackwater.test`, password: PASSWORD } })).json();
+    const joined = await (await page.request.post('/api/invitations/accept', { data: { token: invitation.data.token, name: 'Priya Nair', email: `member-${unique()}@blackwater.test`, password: PASSWORD } })).json();
     const context = await browser.newContext();
     await context.addInitScript(([k, v]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, ['blackwater.session', JSON.stringify(joined.data)]);
     const member = await context.newPage();
@@ -697,18 +697,18 @@ test.describe('live updates across sessions', () => {
 
   test('open pages in other sessions update by themselves, and never for another organization', async ({ page, browser }) => {
     // The admin's own organization, plus a member and a viewer invited into it.
-    const admin = await register(page, { name: 'Ananya Gupta' });
+    const admin = await register(page, { name: 'Aarav Sharma' });
     const request = page.request;
     const join = async (role, name) => {
       const invitation = await post(request, admin.token, '/invitations', { role });
       return post(request, '', '/invitations/accept', { token: invitation.token, name, email: `${role.toLowerCase()}-${unique()}@blackwater.test`, password: PASSWORD });
     };
-    const member = await join('MEMBER', 'Meera Iyer');
-    const viewer = await join('VIEWER', 'Vikram Shah');
+    const member = await join('MEMBER', 'Priya Nair');
+    const viewer = await join('VIEWER', 'Kabir Mehta');
 
     // A second, unrelated organization.
     const outsiderContext = await browser.newContext();
-    const outsiderSession = await post(outsiderContext.request, '', '/auth/register', { name: 'Olivia Park', email: `outsider-${unique()}@blackwater.test`, password: PASSWORD, orgName: `Other Org ${unique()}` });
+    const outsiderSession = await post(outsiderContext.request, '', '/auth/register', { name: 'Rohan Desai', email: `outsider-${unique()}@blackwater.test`, password: PASSWORD, orgName: `Other Org ${unique()}` });
 
     const service = await post(request, admin.token, '/services', { name: 'Checkout' });
     const title = `Cart is empty after login ${unique()}`;
@@ -732,7 +732,7 @@ test.describe('live updates across sessions', () => {
     await expect(memberOnIncident.locator('.header-badges')).toContainText('Acknowledged');
     await patch(request, admin.token, `/incidents/${incident.id}/assign`, { assigneeId: member.user.id });
     await expect(memberOnIncident.getByLabel('Assignee')).toHaveValue(member.user.id);
-    await expect(memberOnIncident.getByText('Assigned to Meera Iyer')).toBeVisible();
+    await expect(memberOnIncident.getByText('Assigned to Priya Nair')).toBeVisible();
 
     // Lowering the severity changes the health a viewer sees on the service and the dashboard.
     await patch(request, admin.token, `/incidents/${incident.id}`, { severity: 'HIGH' });
@@ -758,11 +758,11 @@ test.describe('live updates across sessions', () => {
   });
 
   test('a session that loses its connection misses a change, then catches up by itself', async ({ page, browser }) => {
-    const admin = await register(page, { name: 'Ananya Gupta' });
+    const admin = await register(page, { name: 'Aarav Sharma' });
     const request = page.request;
     const incident = await post(request, admin.token, '/incidents', { title: `Offline test ${unique()}`, severity: 'LOW' });
     const invitation = await post(request, admin.token, '/invitations', { role: 'VIEWER' });
-    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Vikram Shah', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
+    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Kabir Mehta', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
 
     const context = await browser.newContext();
     await context.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }, ['blackwater.session', JSON.stringify(viewer)]);
@@ -802,11 +802,11 @@ test.describe('live updates across sessions', () => {
     // The page loads its data, and only then does its WebSocket connect. A change that
     // lands in that gap is announced to nobody who is listening yet, so the first
     // connection has to refresh the page too, not only reconnections.
-    const admin = await register(page, { name: 'Ananya Gupta' });
+    const admin = await register(page, { name: 'Aarav Sharma' });
     const request = page.request;
     const incident = await post(request, admin.token, '/incidents', { title: `Gap test ${unique()}`, severity: 'LOW' });
     const invitation = await post(request, admin.token, '/invitations', { role: 'VIEWER' });
-    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Vikram Shah', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
+    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Kabir Mehta', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
 
     const context = await browser.newContext();
     await context.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }, ['blackwater.session', JSON.stringify(viewer)]);
@@ -836,11 +836,11 @@ test.describe('live updates across sessions', () => {
   test('a refused handshake (a server hiccup) is retried until the page is live', async ({ page, browser }) => {
     // When the server's handshake middleware refuses a connection, Socket.IO does not
     // reconnect by itself. A page that gave up there would show stale data for good.
-    const admin = await register(page, { name: 'Ananya Gupta' });
+    const admin = await register(page, { name: 'Aarav Sharma' });
     const request = page.request;
     const incident = await post(request, admin.token, '/incidents', { title: `Handshake test ${unique()}`, severity: 'LOW' });
     const invitation = await post(request, admin.token, '/invitations', { role: 'VIEWER' });
-    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Vikram Shah', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
+    const viewer = await post(request, '', '/invitations/accept', { token: invitation.token, name: 'Kabir Mehta', email: `viewer-${unique()}@blackwater.test`, password: PASSWORD });
 
     const context = await browser.newContext();
     await context.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }, ['blackwater.session', JSON.stringify(viewer)]);

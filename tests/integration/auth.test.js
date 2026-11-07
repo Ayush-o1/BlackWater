@@ -9,22 +9,22 @@ afterAll(() => prisma.$disconnect());
 describe('POST /auth/register', () => {
   it('creates an organization and an ADMIN user, returning a usable token', async () => {
     const res = await api().post('/api/auth/register').send({
-      name: 'Ananya Gupta',
-      email: 'ananya@blackwater.test',
+      name: 'Aarav Sharma',
+      email: 'aarav@blackwater.test',
       password: 'CorrectHorse!9',
       orgName: 'Fenwick Retail',
     });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.user.email).toBe('ananya@blackwater.test');
+    expect(res.body.data.user.email).toBe('aarav@blackwater.test');
     expect(res.body.data.user.role).toBe('ADMIN');
     expect(res.body.data.user.passwordHash).toBeUndefined();
     expect(typeof res.body.data.token).toBe('string');
 
     const me = await api().get('/api/auth/me').set('Authorization', bearer(res.body.data.token));
     expect(me.status).toBe(200);
-    expect(me.body.data.email).toBe('ananya@blackwater.test');
+    expect(me.body.data.email).toBe('aarav@blackwater.test');
   });
 
   it('rejects a duplicate email with 409', async () => {
@@ -62,17 +62,17 @@ describe('POST /auth/register', () => {
 
   it('treats emails as case-insensitive and stores them lowercase', async () => {
     const first = await api().post('/api/auth/register').send({
-      name: 'Meera Iyer',
-      email: '  Meera.Iyer@BlackWater.test ',
+      name: 'Priya Nair',
+      email: '  Priya.Nair@BlackWater.test ',
       password: 'CorrectHorse!9',
       orgName: 'Case Test One',
     });
     expect(first.status).toBe(201);
-    expect(first.body.data.user.email).toBe('meera.iyer@blackwater.test');
+    expect(first.body.data.user.email).toBe('priya.nair@blackwater.test');
 
     const duplicate = await api().post('/api/auth/register').send({
-      name: 'Meera Again',
-      email: 'MEERA.IYER@blackwater.test',
+      name: 'Priya Again',
+      email: 'PRIYA.NAIR@blackwater.test',
       password: 'CorrectHorse!9',
       orgName: 'Case Test Two',
     });
@@ -81,7 +81,7 @@ describe('POST /auth/register', () => {
     // Logging in works with any casing of the same address.
     const login = await api()
       .post('/api/auth/login')
-      .send({ email: 'Meera.Iyer@BLACKWATER.test', password: 'CorrectHorse!9' });
+      .send({ email: 'Priya.Nair@BLACKWATER.test', password: 'CorrectHorse!9' });
     expect(login.status).toBe(200);
   });
 
