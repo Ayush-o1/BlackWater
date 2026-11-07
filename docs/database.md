@@ -104,4 +104,4 @@ run changed no rows, and after steps 1–3 every migration applied.
 
 ## Demo data
 
-`npm run prisma:seed` deletes **all** data, then creates one organization with three users (one per role), three services, and three incidents (one private, two published) with realistic timelines. It refuses to run when `NODE_ENV=production`.
+`npm run prisma:seed` deletes **all** data, then creates one organization (BlackWater Demo Corp) with three fictional users, one per role (Aarav Sharma, admin; Priya Nair, member; Kabir Mehta, viewer), three services, and three incidents (one private, two published) with realistic timelines: Aarav declares the API gateway incident, Priya acknowledges it and posts the public statement. The accounts are for local development only; the logins are in the README. It refuses to run when `NODE_ENV=production`.

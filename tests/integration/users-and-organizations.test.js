@@ -9,7 +9,7 @@ afterAll(() => prisma.$disconnect());
 describe('GET /users', () => {
   it('only lists users scoped to the caller organization', async () => {
     const { org, token } = await createOrgWithUser('ADMIN');
-    await createUser(org.id, 'MEMBER', { name: 'Bob Engineer' });
+    await createUser(org.id, 'MEMBER', { name: 'Priya Nair' });
     const { org: otherOrg } = await createOrgWithUser('ADMIN');
     await createUser(otherOrg.id, 'MEMBER', { name: 'Should not appear' });
 
@@ -18,7 +18,7 @@ describe('GET /users', () => {
     expect(res.status).toBe(200);
     const names = res.body.data.map((u) => u.name);
     expect(res.body.data).toHaveLength(2); // the ADMIN caller + the MEMBER just created
-    expect(names).toContain('Bob Engineer');
+    expect(names).toContain('Priya Nair');
     expect(names).not.toContain('Should not appear');
     expect(res.body.data.every((u) => u.passwordHash === undefined)).toBe(true);
   });

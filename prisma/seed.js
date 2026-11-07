@@ -29,9 +29,10 @@ async function main() {
   const makeUser = (name, email, role) =>
     prisma.user.create({ data: { name, email, passwordHash, role, orgId: org.id } });
 
-  const admin = await makeUser('Alice Admin', 'admin@blackwater.com', Role.ADMIN);
-  const member = await makeUser('Bob Engineer', 'bob@blackwater.com', Role.MEMBER);
-  await makeUser('Vera Viewer', 'viewer@blackwater.com', Role.VIEWER);
+  // One person per role. Aarav declares incidents, Priya works them, Kabir only reads.
+  const admin = await makeUser('Aarav Sharma', 'aarav@blackwater.com', Role.ADMIN);
+  const member = await makeUser('Priya Nair', 'priya@blackwater.com', Role.MEMBER);
+  await makeUser('Kabir Mehta', 'kabir@blackwater.com', Role.VIEWER);
 
   const service = (name, description) => prisma.service.create({ data: { name, description, orgId: org.id } });
   const apiGateway = await service('API Gateway', 'Main edge router and rate limiter');
@@ -120,10 +121,10 @@ async function main() {
 
   console.log('Seeding complete.');
   console.log(`Organization ID (public status page: /status/${org.id})`);
-  console.log('Logins (password for all: password123):');
-  console.log('  admin@blackwater.com   ADMIN');
-  console.log('  bob@blackwater.com     MEMBER');
-  console.log('  viewer@blackwater.com  VIEWER');
+  console.log('Local development logins (password for all: password123):');
+  console.log('  aarav@blackwater.com  Aarav Sharma  ADMIN');
+  console.log('  priya@blackwater.com  Priya Nair     MEMBER');
+  console.log('  kabir@blackwater.com  Kabir Mehta    VIEWER');
 }
 
 main()

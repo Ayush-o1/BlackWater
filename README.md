@@ -23,7 +23,7 @@ Every organization's data is isolated from every other's.
 
 | | |
 |---|---|
-| ![Incident](docs/screenshots/incident.png) | ![Status page](docs/screenshots/status-page.png) |
+| ![Incident with its activity and audit timeline](docs/screenshots/incident.png) | ![Status page](docs/screenshots/status-page.png) |
 
 ![Team: roles and invitations](docs/screenshots/team.png)
 
@@ -65,7 +65,15 @@ npm run dev                   # http://localhost:8000
 
 Generate a secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 
-After seeding, sign in at <http://localhost:8000/login> with `admin@blackwater.com`, `bob@blackwater.com` (member) or `viewer@blackwater.com`, password `password123`. The seed prints the organization's public status page URL. It deletes all data, so it refuses to run when `NODE_ENV=production`.
+After seeding, sign in at <http://localhost:8000/login> with one of these local development accounts (fictional people; all use the password `password123`):
+
+| Name | Role | Email |
+|---|---|---|
+| Aarav Sharma | Admin | `aarav@blackwater.com` |
+| Priya Nair | Member | `priya@blackwater.com` |
+| Kabir Mehta | Viewer | `kabir@blackwater.com` |
+
+These exist only in the demo data on your own machine. The seed prints the organization's public status page URL. It deletes all data, so it refuses to run when `NODE_ENV=production`.
 
 Or create your own organization at `/register`.
 

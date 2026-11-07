@@ -100,7 +100,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
 
   await test.step('register an organization and land on the dashboard', async () => {
     await admin.goto('/register');
-    await admin.getByLabel('Your name').fill('Ananya Gupta');
+    await admin.getByLabel('Your name').fill('Aarav Sharma');
     await admin.getByLabel('Email address').fill(`smoke-admin-${id}@blackwater.test`);
     await admin.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await admin.getByLabel('Organization name').fill(`Smoke test ${id}`);
@@ -138,7 +138,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
 
     await member.goto(link);
     await expect(member.getByRole('heading', { name: /^Join Smoke test/ })).toBeVisible();
-    await member.getByLabel('Your name').fill('Meera Iyer');
+    await member.getByLabel('Your name').fill('Priya Nair');
     await member.getByLabel('Email address').fill(`smoke-member-${id}@blackwater.test`);
     await member.getByLabel('Choose a password').fill(PASSWORD);
     await member.getByRole('button', { name: 'Join' }).click();
@@ -164,7 +164,7 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
   // ---- A second organization, connected before anything happens ----
   const outsiderContext = await browser.newContext();
   const outsiderRegistration = await outsiderContext.request.post('/api/auth/register', {
-    data: { name: 'Olivia Park', email: `smoke-outsider-${id}@blackwater.test`, password: PASSWORD, orgName: `Smoke test other ${id}` },
+    data: { name: 'Rohan Desai', email: `smoke-outsider-${id}@blackwater.test`, password: PASSWORD, orgName: `Smoke test other ${id}` },
   });
   expect(outsiderRegistration.status()).toBe(201);
   const outsiderSession = (await outsiderRegistration.json()).data;
@@ -181,8 +181,8 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
   await test.step('promoting the viewer updates their open page without a reload', async () => {
     await expect(member.locator('.live-indicator')).toContainText('Live');
     await admin.goto('/settings');
-    await admin.getByLabel('Role of Meera Iyer').selectOption('MEMBER');
-    await expect(admin.getByText('Meera Iyer is now Member')).toBeVisible();
+    await admin.getByLabel('Role of Priya Nair').selectOption('MEMBER');
+    await expect(admin.getByText('Priya Nair is now Member')).toBeVisible();
     await expect(member.getByRole('button', { name: 'Declare incident' })).toBeVisible();
   });
 
@@ -217,8 +217,8 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     // The member's open incident page changes without a reload.
     await expect(member.locator('.header-badges')).toContainText('Acknowledged');
 
-    await admin.getByLabel('Assignee').selectOption({ label: 'Meera Iyer' });
-    await expect(admin.getByText('Assigned to Meera Iyer')).toBeVisible();
+    await admin.getByLabel('Assignee').selectOption({ label: 'Priya Nair' });
+    await expect(admin.getByText('Assigned to Priya Nair')).toBeVisible();
     await expect(member.getByLabel('Assignee')).toHaveValue(/.+/);
 
     await admin.getByRole('button', { name: 'Edit' }).click();
@@ -241,10 +241,10 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
   await test.step('the audit trail names who did what', async () => {
     // Found by its accessible name, not a class, so a restyle cannot silently break this.
     const timeline = admin.getByRole('list', { name: 'Activity, newest first' });
-    for (const entry of ['Incident declared', 'Status changed', 'Assigned to Meera Iyer', 'Incident edited']) {
+    for (const entry of ['Incident declared', 'Status changed', 'Assigned to Priya Nair', 'Incident edited']) {
       await expect(timeline.getByText(entry).first()).toBeVisible();
     }
-    await expect(timeline.getByText('by Ananya Gupta').first()).toBeVisible();
+    await expect(timeline.getByText('by Aarav Sharma').first()).toBeVisible();
   });
 
   // ---- Public visibility ----
@@ -266,8 +266,8 @@ test('critical workflows on the deployed application', async ({ browser, baseURL
     await expect(visitor.getByRole('heading', { name: title })).toBeVisible();
     await expect(visitor.getByText('We are investigating failing payments.')).toBeVisible();
     await expect(visitor.getByText('Root cause')).toHaveCount(0);
-    await expect(visitor.getByText('Meera')).toHaveCount(0);
-    await expect(visitor.getByText('Ananya')).toHaveCount(0);
+    await expect(visitor.getByText('Priya')).toHaveCount(0);
+    await expect(visitor.getByText('Aarav')).toHaveCount(0);
 
     await admin.getByRole('button', { name: 'Unpublish' }).click();
     await expect(admin.getByLabel('Incident details').getByText('Private: your team only')).toBeVisible();

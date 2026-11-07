@@ -4,7 +4,7 @@ import { expect } from '@playwright/test';
 export const unique = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 export const PASSWORD = 'CorrectHorse!9';
 
-export async function register(page, { name = 'Ananya Gupta' } = {}) {
+export async function register(page, { name = 'Aarav Sharma' } = {}) {
   const id = unique();
   const email = `e2e-${id}@blackwater.test`;
 

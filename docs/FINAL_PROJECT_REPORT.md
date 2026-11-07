@@ -154,7 +154,7 @@ git clone https://github.com/Ayush-o1/BlackWater.git && cd BlackWater
 npm install
 createdb blackwater_dev && cp .env.example .env   # set DATABASE_URL and JWT_SECRET
 npm run prisma:migrate:prod
-npm run prisma:seed          # demo data; sign in as admin@blackwater.com / password123
+npm run prisma:seed          # local demo data; sign in as aarav@blackwater.com / password123 (see README)
 npm run dev                  # http://localhost:8000
 
 createdb blackwater_test && cp .env.test.example .env.test   # disposable database

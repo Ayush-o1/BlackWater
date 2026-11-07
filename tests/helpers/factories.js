@@ -17,7 +17,7 @@ export async function createUser(orgId, role = Role.MEMBER, overrides = {}) {
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
-      name: overrides.name ?? 'Priya Menon',
+      name: overrides.name ?? 'Priya Nair',
       email: overrides.email ?? `user-${unique()}@blackwater.test`,
       passwordHash,
       role,
