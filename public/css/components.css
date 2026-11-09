@@ -182,6 +182,11 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
   .row { flex-wrap: wrap; padding: var(--space-3) var(--space-4); }
   .row > div:first-child { flex: 1 1 100%; }
   .row > .row-side { justify-content: flex-start; }
+  /* Except a row whose side is one short label (a service and its health): that
+     fits beside the name even at 320px, and stacking it doubled the list's height. */
+  .row-compact { flex-wrap: nowrap; }
+  .row-compact > div:first-child { flex: 1 1 auto; }
+  .row-compact > .row-side { justify-content: flex-end; }
 }
 
 /* The incident table: a real table on wide screens, stacked rows on phones. */
