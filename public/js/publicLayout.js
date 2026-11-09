@@ -1,5 +1,6 @@
 import { h, render } from './dom.js';
 import { icon } from './icons.js';
+import { themeSwitcher } from './theme.js';
 
 // The frame of the public status pages. It is deliberately not the application
 // shell: no navigation, no sign-in, nothing internal. A customer should see whose
@@ -10,7 +11,8 @@ export function renderPublicLayout() {
   const main = h('main', { class: 'public-main', id: 'main' });
   // Shown with the first content, so it appears once instead of sliding down the
   // screen as the page fills in (which would count as layout shift).
-  const footer = h('footer', { class: 'public-footer', hidden: true }, checked, h('span', {}, 'Powered by BlackWater'));
+  // Visitors follow their own system setting by default, and can override it here.
+  const footer = h('footer', { class: 'public-footer', hidden: true }, checked, h('div', { class: 'public-footer-end' }, themeSwitcher(), h('span', {}, 'Powered by BlackWater')));
 
   render(
     document.getElementById('app'),

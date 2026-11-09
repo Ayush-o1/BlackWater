@@ -3,7 +3,7 @@ import { h, render } from '../dom.js';
 import { icon } from '../icons.js';
 import { refreshPeriodically, renderPublicLayout } from '../publicLayout.js';
 import {
-  emptyState, errorState, formatDateTime, healthLabel, incidentStatusBadge, loadingRows,
+  emptyState, errorState, formatDateTimeWithZone, healthLabel, incidentStatusBadge, loadingRows,
   severityBadge, titleCase,
 } from '../ui.js';
 
@@ -39,14 +39,14 @@ function paint(incident) {
       { class: 'stack-sm' },
       h('h1', { class: 'pre-wrap' }, incident.title),
       h('div', { class: 'cluster header-badges' }, incidentStatusBadge(incident.status), severityBadge(incident.severity)),
-      h('p', { class: 'small muted' }, `Started ${formatDateTime(incident.createdAt)}`, incident.resolvedAt && ` · Resolved ${formatDateTime(incident.resolvedAt)}`)
+      h('p', { class: 'small muted' }, `Started ${formatDateTimeWithZone(incident.createdAt)}`, incident.resolvedAt && ` · Resolved ${formatDateTimeWithZone(incident.resolvedAt)}`)
     ),
     incident.affectedServices.length > 0 &&
       h(
         'section',
         { class: 'panel', 'aria-labelledby': 'affected-title' },
         h('div', { class: 'panel-header' }, h('h2', { id: 'affected-title' }, 'Affected services')),
-        h('ul', { class: 'rows' }, incident.affectedServices.map((service) => h('li', { class: 'row' }, h('div', { class: 'row-title' }, service.name), h('div', { class: 'row-side' }, healthLabel(service.status)))))
+        h('ul', { class: 'rows' }, incident.affectedServices.map((service) => h('li', { class: 'row row-compact' }, h('div', { class: 'row-title' }, service.name), h('div', { class: 'row-side' }, healthLabel(service.status)))))
       ),
     h(
       'section',
@@ -68,7 +68,7 @@ function paint(incident) {
                   h(
                     'div',
                     { class: 'stack-sm' },
-                    h('div', { class: 'feed-event' }, h('strong', {}, item.title), h('time', { class: 'feed-time', datetime: item.at }, formatDateTime(item.at))),
+                    h('div', { class: 'feed-event' }, h('strong', {}, item.title), h('time', { class: 'feed-time', datetime: item.at }, formatDateTimeWithZone(item.at))),
                     item.message && h('div', { class: 'note note-public' }, h('p', { class: 'note-body' }, item.message))
                   )
                 )

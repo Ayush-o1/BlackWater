@@ -15,6 +15,15 @@ const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 export const formatDateTime = (iso) => (iso ? dateTime.format(new Date(iso)) : '—');
 export const formatDate = (iso) => (iso ? dateOnly.format(new Date(iso)) : '—');
 
+// The public pages are read by customers anywhere in the world. Times are shown in
+// the visitor's own time zone (the browser's default), and say which one it is
+// ("9:20 AM GMT+5:30"), so nobody has to guess. dateStyle/timeStyle cannot be
+// combined with timeZoneName, hence the explicit fields.
+const timeWithZone = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+const dateTimeWithZone = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+export const formatTimeWithZone = (iso) => (iso ? timeWithZone.format(new Date(iso)) : '—');
+export const formatDateTimeWithZone = (iso) => (iso ? dateTimeWithZone.format(new Date(iso)) : '—');
+
 // "3 minutes ago", "yesterday". Falls back to the date after a week.
 export function timeAgo(iso) {
   const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000);

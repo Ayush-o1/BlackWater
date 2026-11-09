@@ -3,7 +3,7 @@ import { statusBanner } from '../components.js';
 import { h, render } from '../dom.js';
 import { refreshPeriodically, renderPublicLayout } from '../publicLayout.js';
 import {
-  emptyState, errorState, formatDate, formatDateTime, healthLabel, incidentStatusBadge, loadMoreButton,
+  emptyState, errorState, formatDate, formatDateTimeWithZone, formatTimeWithZone, healthLabel, incidentStatusBadge, loadMoreButton,
   severityBadge, timeAgo,
 } from '../ui.js';
 
@@ -56,7 +56,8 @@ function paint() {
           'ul',
           { class: 'rows' },
           overview.services.map((service) =>
-            h('li', { class: 'row' }, h('div', {}, h('div', { class: 'row-title' }, service.name), service.description && h('div', { class: 'row-meta' }, service.description)), h('div', { class: 'row-side' }, healthLabel(service.status)))
+            // row-compact: on a phone the health stays on the name's line (see components.css).
+            h('li', { class: 'row row-compact' }, h('div', {}, h('div', { class: 'row-title' }, service.name), service.description && h('div', { class: 'row-meta' }, service.description)), h('div', { class: 'row-side' }, healthLabel(service.status)))
           )
         )
   );
@@ -112,7 +113,8 @@ function paintHistory() {
                     h(
                       'a',
                       { class: 'row', href: `/status/${orgId}/incidents/${incident.id}` },
-                      h('div', {}, h('div', { class: 'row-title' }, incident.title), h('div', { class: 'row-meta' }, h('time', { datetime: incident.createdAt }, formatDateTime(incident.createdAt)), incident.resolvedAt && h('span', {}, `Resolved ${timeAgo(incident.resolvedAt)}`))),
+                      h('div', {}, h('div', { class: 'row-title' }, incident.title), h('div', { class: 'row-meta' }, // The day is already the group heading, so each row shows only the time.
+                        h('time', { datetime: incident.createdAt, title: formatDateTimeWithZone(incident.createdAt) }, formatTimeWithZone(incident.createdAt)), incident.resolvedAt && h('span', {}, `Resolved ${timeAgo(incident.resolvedAt)}`))),
                       h('div', { class: 'row-side' }, severityBadge(incident.severity), incidentStatusBadge(incident.status))
                     )
                   )

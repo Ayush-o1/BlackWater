@@ -3,6 +3,7 @@ import { getSession, signOut, updateSessionUser } from './auth.js';
 import { h, render } from './dom.js';
 import { icon } from './icons.js';
 import { onConnectionChange, subscribe } from './realtime.js';
+import { themeSwitcher } from './theme.js';
 import { avatar } from './ui.js';
 
 const NAV = [
@@ -66,6 +67,8 @@ export function renderShell({ active }) {
     'div',
     { class: 'user-menu', id: menuId, hidden: true },
     h('a', { href: '/settings' }, icon('settings', 'sm'), 'Profile and settings'),
+    // The theme is a personal preference, so it lives with the profile, not in the navigation.
+    h('div', { class: 'user-menu-theme' }, themeSwitcher()),
     h('button', { type: 'button', onclick: signOut }, icon('logout', 'sm'), 'Sign out')
   );
   const userNameText = h('span', { class: 'user-name truncate' }, user.name);
@@ -86,10 +89,15 @@ export function renderShell({ active }) {
     if (!userMenu.hidden && !event.target.closest('.sidebar-footer')) setMenu(false);
   });
 
+  // Only shown when the sidebar is a drawer (phones and tablets). While the drawer is
+  // open the rest of the page is inert (see setNav), including the menu button that
+  // opened it, so the drawer needs its own way out for touch and screen-reader users.
+  const closeButton = h('button', { class: 'btn btn-ghost btn-icon sidebar-close', type: 'button', 'aria-label': 'Close navigation' }, icon('close'));
+
   const sidebar = h(
     'aside',
     { class: 'sidebar', id: 'sidebar' },
-    h('a', { class: 'brand', href: '/' }, h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, icon('activity')), 'BlackWater'),
+    h('div', { class: 'sidebar-head' }, h('a', { class: 'brand', href: '/' }, h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, icon('activity')), 'BlackWater'), closeButton),
     h('div', { class: 'org-context' }, h('div', { class: 'org-context-label' }, 'Organization'), orgName),
     h(
       'nav',
@@ -101,22 +109,38 @@ export function renderShell({ active }) {
 
   // ---- Phone drawer. Focus goes into it when it opens and back to the button when it closes.
   const menuButton = h('button', { class: 'btn btn-ghost btn-icon menu-button', type: 'button', 'aria-label': 'Open navigation', 'aria-controls': 'sidebar', 'aria-expanded': 'false' }, icon('menu'));
+  breadcrumbHost = h('nav', { class: 'breadcrumb', 'aria-label': 'Breadcrumb' });
+  const topbar = h('header', { class: 'topbar' }, menuButton, breadcrumbHost, h('div', { class: 'topbar-end' }, live));
+  const skipLink = h('a', { class: 'skip-link', href: '#main' }, 'Skip to content');
+  const mainColumn = h('div', { class: 'main-column' }, topbar, main);
+
   const setNav = (open, { returnFocus = false } = {}) => {
     app.toggleAttribute('data-nav-open', open);
     menuButton.setAttribute('aria-expanded', String(open));
+    // The open drawer behaves like a modal: everything behind the dimmed backdrop
+    // becomes inert, so Tab cannot wander onto controls nobody can see, and screen
+    // readers do not read them. (<dialog> does the same for the other modals.)
+    mainColumn.inert = open;
+    skipLink.inert = open;
     if (open) sidebar.querySelector('.nav-link')?.focus();
     else if (returnFocus) menuButton.focus();
   };
   menuButton.addEventListener('click', () => setNav(!app.hasAttribute('data-nav-open')));
+  closeButton.addEventListener('click', () => setNav(false, { returnFocus: true }));
 
-  breadcrumbHost = h('nav', { class: 'breadcrumb', 'aria-label': 'Breadcrumb' });
-  const topbar = h('header', { class: 'topbar' }, menuButton, breadcrumbHost, h('div', { class: 'topbar-end' }, live));
+  // The drawer only exists below 900px. If the window is widened while it is open,
+  // close it, or the page would stay inert beside an ordinary sidebar. (The width
+  // must match the drawer's media query in css/layout.css.)
+  const drawerWidth = matchMedia('(max-width: 900px)');
+  drawerWidth.addEventListener('change', () => {
+    if (!drawerWidth.matches && app.hasAttribute('data-nav-open')) setNav(false);
+  });
 
   app.append(
-    h('a', { class: 'skip-link', href: '#main' }, 'Skip to content'),
+    skipLink,
     sidebar,
     h('div', { class: 'sidebar-backdrop', onclick: () => setNav(false) }),
-    h('div', { class: 'main-column' }, topbar, main)
+    mainColumn
   );
 
   document.addEventListener('keydown', (event) => {

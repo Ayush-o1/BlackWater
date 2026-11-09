@@ -1,5 +1,6 @@
 import { h, render } from './dom.js';
 import { icon } from './icons.js';
+import { themeSwitcher } from './theme.js';
 
 // What BlackWater does, stated plainly. These are real capabilities, not marketing
 // numbers, and the panel is hidden on small screens where the form matters most.
@@ -34,7 +35,8 @@ export function renderAuthPage({ title, lead, content, footer }) {
           brand('auth-mobile-brand'),
           h('div', { class: 'stack-sm' }, h('h1', {}, title), lead && h('p', { class: 'lead' }, lead)),
           content,
-          footer && h('p', { class: 'auth-switch' }, footer)
+          footer && h('p', { class: 'auth-switch' }, footer),
+          h('div', { class: 'auth-theme' }, themeSwitcher())
         )
       )
     )

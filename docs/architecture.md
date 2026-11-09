@@ -48,7 +48,10 @@ Browser ── HTTP /api, WebSocket ──> Express ──> Prisma ──> Postg
 | `js/dom.js` | `h()`, which builds elements; text is only ever inserted as text nodes |
 | `js/ui.js`, `js/components.js` | Dialogs (native `<dialog>`), toasts, form fields, badges, shared rows and dialogs |
 | `js/realtime.js` | The socket, debounced subscriptions, resync after reconnect |
-| `js/shell.js` | The sidebar and top bar around every signed-in page |
+| `js/shell.js` | The sidebar and top bar around every signed-in page; on narrow screens the sidebar is a drawer that makes the rest of the page `inert` while open |
+| `js/theme-init.js`, `js/theme.js` | Light and dark themes: a blocking script in `<head>` sets `data-theme` before first paint (a file, because the CSP forbids inline scripts); the module saves the System / Light / Dark choice and follows the OS |
 | `js/pages/*.js` | One module per page |
+
+Styles are three files: `css/base.css` (design tokens and reset), `css/layout.css` (page frames) and `css/components.css`. Components use only semantic colour tokens (CSS custom properties); the dark theme redefines the same tokens on `:root[data-theme='dark']`. See [ui-ux/IMPLEMENTATION_GUIDE.md](ui-ux/IMPLEMENTATION_GUIDE.md).
 
 No code anywhere assigns to `innerHTML`, and the Content-Security-Policy forbids inline scripts, event-handler attributes and inline styles, so text a user types can never execute. Hiding a button for a role is a convenience; the server enforces every rule regardless.
