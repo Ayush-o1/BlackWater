@@ -12,6 +12,7 @@ Incident management with a public status page. A team lists the services it runs
 - **Public status page.** Incidents are private until someone publishes them. Visitors see only published incidents and their public updates, and the health shown to them is calculated from published incidents only.
 - **Teams.** An organization has administrators, members and viewers. Admins invite people with one-time links and change roles.
 - **Live updates.** Open pages refresh over Socket.IO when something changes.
+- **Light and dark themes.** Follows the operating system by default; a System / Light / Dark choice in the user menu (and on the sign-in and public pages) is remembered. Works from 320 px phones to wide desktops, with touch-sized controls on touch screens.
 
 | Role | Can do |
 |---|---|
@@ -25,7 +26,9 @@ Every organization's data is isolated from every other's.
 |---|---|
 | ![Incident with its activity and audit timeline](docs/screenshots/incident.png) | ![Status page](docs/screenshots/status-page.png) |
 
-![Team: roles and invitations](docs/screenshots/team.png)
+| | |
+|---|---|
+| ![Team: roles and invitations](docs/screenshots/team.png) | ![Overview in the dark theme](docs/screenshots/dashboard-dark.png) |
 
 ## Stack
 
@@ -151,6 +154,7 @@ docs/            API, database, architecture, deployment
 - [Deployment](docs/deployment.md): Render Blueprint and Dockerfile, backup and recovery, and why serverless hosting such as Vercel is not suitable
 - [Security](SECURITY.md)
 - [Contributing and testing](CONTRIBUTING.md)
+- Frontend: [UI/UX assessment](docs/ui-ux/INITIAL_ASSESSMENT.md), [plan](docs/ui-ux/IMPLEMENTATION_PLAN.md), [implementation guide](docs/ui-ux/IMPLEMENTATION_GUIDE.md) (design tokens, themes, responsive layout) and [verification](docs/ui-ux/VERIFICATION_REPORT.md)
 
 ## Limitations
 
