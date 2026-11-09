@@ -31,13 +31,21 @@ async function start() {
   // ---------- Profile ----------
 
   function paintProfile(me) {
-    const name = h('input', { class: 'input', name: 'name', value: me.name, required: true, minlength: 2, maxlength: 100, 'aria-label': 'Your name' });
+    // Each label is tied to its input with for/id, so the visible words are the
+    // field's accessible name and clicking them puts the cursor in the field.
+    const name = h('input', { class: 'input', id: 'profile-name', name: 'name', value: me.name, required: true, minlength: 2, maxlength: 100, autocomplete: 'name' });
     const save = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Save');
     const form = h(
       'form',
       { class: 'form' },
-      h('div', { class: 'field' }, h('label', {}, 'Name'), name),
-      h('div', { class: 'field' }, h('label', {}, 'Email'), h('input', { class: 'input', value: me.email, readonly: true, 'aria-label': 'Email' }), h('span', { class: 'hint' }, 'Your email is your sign-in and cannot be changed here.')),
+      h('div', { class: 'field' }, h('label', { for: 'profile-name' }, 'Your name'), name),
+      h(
+        'div',
+        { class: 'field' },
+        h('label', { for: 'profile-email' }, 'Email'),
+        h('input', { class: 'input', id: 'profile-email', value: me.email, readonly: true, 'aria-describedby': 'profile-email-hint' }),
+        h('span', { class: 'hint', id: 'profile-email-hint' }, 'Your email is your sign-in and cannot be changed here.')
+      ),
       h('div', { class: 'form-actions' }, save)
     );
     form.addEventListener('submit', async (event) => {
@@ -60,12 +68,12 @@ async function start() {
   // ---------- Organization ----------
 
   function paintOrganization(organization) {
-    const name = h('input', { class: 'input', name: 'name', value: organization.name, required: true, minlength: 2, maxlength: 200, readonly: !admin, 'aria-label': 'Organization name' });
+    const name = h('input', { class: 'input', id: 'organization-name', name: 'name', value: organization.name, required: true, minlength: 2, maxlength: 200, readonly: !admin, 'aria-describedby': admin ? null : 'organization-name-hint' });
     const save = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Save');
     const form = h(
       'form',
       { class: 'form' },
-      h('div', { class: 'field' }, h('label', {}, 'Name'), name, !admin && h('span', { class: 'hint' }, 'Only an administrator can rename the organization.')),
+      h('div', { class: 'field' }, h('label', { for: 'organization-name' }, 'Organization name'), name, !admin && h('span', { class: 'hint', id: 'organization-name-hint' }, 'Only an administrator can rename the organization.')),
       admin && h('div', { class: 'form-actions' }, save)
     );
     form.addEventListener('submit', async (event) => {

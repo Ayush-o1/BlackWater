@@ -172,6 +172,13 @@
 .page-header > div:first-child { flex: 1 1 320px; min-width: 0; }
 .page-header h1, .page-header p { overflow-wrap: anywhere; }
 .page-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+/* On a phone the actions take the full width and share each line, rather than each
+   button hugging its label and leaving a ragged last line (three incident actions
+   used to wrap as two buttons and a lone third). */
+@media (max-width: 600px) {
+  .page-actions { width: 100%; }
+  .page-actions > .btn { flex: 1 1 auto; }
+}
 
 /* Two columns: the work on the left, the facts on the right. */
 .split { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--space-6); align-items: start; }
@@ -179,12 +186,26 @@
 
 .sidebar-backdrop { display: none; }
 
-/* Overview: the work on the left, services and the public link beside it. */
+/*
+  Overview: the work on the left (what needs attention, what was just resolved, the
+  public link), and the services list beside it.
+
+  Services spans all three rows, and the last row is the only flexible one (1fr).
+  The grid sizes a spanning item by growing the flexible tracks it crosses, never
+  the fixed ones, so a long services list stretches row 3 only. Rows 1 and 2 stay
+  exactly as tall as the panels on the left, which therefore stack with no gap. (The
+  previous layout put services and the public link in rows of their own, so a long
+  services list pushed "Recently resolved" far down the page.) The DOM order is
+  unchanged: attention, services, resolved, public, which is also the phone order.
+*/
 .overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  grid-template-areas: 'attention services' 'resolved public';
-  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'attention services'
+    'resolved services'
+    'public services';
+  grid-template-rows: auto auto 1fr;
   gap: var(--space-6);
   align-items: start;
 }
