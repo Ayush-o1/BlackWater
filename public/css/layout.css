@@ -41,8 +41,8 @@
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: var(--brand);
-  color: #fff;
+  background: var(--brand-mark-bg);
+  color: #fff; /* the mark is white on its square in both themes */
 }
 .brand-mark .icon { width: 16px; height: 16px; stroke-width: 2.2; }
 
@@ -97,7 +97,7 @@
   right: 0;
   bottom: calc(100% + var(--space-1));
   padding: var(--space-1);
-  background: var(--surface);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
@@ -131,7 +131,7 @@
   gap: var(--space-3);
   height: var(--topbar-height);
   padding: 0 var(--space-8);
-  background: rgba(245, 246, 248, 0.92);
+  background: var(--topbar-bg);
   backdrop-filter: saturate(1.4) blur(8px);
   border-bottom: 1px solid var(--border);
 }
@@ -227,6 +227,9 @@
 }
 
 /* ---------- Sign-in pages ---------- */
+
+/* The brand panel is deep navy with white text in both themes (it is the brand,
+   not a surface), so its colours are fixed here rather than taken from tokens. */
 
 .auth-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
 

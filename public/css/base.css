@@ -15,13 +15,26 @@
   white.
 */
 
+/*
+  Theming. Components never use a colour literal: they use these semantic tokens
+  ("the text on a status tint", not "dark green"). The light values live on :root;
+  the dark theme in the next block redefines the same names, so switching theme
+  is one attribute on <html> and no component CSS changes. js/theme-init.js sets
+  that attribute before the first paint.
+*/
 :root {
+  /* Tells the browser which palette its own controls (checkboxes, scrollbars,
+     select pop-ups) and the default canvas should use. */
+  color-scheme: light;
+
   /* Canvas and surfaces */
   --bg: #f5f6f8;
   --surface: #ffffff;
   --surface-sunken: #f0f2f5;   /* table headers, inputs at rest, code */
   --surface-hover: #f6f8fa;
+  --surface-raised: #ffffff;   /* things lifted above a panel: menus, dialogs, the chosen segment */
   --overlay: rgba(15, 23, 32, 0.38);
+  --topbar-bg: rgba(245, 246, 248, 0.92); /* --bg, slightly see-through under the blur */
 
   /* Lines */
   --border: #e2e5ea;
@@ -38,20 +51,40 @@
   --accent-hover: #084c7b;
   --accent-soft: #e8f1f8;
   --accent-text: #0a5a91;
+  --accent-border: #b9d3ea;  /* edge of accent-tinted boxes: notices, public updates */
   --focus: #1a73c6;
+  --focus-ring: rgba(26, 115, 198, 0.18); /* the soft glow around a focused input */
+  --on-accent: #ffffff;      /* text and icons on a filled accent or danger button */
 
   /* Brand mark */
   --brand: #0c2b45;
+  --brand-mark-bg: var(--brand);
 
-  /* Semantic status: [text, tint, solid] */
-  --ok-text: #11663a;      --ok-bg: #e6f4ec;      --ok: #1a8f52;
-  --degraded-text: #7a5000; --degraded-bg: #fdf2d8; --degraded: #c98a00;
-  --partial-text: #a03d0b;  --partial-bg: #fdebe0;  --partial: #e06a1b;
-  --major-text: #a8201a;    --major-bg: #fce9e7;    --major: #d92d20;
+  /* Semantic status: [text, tint, solid, border of a tinted box] */
+  --ok-text: #11663a;      --ok-bg: #e6f4ec;      --ok: #1a8f52;      --ok-border: #bfe3cd;
+  --degraded-text: #7a5000; --degraded-bg: #fdf2d8; --degraded: #c98a00; --degraded-border: #f1dca2;
+  --partial-text: #a03d0b;  --partial-bg: #fdebe0;  --partial: #e06a1b;  --partial-border: #f6cbb0;
+  --major-text: #a8201a;    --major-bg: #fce9e7;    --major: #d92d20;    --major-border: #f3c5c0;
   --neutral-text: #3b4655;  --neutral-bg: #eef1f4;  --neutral: #8a94a3;
+  --major-border-soft: #f6d9d5; /* the inner line of a danger-zone panel */
+  --on-status: #ffffff;    /* the icon drawn inside a solid health mark */
 
   --danger: #c0261c;
   --danger-hover: #a01f17;
+
+  /* Small pieces with their own colours */
+  --note-public-bg: #f6fafd;
+  --avatar-bg: #dfe8f1;
+  --avatar-text: #24405b;
+  --skeleton-highlight: #e7eaee;
+  --toast-bg: #111a24;
+  --toast-text: #ffffff;
+  --toast-icon: #8fd3ad;
+  --toast-error-bg: #7f1d17;
+  --toast-error-icon: #ffc9c3;
+  /* The select's chevron is an SVG image, which cannot inherit a text colour, so
+     each theme supplies its own (stroke %235b6676 is --text-3). */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6676' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 
   /* Type */
   --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -112,6 +145,9 @@ h2 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 h3 { font-size: var(--text-md); font-weight: 600; }
 
 ul, ol { margin: 0; padding: 0; list-style: none; }
+/* Browsers give <dl> a 1em top and bottom margin and <dd> a 40px indent; every
+   definition list here is a compact list of facts, so both are removed. */
+dl, dd { margin: 0; }
 fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 
 /* An icon inside a plain link sits on the text line, not above it. :where() keeps
@@ -166,10 +202,10 @@ time, .num { font-variant-numeric: tabular-nums; }
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--brand);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
-.skip-link:focus-visible { top: var(--space-3); color: #fff; text-decoration: none; }
+.skip-link:focus-visible { top: var(--space-3); color: var(--on-accent); text-decoration: none; }
 
 .noscript { padding: var(--space-8); text-align: center; }
 
