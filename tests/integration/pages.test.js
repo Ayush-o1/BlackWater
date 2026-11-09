@@ -23,6 +23,24 @@ describe('web pages', () => {
     expect((await api().get('/js/api.js')).headers['content-type']).toContain('javascript');
   });
 
+  // The colour theme must be chosen before the first paint, or a dark-mode user sees a
+  // white flash. That only works if public/js/theme-init.js is a plain blocking script
+  // (not a module, not deferred or async) that comes before the stylesheets.
+  it.each([...pages.map(([, file]) => file), 'not-found.html'])('%s sets the colour theme before its stylesheets load', (file) => {
+    const head = fs.readFileSync(path.join(publicDir, file), 'utf8').split('</head>')[0];
+    const tag = head.match(/<script[^>]*theme-init\.js[^>]*>/)?.[0];
+
+    expect(tag).toBeDefined();
+    expect(tag).not.toMatch(/type="module"|\bdefer\b|\basync\b/);
+    expect(head.indexOf(tag)).toBeLessThan(head.indexOf('<link rel="stylesheet"'));
+  });
+
+  it('serves the theme script as JavaScript', async () => {
+    const res = await api().get('/js/theme-init.js');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('javascript');
+  });
+
   it('answers an unknown page with the not-found page and status 404', async () => {
     const res = await api().get('/definitely/not/a/page');
 

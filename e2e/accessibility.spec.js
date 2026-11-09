@@ -33,13 +33,21 @@ async function seed(page) {
   return { ...session, service, incident };
 }
 
+// Each width in both colour themes: the dark theme redefines every colour token, so
+// its contrast is checked by axe exactly like the light one.
+const VARIANTS = [];
 for (const viewport of [{ name: 'desktop', width: 1280, height: 800 }, { name: 'phone', width: 390, height: 844 }]) {
-  test.describe(`accessibility at ${viewport.name} width`, () => {
-    test.use({ viewport: { width: viewport.width, height: viewport.height } });
+  for (const colorScheme of ['light', 'dark']) VARIANTS.push({ viewport, colorScheme });
+}
+
+for (const { viewport, colorScheme } of VARIANTS) {
+  test.describe(`accessibility at ${viewport.name} width${colorScheme === 'dark' ? ', dark theme' : ''}`, () => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height }, colorScheme });
 
     test('signed-out pages', async ({ page }) => {
       for (const path of ['/login', '/register', '/no-such-page']) {
         await page.goto(path);
+        expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe(colorScheme);
         await audit(page, path);
       }
     });
@@ -140,6 +148,38 @@ test.describe('keyboard', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden();
     await expect(menu).toBeFocused();
+  });
+
+  test('the open navigation drawer keeps focus inside it, has its own close button, and closes when the window widens', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await register(page);
+    const menu = page.getByRole('button', { name: 'Open navigation' });
+    await menu.click();
+    const sidebar = page.locator('#sidebar');
+
+    // Tab through more stops than the drawer has: focus may pass to the browser's own
+    // controls (document body) but never to the page behind the backdrop.
+    for (let i = 0; i < 12; i += 1) {
+      await page.keyboard.press(TAB);
+      const where = await sidebar.evaluate((node) => (node.contains(document.activeElement) ? 'drawer' : document.activeElement === document.body ? 'browser' : document.activeElement.outerHTML.slice(0, 80)));
+      expect(['drawer', 'browser']).toContain(where);
+    }
+
+    // The close button inside the drawer closes it and returns focus to the menu button.
+    await page.getByRole('button', { name: 'Close navigation' }).click();
+    await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden();
+    await expect(menu).toBeFocused();
+    expect(await page.locator('.main-column').evaluate((node) => node.inert)).toBe(false);
+
+    // Opened again, then the window is widened past the drawer breakpoint: the drawer
+    // closes, and nothing on the page is left inert.
+    await menu.click();
+    expect(await page.locator('.main-column').evaluate((node) => node.inert)).toBe(true);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect.poll(() => page.locator('.main-column').evaluate((node) => node.inert)).toBe(false);
+    await expect(page.getByRole('button', { name: 'Declare incident' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Declare incident' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
   });
 
   test('every interactive element on the incident page shows a visible focus ring', async ({ page }) => {
