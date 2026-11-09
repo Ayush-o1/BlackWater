@@ -3,6 +3,7 @@ import { getSession, signOut, updateSessionUser } from './auth.js';
 import { h, render } from './dom.js';
 import { icon } from './icons.js';
 import { onConnectionChange, subscribe } from './realtime.js';
+import { themeSwitcher } from './theme.js';
 import { avatar } from './ui.js';
 
 const NAV = [
@@ -66,6 +67,8 @@ export function renderShell({ active }) {
     'div',
     { class: 'user-menu', id: menuId, hidden: true },
     h('a', { href: '/settings' }, icon('settings', 'sm'), 'Profile and settings'),
+    // The theme is a personal preference, so it lives with the profile, not in the navigation.
+    h('div', { class: 'user-menu-theme' }, themeSwitcher()),
     h('button', { type: 'button', onclick: signOut }, icon('logout', 'sm'), 'Sign out')
   );
   const userNameText = h('span', { class: 'user-name truncate' }, user.name);

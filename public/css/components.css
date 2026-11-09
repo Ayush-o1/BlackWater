@@ -75,7 +75,8 @@
 .input[aria-invalid='true'], .textarea[aria-invalid='true'],
 .input:user-invalid, .textarea:user-invalid, .select:user-invalid { border-color: var(--major); }
 .input:user-invalid:focus, .textarea:user-invalid:focus { box-shadow: 0 0 0 3px var(--major-bg); }
-.input[readonly], .input:disabled { background: var(--surface-sunken); color: var(--text-2); }
+/* Read-only fields take the neutral tint, so they never look editable (in either theme). */
+.input[readonly], .input:disabled { background: var(--neutral-bg); color: var(--text-2); }
 .select {
   appearance: none;
   padding-right: 34px;
@@ -139,6 +140,14 @@
    key moves to it, which would hide the ring from Safari keyboard users (WCAG 2.4.7).
    :focus-within rather than :has(:focus), which some WebKit builds do not re-evaluate. */
 .segmented label:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* An icon-only segmented control (the theme switcher). */
+.segmented-icons { flex-wrap: nowrap; }
+.segmented-icons label { padding: 0 var(--space-2); min-width: 32px; justify-content: center; }
+
+/* The theme switcher: the word "Theme" and the three choices on one line. */
+.theme-switcher { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.theme-switcher-label { font-size: var(--text-sm); color: var(--text-2); }
 
 .search-field { position: relative; flex: 1 1 260px; max-width: 360px; }
 .search-field .icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
@@ -348,6 +357,11 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
   font-weight: 700;
 }
 .avatar-lg { width: 40px; height: 40px; font-size: var(--text-sm); }
+/* A team member: the avatar stays beside the name and email, however narrow the
+   screen (a wrapping cluster used to leave the avatar alone on a line above them). */
+.member-identity { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+.member-identity > .avatar { margin-top: 2px; }
+.member-identity > div { min-width: 0; }
 .person { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .unassigned { color: var(--text-3); font-style: italic; }
 

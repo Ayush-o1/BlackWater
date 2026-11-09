@@ -155,7 +155,7 @@ async function start() {
       return h(
         'div',
         { class: 'row' },
-        h('div', { class: 'cluster' }, avatar(member.name), h('div', {}, h('div', { class: 'row-title' }, member.name, you && h('span', { class: 'subtle' }, ' (you)')), h('div', { class: 'row-meta' }, h('span', {}, member.email), h('span', {}, `Joined ${formatDate(member.createdAt)}`)))),
+        h('div', { class: 'member-identity' }, avatar(member.name), h('div', {}, h('div', { class: 'row-title' }, member.name, you && h('span', { class: 'subtle' }, ' (you)')), h('div', { class: 'row-meta' }, h('span', {}, member.email), h('span', {}, `Joined ${formatDate(member.createdAt)}`)))),
         h('div', { class: 'row-side' }, roleControl)
       );
     };

@@ -124,6 +124,73 @@
   --content-width: 1160px;
 }
 
+/*
+  Dark theme: the same tokens, redefined. Not an inversion. Surfaces get lighter as
+  they rise (page, panel, menu or dialog), because shadows barely show on a dark
+  background; the base is a low-saturation blue-grey ("deep water") so the brand
+  carries over. Every text colour was measured: 4.5:1 or more on each surface it is
+  used on, and 3:1 for input borders, focus rings and status marks (WCAG 1.4.3 and
+  1.4.11). See docs/ui-ux/IMPLEMENTATION_PLAN.md for the table.
+*/
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0c1218;
+  --surface: #121a22;
+  --surface-sunken: #0f161d;
+  --surface-hover: #18222c;
+  --surface-raised: #18212b;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --topbar-bg: rgba(12, 18, 24, 0.88);
+
+  --border: #243039;
+  --border-strong: #334250;
+  --border-input: #66778a;
+
+  --text: #e6ecf2;
+  --text-2: #b4c0cc;
+  --text-3: #909dab;
+
+  --accent: #2370b0;
+  --accent-hover: #1b5f97;   /* darker, not lighter: white text keeps 4.5:1 */
+  --accent-soft: #11283b;
+  --accent-text: #7ab8ec;
+  --accent-border: #24425c;
+  --focus: #5aa8ea;
+  --focus-ring: rgba(90, 168, 234, 0.3);
+  --on-accent: #ffffff;
+
+  --brand-mark-bg: #1d5788;  /* the navy mark would vanish on a dark sidebar */
+
+  --ok-text: #62d394;      --ok-bg: #0f2a1d;      --ok: #2ea56a;      --ok-border: #1f4a33;
+  --degraded-text: #e9b949; --degraded-bg: #2a2110; --degraded: #d39b16; --degraded-border: #4d3d14;
+  --partial-text: #f4a06a;  --partial-bg: #2e1c11;  --partial: #e2702a;  --partial-border: #57331a;
+  --major-text: #f5948b;    --major-bg: #341716;    --major: #e5483d;    --major-border: #5c2623;
+  --neutral-text: #b4c0cc;  --neutral-bg: #1c2630;  --neutral: #7b8794;
+  --major-border-soft: #3f1d1b;
+  --on-status: #0c1218;    /* a dark icon reads better on the brighter dark-theme marks */
+
+  --danger: #c4312a;
+  --danger-hover: #a92820;
+
+  --note-public-bg: #0f1f2c;
+  --avatar-bg: #22384d;
+  --avatar-text: #d3e3f2;
+  --skeleton-highlight: #1a242e;
+  --toast-bg: #243241;
+  --toast-text: #ffffff;
+  --toast-error-bg: #6a1c17;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23909dab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  /* Shadows need more opacity to register at all on a dark background. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* While the theme switches, nothing animates its colour (see js/theme.js). */
+.theme-changing *, .theme-changing *::before, .theme-changing *::after { transition: none !important; }
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html { -webkit-text-size-adjust: 100%; }
