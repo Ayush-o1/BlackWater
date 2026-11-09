@@ -33,6 +33,7 @@
   --surface-sunken: #f0f2f5;   /* table headers, inputs at rest, code */
   --surface-hover: #f6f8fa;
   --surface-raised: #ffffff;   /* things lifted above a panel: menus, dialogs, the chosen segment */
+  --ghost-hover: #f0f2f5;      /* behind a borderless (ghost) button under the pointer */
   --overlay: rgba(15, 23, 32, 0.38);
   --topbar-bg: rgba(245, 246, 248, 0.92); /* --bg, slightly see-through under the blur */
 
@@ -140,6 +141,7 @@
   --surface-sunken: #0f161d;
   --surface-hover: #18222c;
   --surface-raised: #18212b;
+  --ghost-hover: #1c2733;      /* lighter than the panel: a darker hover would not show */
   --overlay: rgba(0, 0, 0, 0.6);
   --topbar-bg: rgba(12, 18, 24, 0.88);
 
