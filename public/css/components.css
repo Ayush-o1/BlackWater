@@ -416,6 +416,8 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
   .toolbar-end { margin-left: 0; width: 100%; }
 }
 .result-count { color: var(--text-3); font-size: var(--text-sm); }
+/* With no results the count is empty; hidden, it no longer leaves a gap before the sort control. */
+.result-count:empty { display: none; }
 
 /* Tabs that filter a list (links or buttons with aria-pressed / aria-current). */
 .tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--border); padding: 0 var(--space-4); overflow-x: auto; }
@@ -510,3 +512,22 @@ a.row:hover { background: var(--surface-hover); text-decoration: none; }
 @media (max-width: 640px) { .banner-placeholder { height: 96px; } }
 /* A panel waiting for its content takes no space, so it cannot be pushed down the screen. */
 .panel:empty { display: none; }
+
+/*
+  Touch screens. Desktop controls are sized for a mouse (30-38px tall, which meets
+  WCAG 2.2's 24px minimum). A fingertip needs more, so where the main pointer is
+  coarse (a phone or tablet, by how it is used, not by screen width) controls grow
+  to 40-44px. A laptop with a narrow window keeps the compact sizes.
+*/
+@media (pointer: coarse) {
+  .btn, .input, .select, .search-field .input { min-height: 44px; }
+  .btn-sm, .select-sm { min-height: 40px; }
+  .btn-icon { width: 44px; }
+  .btn-icon.btn-sm { width: 40px; }
+  .nav-link, .user-menu a, .user-menu button, .tab { min-height: 44px; }
+  .password-toggle { min-height: 36px; }
+  .segmented label { min-height: 40px; }
+  .segmented-icons label { min-width: 44px; }
+  .check { min-height: 40px; }
+  .detail-service, .details dd > a, .link-target { min-height: 40px; }
+}
