@@ -177,6 +177,8 @@ test.describe('keyboard', () => {
     expect(await page.locator('.main-column').evaluate((node) => node.inert)).toBe(true);
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect.poll(() => page.locator('.main-column').evaluate((node) => node.inert)).toBe(false);
+    // On a desktop the sidebar is not a drawer, so it has no close button.
+    await expect(page.getByRole('button', { name: 'Close navigation' })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Declare incident' })).toBeEnabled();
     await page.getByRole('button', { name: 'Declare incident' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
